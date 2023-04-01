@@ -72,13 +72,13 @@ class Module(nn.Module):
         return []
 
     def param_groups(self, **kwargs):
-        # collect special parameters
+        # collect special parameters in self
         param_groups = self.special_param_groups(**kwargs)
         special_parameters = set()
         for group in param_groups:
             special_parameters |= set(group["params"])
 
-        # collect other parameters
+        # collect parameters in children
         parameters = set()
         for module in self.containers():
             _param_groups = module.param_groups(**kwargs)
@@ -86,10 +86,10 @@ class Module(nn.Module):
                 parameters |= set(group["params"])
             param_groups += _param_groups
 
-        # ensure special parameters and other parameters are disjoint
+        # ensure parameters are non-overlapping
         assert special_parameters.isdisjoint(parameters)
 
-        # collect remaining parameters in modeuls
+        # collect remaining parameters
         remaining_parameters = set(self.parameters(recurse=True)) - special_parameters - parameters
         if remaining_parameters:
             remaining_parameters_list = [p for p in self.parameters(recurse=True) if p in remaining_parameters]
@@ -98,16 +98,16 @@ class Module(nn.Module):
 
         return param_groups
 
-    def _param_norm_dim(self):
+    def _param_norm_dims(self):
         return dict()
 
-    def param_norm_dim(self):
+    def param_norm_dims(self):
         # parameters with dedicated norm dimensions
-        param_norm_dim = dict(self._param_norm_dim())
+        param_norm_dim = dict(self._param_norm_dims())
 
         # iterate over containers
         for module in self.containers():
-            _param_norm_dim = module.param_norm_dim()
+            _param_norm_dim = module.param_norm_dims()
 
             # ensure parameters are non-overlapping
             assert set(param_norm_dim.keys()).isdisjoint(set(_param_norm_dim.keys()))
