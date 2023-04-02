@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from itertools import chain
 
 
 class Module(nn.Module):
@@ -40,7 +41,8 @@ class Module(nn.Module):
     @property
     def device(self):
         try:
-            device = next(self.parameters()).device
+            params = chain(self.parameters(), self.buffers())
+            device = next(params).device
         except:
             device = None
         return device
