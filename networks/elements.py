@@ -10,26 +10,26 @@ from typing import Sequence
 from .containers import Module, ModuleList
 
 
-def nonlinearity(nonlinearity="identity"):
+def nonlinearity(nonlinear=None):
     # https://github.com/deepmind/deepmind-research/blob/cb555c241b20c661a3e46e5d1eb722a0a8b0e8f4/nfnets/base.py#L101
 
-    if nonlinearity == "identity":
+    if nonlinear is None:
         return nn.Identity(), 1.0
 
-    elif nonlinearity == "elu":
+    elif nonlinear == "elu":
         return nn.ELU(alpha=1.0), 1.2716004848480225
 
-    elif nonlinearity == "silu":
+    elif nonlinear == "silu":
         return nn.SiLU(), 1.7881293296813965
 
-    elif nonlinearity == "gelu":
+    elif nonlinear == "gelu":
         return nn.GELU(), 1.7015043497085571
 
-    elif nonlinearity == "tanh":
+    elif nonlinear == "tanh":
         return nn.Tanh(), 1.5939117670059204
 
     else:
-        raise NotImplementedError('"{}" not implemented'.format(nonlinearity))
+        raise NotImplementedError('"{}" not implemented'.format(nonlinear))
 
 
 class Dropout(Module):
