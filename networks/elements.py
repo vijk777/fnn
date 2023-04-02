@@ -219,7 +219,8 @@ class Conv(Module):
 
     def special_param_groups(self, **kwargs):
         if self.special_params:
-            kwargs.update(weight_decay=0)
+            if "weight_decay" in kwargs:
+                kwargs["weight_decay"] = 0
             return [dict(params=self.special_params, **kwargs)]
         else:
             return []
