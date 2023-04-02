@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from typing import Sequence
 
-from .containers import Module, ModuleList
+from .containers import Module
 from .elements import Dropout, Conv
 from .utils import to_groups_2d
 
