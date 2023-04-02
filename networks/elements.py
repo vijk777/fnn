@@ -279,7 +279,7 @@ class Conv(Module):
     def forward(self, inputs: Sequence[torch.Tensor]):
         """
         Args:
-            x (torch.Tensors): shape = [n, c, h, w]
+            inputs (torch.Tensors): shape = [n, c, h, w]
         Returns:
             (torch.Tensor): shape = [n, c', h, w]
         """
@@ -295,3 +295,38 @@ class Conv(Module):
     def extra_repr(self):
         s = "{out_channels}, groups={out_groups}, gain={use_gain}, bias={use_bias}"
         return s.format(**self.__dict__)
+
+
+class Linear(Conv):
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        groups: int = 1,
+        gain: bool = True,
+        bias: bool = True,
+        eps: float = 1e-5,
+    ):
+        super().__init__(
+            out_channels=out_features,
+            out_groups=groups,
+            gain=gain,
+            bias=bias,
+            eps=eps,
+        )
+        self.add(
+            in_channels=in_features,
+            in_groups=groups,
+        )
+
+    def forward(self, x: torch.Tensor):
+        """
+        Args:
+            x (torch.Tensors): shape = [n, f]
+        Returns:
+            (torch.Tensor): shape = [n, f']
+        """
+        x = x[:, :, None, None]
+        x = self(x)
+        x = x[:, :, 0, 0]
+        return x
