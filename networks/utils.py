@@ -17,42 +17,44 @@ def to_groups_2d(
     return tensor.view(N, groups, -1, H, W)
 
 
-def rmat_3d(alpha, beta, gamma):
+def rmat_3d(x, y, z):
     """
     Args:
-        alpha   (torch.Tensor)  : shape = [N]
-        beta    (torch.Tensor)  : shape = [N]
-        gamma   (torch.Tensor)  : shape = [N]
+        x (torch.Tensor): shape = [N]
+        y (torch.Tensor): shape = [N]
+        z (torch.Tensor): shape = [N]
     Returns:
         (torch.Tensor): shape = [N, 3, 3]
     """
-    N = len(alpha)
-    assert N == len(beta) == len(gamma)
+    N = len(x)
+    assert N == len(y) == len(z)
 
-    A = torch.eye(3, device=alpha.device).repeat(N, 1, 1)
-    B = torch.eye(3, device=alpha.device).repeat(N, 1, 1)
-    C = torch.eye(3, device=alpha.device).repeat(N, 1, 1)
+    A = torch.eye(3, device=x.device).repeat(N, 1, 1)
+    B = torch.eye(3, device=x.device).repeat(N, 1, 1)
+    C = torch.eye(3, device=x.device).repeat(N, 1, 1)
 
-    cos_alpha = torch.cos(alpha)
-    sin_alpha = torch.sin(alpha)
-    cos_beta = torch.cos(beta)
-    sin_beta = torch.sin(beta)
-    cos_gamma = torch.cos(gamma)
-    sin_gamma = torch.sin(gamma)
+    cos_z = torch.cos(z)
+    sin_z = torch.sin(z)
 
-    A[:, 0, 0] = cos_alpha
-    A[:, 0, 1] = -sin_alpha
-    A[:, 1, 0] = sin_alpha
-    A[:, 1, 1] = cos_alpha
+    A[:, 0, 0] = cos_z
+    A[:, 0, 1] = -sin_z
+    A[:, 1, 0] = sin_z
+    A[:, 1, 1] = cos_z
 
-    B[:, 0, 0] = cos_beta
-    B[:, 0, 2] = sin_beta
-    B[:, 2, 0] = -sin_beta
-    B[:, 2, 2] = cos_beta
+    cos_y = torch.cos(y)
+    sin_y = torch.sin(y)
 
-    C[:, 1, 1] = cos_gamma
-    C[:, 1, 2] = -sin_gamma
-    C[:, 2, 1] = sin_gamma
-    C[:, 2, 2] = cos_gamma
+    B[:, 0, 0] = cos_y
+    B[:, 0, 2] = sin_y
+    B[:, 2, 0] = -sin_y
+    B[:, 2, 2] = cos_y
+
+    cos_x = torch.cos(x)
+    sin_x = torch.sin(x)
+
+    C[:, 1, 1] = cos_x
+    C[:, 1, 2] = -sin_x
+    C[:, 2, 1] = sin_x
+    C[:, 2, 2] = cos_x
 
     return A.matmul(B).matmul(C)
