@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from typing import Sequence
 
 from .containers import Module
 from .elements import Linear
@@ -48,7 +47,7 @@ class LSTM(Modulator):
     def forward(self, x: torch.Tensor):
         """
         Args:
-            inputs (Sequence of torch.Tensors): shape = [n, f]
+            x (torch.Tensor): shape = [n, f]
         Returns:
             (torch.Tensor): shape = [n, f']
         """
