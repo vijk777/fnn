@@ -323,33 +323,36 @@ class Conv(Module):
 class Linear(Conv):
     def __init__(
         self,
-        in_features: int,
         out_features: int,
-        groups: int = 1,
+        out_groups: int = 1,
         gain: bool = True,
         bias: bool = True,
         eps: float = 1e-5,
     ):
         super().__init__(
             out_channels=out_features,
-            out_groups=groups,
+            out_groups=out_groups,
             gain=gain,
             bias=bias,
             eps=eps,
         )
-        self.add(
+
+    def add(
+        self,
+        in_features: int,
+        in_groups: int = 1,
+    ):
+        return super().add(
             in_channels=in_features,
-            in_groups=groups,
+            in_groups=in_groups,
         )
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, inputs: torch.Tensor):
         """
         Args:
             x (torch.Tensors): shape = [n, f]
         Returns:
             (torch.Tensor): shape = [n, f']
         """
-        x = x[:, :, None, None]
-        x = self(x)
-        x = x[:, :, 0, 0]
-        return x
+        inputs = [x[:, :, None, None] for x in inputs]
+        return super().forward(inputs)[:, :, 0, 0]
