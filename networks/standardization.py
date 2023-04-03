@@ -13,7 +13,7 @@ class Stimulus(Module):
         eps: float = 1e-5,
     ):
         """
-        Arguments:
+        Args:
             mean    (ArrayLike) : shape = [number of channels], dtype = float
             std     (ArrayLike) : shape = [number of channels], dtype = float
         """
@@ -28,7 +28,7 @@ class Stimulus(Module):
 
     def forward(self, x: torch.Tensor):
         """
-        Arguments:
+        Args:
             x (torch.Tensor)    : shape = [N, C, H, W]
         Returns:
             (torch.Tensor)      : shape = [N, C, H, W]
@@ -49,7 +49,7 @@ class EyePosition(Module):
         eps: float = 1e-5,
     ):
         """
-        Arguments:
+        Args:
             mean    (ArrayLike) : shape = [number of features], dtype = float
             std     (ArrayLike) : shape = [number of features], dtype = float
         """
@@ -64,7 +64,7 @@ class EyePosition(Module):
 
     def forward(self, x: Optional[torch.Tensor] = None):
         """
-        Arguments:
+        Args:
             x (torch.Tensor)    : shape = [N, C, H, W]
         Returns:
             (torch.Tensor)      : shape = [N, C, H, W]
@@ -85,7 +85,7 @@ class Behavior(Module):
         eps: float = 1e-5,
     ):
         """
-        Arguments:
+        Args:
             mean        (ArrayLike) : shape = [number of features], dtype = float
             std         (ArrayLike) : shape = [number of features], dtype = float
             mask        (ArrayLike) : shape = [number of features], dtype = bool
@@ -106,7 +106,7 @@ class Behavior(Module):
 
     def forward(self, x: Optional[torch.Tensor] = None):
         """
-        Arguments:
+        Args:
             x (torch.Tensor)    : shape = [N, F]
         Returns:
             (torch.Tensor)      : shape = [N, F]
@@ -125,7 +125,7 @@ class Response(Module):
         eps: float = 1e-5,
     ):
         """
-        Arguments:
+        Args:
             mean    (ArrayLike) : shape = [number of units], dtype = float
         """
         super().__init__()
@@ -143,7 +143,7 @@ class Response(Module):
         inverse: bool = False,
     ):
         """
-        Arguments:
+        Args:
             x       (torch.Tensor)  : shape = [N, U]
             log     (bool)          : log response or normal response
             inverse (bool)          : raw or standardize
