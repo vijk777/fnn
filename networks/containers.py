@@ -66,7 +66,7 @@ class Module(nn.Module):
         p = set(self.parameters())
         n = len(p)
 
-        # collect registered parameters in children
+        # collect parameters in children
         for module in self.containers():
             for group in module.param_groups(**kwargs):
                 param_groups.append(group)
@@ -79,7 +79,7 @@ class Module(nn.Module):
             p -= set(group["params"])
             n -= len(group["params"])
 
-        # collect remaining parameters
+        # collect remaining parameters in self
         if p:
             param_groups.append({"params": list(p), **kwargs})
             n -= len(p)
