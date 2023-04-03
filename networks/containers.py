@@ -43,15 +43,12 @@ class Module(nn.Module):
         return getattr(self, "_frozen", False)
 
     def freeze(self, mode=True):
-        if not isinstance(mode, bool):
-            raise TypeError("mode must be boolean")
-
-        self._frozen = mode
-        self.requires_grad_(not mode)
-        self.train(not mode)
+        self._frozen = bool(mode)
+        self.requires_grad_(not self._frozen)
+        self.train(not self._frozen)
 
         for module in self.containers():
-            module.freeze(mode)
+            module.freeze(self._frozen)
 
         return self
 
