@@ -145,15 +145,14 @@ class RvT(Recurrent):
             h = self._past["h"]
             c = self._past["c"]
         else:
-            N, _, H, W = inputs[0].shape
-            h = c = torch.zeros(N, self.out_channels, H, W, device=self.device)
+            h = c = torch.zeros(1, self.out_channels, 1, 1, device=self.device)
 
         if self.cells > 1:
             x = self.proj_x([*inputs, h])
         else:
             x = self.proj_x(inputs)
 
-        xh = torch.stack([to_groups_2d(x, self.heads), to_groups_2d(h, self.heads)], 2)
+        xh = torch.stack([to_groups_2d(x, self.heads), to_groups_2d(h.expand_as(x), self.heads)], 2)
         xh = self.drop(xh, p=dropout).flatten(1, 3)
 
         q = to_groups_2d(self.proj_q([xh]), self.heads).flatten(3, 4)
