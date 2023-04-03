@@ -4,10 +4,6 @@ from itertools import chain
 
 
 class Module(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.register_buffer("epoch", torch.tensor(0, dtype=torch.long))
-
     def named_containers(self):
         for name, module in self.named_children():
             if isinstance(module, Module):
@@ -32,11 +28,6 @@ class Module(nn.Module):
 
     def _restart(self):
         pass
-
-    def step_epoch(self):
-        for module in self.containers():
-            module.step_epoch()
-        self.epoch = self.epoch + 1
 
     @property
     def device(self):
