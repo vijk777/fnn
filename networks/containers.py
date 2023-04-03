@@ -73,13 +73,13 @@ class Module(nn.Module):
                 p -= set(group["params"])
                 n -= len(group["params"])
 
-        # collect special parameters in self
+        # collect special parameters
         for group in self.special_param_groups(**kwargs):
             param_groups.append(group)
             p -= set(group["params"])
             n -= len(group["params"])
 
-        # collect remaining parameters in self
+        # collect remaining parameters
         if p:
             param_groups.append({"params": list(p), **kwargs})
             n -= len(p)
