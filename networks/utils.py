@@ -17,7 +17,11 @@ def to_groups_2d(
     return tensor.view(N, groups, -1, H, W)
 
 
-def rmat_3d(x, y, z):
+def rmat_3d(
+    x: torch.Tensor,
+    y: torch.Tensor,
+    z: torch.Tensor,
+):
     """
     Args:
         x (torch.Tensor): shape = [N]
@@ -58,3 +62,28 @@ def rmat_3d(x, y, z):
     C[:, 2, 2] = cos_x
 
     return A.matmul(B).matmul(C)
+
+
+def isotropic_grid_2d(
+    height: int,
+    width: int,
+):
+    """
+    Args:
+        height  (int)
+        width   (int)
+    Returns:
+        (torch.Tensor): shape = [height, width, 2]
+    """
+    h = torch.linspace(-1, 1, height)
+    w = torch.linspace(-1, 1, width)
+
+    if height < width:
+        h = h * height / width
+        scale = (width - 1) / width
+
+    else:
+        w = w * width / height
+        scale = (height - 1) / height
+
+    return torch.stack(torch.meshgrid(w * scale, h * scale, indexing="xy"), -1)
