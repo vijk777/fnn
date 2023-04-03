@@ -65,29 +65,30 @@ class Module(nn.Module):
         return []
 
     def param_groups(self, **kwargs):
-        # collect special parameters in self
-        param_groups = self.special_param_groups(**kwargs)
-        special_parameters = set()
-        for group in param_groups:
-            special_parameters |= set(group["params"])
+        param_groups = []
+        p = set(self.parameters())
+        n = len(p)
 
-        # collect parameters in children
-        parameters = set()
+        # collect registered parameters in children
         for module in self.containers():
-            _param_groups = module.param_groups(**kwargs)
-            for group in _param_groups:
-                parameters |= set(group["params"])
-            param_groups += _param_groups
+            for group in module.param_groups(**kwargs):
+                param_groups.append(group)
+                p -= set(group["params"])
+                n -= len(group["params"])
 
-        # ensure parameters are non-overlapping
-        assert special_parameters.isdisjoint(parameters)
+        # collect special parameters in self
+        for group in self.special_param_groups(**kwargs):
+            param_groups.append(group)
+            p -= set(group["params"])
+            n -= len(group["params"])
 
         # collect remaining parameters
-        remaining_parameters = set(self.parameters(recurse=True)) - special_parameters - parameters
-        if remaining_parameters:
-            remaining_parameters_list = [p for p in self.parameters(recurse=True) if p in remaining_parameters]
-            if remaining_parameters_list:
-                param_groups += [{"params": remaining_parameters_list, **kwargs}]
+        if p:
+            param_groups.append({"params": list(p), **kwargs})
+            n -= len(p)
+
+        # assert all parameters were collected once
+        assert n == 0
 
         return param_groups
 
