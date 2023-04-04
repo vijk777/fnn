@@ -22,12 +22,6 @@ class Module(nn.Module):
         else:
             yield from vals
 
-    def _reset(self):
-        return
-
-    def _restart(self):
-        return
-
     def _param_groups(self, **kwargs):
         return
         yield
@@ -36,17 +30,11 @@ class Module(nn.Module):
         return
         yield
 
-    def reset(self):
-        def fn(module):
-            module._reset()
+    def _reset(self):
+        return
 
-        all(self._iterate(fn))
-
-    def restart(self):
-        def fn(module):
-            module._restart()
-
-        all(self._iterate(fn))
+    def _restart(self):
+        return
 
     def param_groups(self, **kwargs):
         collected = set()
@@ -88,18 +76,21 @@ class Module(nn.Module):
 
         yield from self._iterate(fn)
 
-    @property
-    def device(self):
-        try:
-            params = chain(self.parameters(), self.buffers())
-            device = next(params).device
-        except:
-            device = None
-        return device
+    def reset(self):
+        def fn(module):
+            module._reset()
 
-    @property
-    def frozen(self):
-        return getattr(self, "_frozen", False)
+        all(self._iterate(fn))
+
+        return self
+
+    def restart(self):
+        def fn(module):
+            module._restart()
+
+        all(self._iterate(fn))
+
+        return self
 
     def freeze(self, mode: bool = True):
         def fn(module):
@@ -116,6 +107,16 @@ class Module(nn.Module):
 
     def train(self, mode: bool = True):
         return super().train(mode and not self.frozen)
+
+    @property
+    def frozen(self):
+        return getattr(self, "_frozen", False)
+
+    @property
+    def device(self):
+        x = next(chain(self.parameters(), self.buffers(), [None]))
+        if x is not None:
+            return x.device
 
 
 class ModuleList(nn.ModuleList, Module):
