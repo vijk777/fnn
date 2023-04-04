@@ -1,30 +1,93 @@
 import torch
 from torch import nn
 from itertools import chain
-from typing import Optional, Set
 
 
 class Module(nn.Module):
-    def containers(self):
-        for module in self._modules.values():
-            if isinstance(module, Module):
-                yield module
+    def _iterate(self, fn, memo=None):
+        if memo is None:
+            memo = set()
 
-    def reset(self):
-        for module in self.containers():
-            module.reset()
-        self._reset()
+        for module in filter(lambda x: isinstance(x, Module), self._modules.values()):
+
+            if module in memo:
+                continue
+            else:
+                memo.add(module)
+
+            yield from module._iterate(fn, memo)
+
+        vals = fn(self)
+        if vals is None:
+            return
+        else:
+            yield from vals
 
     def _reset(self):
-        pass
-
-    def restart(self):
-        for module in self.containers():
-            module.restart()
-        self._restart()
+        return
 
     def _restart(self):
-        pass
+        return
+
+    def _param_groups(self, **kwargs):
+        return
+        yield
+
+    def _param_norm_dims(self):
+        return
+        yield
+
+    def reset(self):
+        def fn(module):
+            module._reset()
+
+        all(self._iterate(fn))
+
+    def restart(self):
+        def fn(module):
+            module._restart()
+
+        all(self._iterate(fn))
+
+    def param_groups(self, **kwargs):
+        collected = set()
+
+        def add_group(group):
+            params = set(group["params"])
+
+            assert len(params) == len(group["params"])
+            assert params.isdisjoint(collected)
+
+            collected.update(params)
+
+        def fn(module):
+            for group in module._param_groups(**kwargs):
+                add_group(group)
+                yield group
+
+            params = set(module.parameters()) - collected
+            if params:
+                group = {"params": list(params), **kwargs}
+
+                add_group(group)
+                yield group
+
+        yield from self._iterate(fn)
+
+        assert collected == set(self.parameters())
+
+    def param_norm_dims(self):
+        collected = set()
+
+        def fn(module):
+            for param, norm_dim in module._param_norm_dims():
+
+                assert param not in collected
+                collected.update({param})
+
+                yield param, norm_dim
+
+        yield from self._iterate(fn)
 
     @property
     def device(self):
@@ -40,12 +103,12 @@ class Module(nn.Module):
         return getattr(self, "_frozen", False)
 
     def freeze(self, mode: bool = True):
-        self._frozen = bool(mode)
-        self.requires_grad_(not self._frozen)
-        self.train(not self._frozen)
+        def fn(module):
+            module._frozen = bool(mode)
+            module.requires_grad_(not mode)
+            module.train(not mode)
 
-        for module in self.containers():
-            module.freeze(self._frozen)
+        all(self._iterate(fn))
 
         return self
 
@@ -54,64 +117,6 @@ class Module(nn.Module):
 
     def train(self, mode: bool = True):
         return super().train(mode and not self.frozen)
-
-    def _param_groups(self, **kwargs):
-        return []
-
-    def param_groups(self, memo: Optional[Set["Module"]] = None, **kwargs):
-        param_groups = []
-        p = set(self.parameters())
-        n = len(p)
-
-        # collect parameters in children
-        if memo is None:
-            memo = set()
-
-        for module in self.containers():
-            if module in memo:
-                continue
-            else:
-                memo.add(module)
-
-            for group in module.param_groups(memo=memo, **kwargs):
-                param_groups.append(group)
-                p -= set(group["params"])
-                n -= len(group["params"])
-
-        # collect registered parameters
-        for group in self._param_groups(**kwargs):
-            param_groups.append(group)
-            p -= set(group["params"])
-            n -= len(group["params"])
-
-        # collect remaining parameters
-        if p:
-            param_groups.append({"params": list(p), **kwargs})
-            n -= len(p)
-
-        # assert all parameters were collected once
-        assert n == 0
-
-        return param_groups
-
-    def _param_norm_dims(self):
-        return dict()
-
-    def param_norm_dims(self):
-        # parameters with dedicated norm dimensions
-        param_norm_dim = dict(self._param_norm_dims())
-
-        # iterate over containers
-        for module in self.containers():
-            _param_norm_dim = module.param_norm_dims()
-
-            # ensure parameters are non-overlapping
-            assert set(param_norm_dim.keys()).isdisjoint(set(_param_norm_dim.keys()))
-
-            # collect parameter norm dims
-            param_norm_dim.update(_param_norm_dim)
-
-        return param_norm_dim
 
 
 class ModuleList(nn.ModuleList, Module):
