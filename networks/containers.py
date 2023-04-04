@@ -81,7 +81,6 @@ class Module(nn.Module):
             module._reset()
 
         all(self._iterate(fn))
-
         return self
 
     def restart(self):
@@ -89,7 +88,6 @@ class Module(nn.Module):
             module._restart()
 
         all(self._iterate(fn))
-
         return self
 
     def freeze(self, mode: bool = True):
@@ -99,7 +97,6 @@ class Module(nn.Module):
             module.train(not mode)
 
         all(self._iterate(fn))
-
         return self
 
     def requires_grad_(self, requires_grad: bool = True):
