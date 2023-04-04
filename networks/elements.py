@@ -276,23 +276,19 @@ class Conv(Module):
         )
         return self
 
-    def add_intercell(self, cells: int):
-        if cells <= 1:
-            raise ValueError("cells must be > 1")
+    def add_intergroup(self):
+        if self.out_groups <= 1:
+            raise ValueError("out_groups must be > 1")
 
-        if self.out_groups % cells != 0:
-            raise ValueError("out_groups must be divisible by cells")
+        g = self.out_groups
+        c = self.out_channels // g
 
-        cells = int(cells)
-        c = self.out_channels // self.out_groups
-        g = self.out_groups // cells
+        mask = ~torch.eye(g, device=self.device, dtype=torch.bool)
+        mask = mask.view(g, 1, g, 1)
+        mask = mask.expand(-1, c, -1, c)
+        mask = mask.reshape(self.out_channels, self.out_channels, 1, 1, 1)
 
-        mask = ~torch.eye(cells, device=self.device, dtype=torch.bool)
-        mask = mask.view(1, cells, 1, cells, 1)
-        mask = mask.expand(g, -1, c, -1, c)
-        mask = mask.reshape(self.out_channels, self.out_channels // g, 1, 1, 1)
-
-        return self.add(in_channels=self.out_channels, in_groups=g, mask=mask)
+        return self.add(in_channels=self.out_channels, mask=mask)
 
     def forward(self, inputs: Sequence[torch.Tensor]):
         """
