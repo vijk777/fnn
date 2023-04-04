@@ -40,6 +40,11 @@ class Stimulus(Module):
 
         return (x - mean) / std
 
+    def extra_repr(self):
+        f = ", ".join(["{:.3g}" for _ in range(self.n_channels)])
+        f = f"mean=[{f}], std=[{f}]"
+        return f.format(*self.mean.tolist(), *self.std.tolist())
+
 
 class EyePosition(Module):
     def __init__(
@@ -74,6 +79,11 @@ class EyePosition(Module):
         else:
             x = x.to(device=self.device)
             return (x - self.mean) / self.std
+
+    def extra_repr(self):
+        f = ", ".join(["{:.3g}" for _ in range(self.n_features)])
+        f = f"mean=[{f}], std=[{f}]"
+        return f.format(*self.mean.tolist(), *self.std.tolist())
 
 
 class Behavior(Module):
@@ -116,6 +126,12 @@ class Behavior(Module):
         else:
             x = x.to(device=self.device)
             return (x - self.adj_mean) / self.std
+
+    def extra_repr(self):
+        f = ", ".join(["{:.3g}" for _ in range(self.n_features)])
+        m = ", ".join(["{}" for _ in range(self.n_features)])
+        f = f"mean=[{f}], std=[{f}], mask=[{m}]"
+        return f.format(*self.mean.tolist(), *self.std.tolist(), *self.mask.tolist())
 
 
 class Response(Module):
@@ -162,3 +178,6 @@ class Response(Module):
                 return x * self.mean
             else:
                 return x / self.mean
+
+    def extra_repr(self):
+        return f"{self.n_units}"
