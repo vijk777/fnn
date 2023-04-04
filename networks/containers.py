@@ -7,7 +7,7 @@ class Module(nn.Module):
         if memo is None:
             memo = set()
 
-        for module in filter(lambda x: isinstance(x, Module), self._modules.values()):
+        for module in filter(lambda x: isinstance(x, Module), self.children()):
 
             if module in memo:
                 continue
