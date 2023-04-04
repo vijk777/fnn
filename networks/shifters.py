@@ -4,16 +4,15 @@ from typing import Sequence, Optional
 
 from .containers import Module, ModuleList
 from .elements import Linear, nonlinearity
+from .standardization import EyePosition
 
 
 def default_shifter(
-    in_features: int = 2,
-    out_features: int = 3,
+    eye_position: EyePosition,
 ):
     return MLP(
-        in_features=in_features,
-        out_features=out_features,
-        hidden_features=[8, 8],
+        eye_position=eye_position,
+        out_features=[8, 8],
         nonlinear="gelu",
     )
 
@@ -21,32 +20,30 @@ def default_shifter(
 class Shifter(Module):
     def __init__(
         self,
-        in_features: int,
+        eye_position: EyePosition,
         out_features: int,
     ):
         super().__init__()
-        self.in_features = int(in_features)
+        self.eye_position = eye_position
         self.out_features = int(out_features)
 
 
 class MLP(Shifter):
     def __init__(
         self,
-        in_features: int,
-        out_features: int,
-        hidden_features: Sequence[int],
+        eye_position: EyePosition,
+        out_features: Sequence[int],
         nonlinear: Optional[str] = None,
     ):
         super().__init__(
-            in_features=in_features,
-            out_features=out_features,
+            eye_position=eye_position,
+            out_features=out_features[-1],
         )
-        self.hidden_features = [int(f) for f in hidden_features]
 
         self.layers = ModuleList()
 
-        in_features = self.in_features
-        for features in [*self.hidden_features, self.out_features]:
+        in_features = self.eye_position.n_features
+        for features in out_features:
 
             linear = Linear(out_features=features).add(in_features=in_features)
             in_features = features
@@ -55,17 +52,17 @@ class MLP(Shifter):
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
 
-        self.gain = nn.Parameter(torch.zeros(self.out_features))
-
-    def forward(self, x: torch.Tensor):
+    def forward(self, eye_position: Optional[torch.Tensor] = None):
         """
         Args:
-            x (torch.Tensor): shape = [n, f]
+            eye_position (torch.Tensor): shape = [n, f]
         Returns:
             (torch.Tensor): shape = [n, f']
         """
+        x = self.eye_position(eye_position)
+
         for layer in self.layers:
             x = layer([x])
             x = self.nonlinear(x).mul(self.gamma)
 
-        return x.mul(self.gain)
+        return x
