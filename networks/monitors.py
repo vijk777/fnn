@@ -6,7 +6,7 @@ from .utils import isotropic_grid_2d, rmat_3d
 
 
 class Monitor(Module):
-    def grid(self, batch_size: int = 1, height: int = 144, width: int = 256):
+    def rays(self, batch_size: int = 1, height: int = 144, width: int = 256):
         """
         Args:
             batch_size  (int)
@@ -92,7 +92,7 @@ class Plane(Monitor):
 
         return self._position["center"], self._position["X"], self._position["Y"], self._position["Z"]
 
-    def grid(self, batch_size: int = 1, height: int = 144, width: int = 256):
+    def rays(self, batch_size: int = 1, height: int = 144, width: int = 256):
         """
         Args:
             batch_size  (int)
