@@ -69,6 +69,7 @@ def rmat_3d(
 def isotropic_grid_2d(
     height: int,
     width: int,
+    dtype: Optional[torch.dtype] = None,
     device: Optional[str] = None,
 ):
     """
@@ -78,8 +79,8 @@ def isotropic_grid_2d(
     Returns:
         (torch.Tensor): shape = [height, width, 2]
     """
-    h = torch.linspace(-1, 1, height)
-    w = torch.linspace(-1, 1, width)
+    h = torch.linspace(-1, 1, height, dtype=dtype, device=device)
+    w = torch.linspace(-1, 1, width, dtype=dtype, device=device)
 
     if height < width:
         h = h * height / width
@@ -89,4 +90,4 @@ def isotropic_grid_2d(
         w = w * width / height
         scale = (height - 1) / height
 
-    return torch.stack(torch.meshgrid(w * scale, h * scale, indexing="xy"), dim=2).to(device=device)
+    return torch.stack(torch.meshgrid(w * scale, h * scale, indexing="xy"), dim=2)
