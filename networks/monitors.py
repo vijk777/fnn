@@ -30,8 +30,8 @@ class Monitor(Module):
 class Plane(Monitor):
     def __init__(
         self,
-        init_angle_std: float = 0.05,
         init_center_std: float = 0.05,
+        init_angle_std: float = 0.05,
         eps: float = 1e-5,
     ):
         super().__init__()
