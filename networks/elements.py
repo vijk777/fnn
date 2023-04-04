@@ -94,7 +94,7 @@ class Input(Module):
         mask=None,
     ):
         if in_channels % groups != 0 or out_channels % groups != 0:
-            raise ValueError("in_channels must be divisible by groups")
+            raise ValueError("channels must be divisible by groups")
 
         if (kernel_size - stride) % 2 != 0:
             raise ValueError("incompatible kernel_size and stride")
