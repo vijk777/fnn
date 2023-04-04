@@ -129,10 +129,11 @@ class Plane(Monitor):
         c = torch.einsum("N H W , N H W D -> N H W D", a / b, rays)
         d = c - center[:, None, None, :]
 
-        proj_x = torch.einsum("N H W D , N D -> N H W", d, X)
-        proj_y = torch.einsum("N H W D , N D -> N H W", d, Y)
-
-        return torch.stack([proj_x, proj_y], 3)
+        proj = [
+            torch.einsum("N H W D , N D -> N H W", d, X),
+            torch.einsum("N H W D , N D -> N H W", d, Y),
+        ]
+        return torch.stack(proj, dim=3)
 
     def extra_repr(self):
         params = self.angle.tolist() + self.center.tolist()
