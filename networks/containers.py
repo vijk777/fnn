@@ -1,17 +1,14 @@
 import torch
 from torch import nn
 from itertools import chain
+from typing import Optional, Set
 
 
 class Module(nn.Module):
-    def named_containers(self):
-        for name, module in self.named_children():
-            if isinstance(module, Module):
-                yield name, module
-
     def containers(self):
-        for _, module in self.named_containers():
-            yield module
+        for module in self._modules.values():
+            if isinstance(module, Module):
+                yield module
 
     def reset(self):
         for module in self.containers():
@@ -42,7 +39,7 @@ class Module(nn.Module):
     def frozen(self):
         return getattr(self, "_frozen", False)
 
-    def freeze(self, mode=True):
+    def freeze(self, mode: bool = True):
         self._frozen = bool(mode)
         self.requires_grad_(not self._frozen)
         self.train(not self._frozen)
@@ -52,29 +49,37 @@ class Module(nn.Module):
 
         return self
 
-    def requires_grad_(self, requires_grad=True):
+    def requires_grad_(self, requires_grad: bool = True):
         return super().requires_grad_(requires_grad and not self.frozen)
 
-    def train(self, mode=True):
+    def train(self, mode: bool = True):
         return super().train(mode and not self.frozen)
 
-    def special_param_groups(self, **kwargs):
+    def _param_groups(self, **kwargs):
         return []
 
-    def param_groups(self, **kwargs):
+    def param_groups(self, memo: Optional[Set["Module"]] = None, **kwargs):
         param_groups = []
         p = set(self.parameters())
         n = len(p)
 
         # collect parameters in children
+        if memo is None:
+            memo = set()
+
         for module in self.containers():
-            for group in module.param_groups(**kwargs):
+            if module in memo:
+                continue
+            else:
+                memo.add(module)
+
+            for group in module.param_groups(memo=memo, **kwargs):
                 param_groups.append(group)
                 p -= set(group["params"])
                 n -= len(group["params"])
 
-        # collect special parameters
-        for group in self.special_param_groups(**kwargs):
+        # collect registered parameters
+        for group in self._param_groups(**kwargs):
             param_groups.append(group)
             p -= set(group["params"])
             n -= len(group["params"])
