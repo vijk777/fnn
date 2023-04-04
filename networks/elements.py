@@ -138,7 +138,7 @@ class Input(Module):
         self._past.clear()
 
     def _param_norm_dims(self):
-        return {self.weight: [1, 2, 3, 4]}
+        yield self.weight, [1, 2, 3, 4]
 
     def forward(self, x: torch.Tensor):
         """
@@ -194,20 +194,17 @@ class Conv(Module):
         self.eps = float(eps)
         self.inputs = ModuleList()
 
-        self.norm_dims = {}
-        self.special_params = []
+        self.affine = []
         self.fan_out = self.out_channels // self.out_groups
         assert self.fan_out > 1
 
         if self.use_gain:
             self.gain = nn.Parameter(torch.ones(self.out_groups, self.fan_out))
-            self.norm_dims[self.gain] = 1
-            self.special_params.append(self.gain)
+            self.affine.append(self.gain)
 
         if self.use_bias:
             self.bias = nn.Parameter(torch.zeros(self.out_groups, self.fan_out))
-            self.norm_dims[self.bias] = 1
-            self.special_params.append(self.bias)
+            self.affine.append(self.bias)
 
         self._weights = None
 
@@ -215,15 +212,13 @@ class Conv(Module):
         self._weights = None
 
     def _param_norm_dims(self):
-        return self.norm_dims
+        for param in self.affine:
+            yield param, 1
 
-    def special_param_groups(self, **kwargs):
-        if self.special_params:
-            if "weight_decay" in kwargs:
-                kwargs["weight_decay"] = 0
-            return [dict(params=self.special_params, **kwargs)]
-        else:
-            return []
+    def _param_groups(self, **kwargs):
+        if self.affine and kwargs.get("weight_decay"):
+            kwargs.update(weight_decay=0)
+            yield dict(params=self.affine, **kwargs)
 
     @property
     def weights(self):
