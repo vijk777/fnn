@@ -17,10 +17,10 @@ class Monitor(Module):
         """
         raise NotImplementedError()
 
-    def project(self, x: torch.Tensor):
+    def project(self, rays: torch.Tensor):
         """
         Args:
-            x   (torch.Tensor)  : shape = [n, h, w, 3]
+            rays (torch.Tensor) : shape = [n, h, w, 3]
         Returns:
             (torch.Tensor)      : shape = [n, h, w, 2]
         """
@@ -114,19 +114,19 @@ class Plane(Monitor):
 
         return center[:, None, None, :] + X + Y
 
-    def project(self, x: torch.Tensor):
+    def project(self, rays: torch.Tensor):
         """
         Args:
-            x   (torch.Tensor)  : shape = [n, h, w, 3]
+            rays (torch.Tensor) : shape = [n, h, w, 3]
         Returns:
             (torch.Tensor)      : shape = [n, h, w, 2]
         """
-        center, X, Y, Z = self.position(batch_size=x.size(0))
+        center, X, Y, Z = self.position(batch_size=rays.size(0))
 
         a = torch.einsum("N D , N D -> N", Z, center)[:, None, None]
-        b = torch.einsum("N D , N H W D -> N H W", Z, x).clip(self.eps)
+        b = torch.einsum("N D , N H W D -> N H W", Z, rays).clip(self.eps)
 
-        c = torch.einsum("N H W , N H W D -> N H W D", a / b, x)
+        c = torch.einsum("N H W , N H W D -> N H W D", a / b, rays)
         d = c - center[:, None, None, :]
 
         proj_x = torch.einsum("N H W D , N D -> N H W", d, X)
