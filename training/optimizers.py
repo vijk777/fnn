@@ -44,11 +44,12 @@ class SGD:
         assert lr_scale > 0
 
         for group in self.param_groups:
-            lr = group.get("lr", self.defaults["lr"]) * lr_scale
-            momentum = group.get("momentum", self.defaults["momentum"])
-            weight_decay = group.get("weight_decay", self.defaults["weight_decay"])
-            clip = group.get("clip", self.defaults["clip"])
-            eps = group.get("eps", self.defaults["eps"])
+
+            lr = group["lr"] * lr_scale
+            momentum = group["momentum"]
+            weight_decay = group["weight_decay"]
+            clip = group["clip"]
+            eps = group["eps"]
 
             for p in group["params"]:
                 if p.grad is None:
