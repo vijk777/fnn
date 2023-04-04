@@ -40,7 +40,7 @@ class Plane(Monitor):
         self.init_angle_std = float(init_angle_std)
         self.eps = float(eps)
 
-        self.center = nn.Parameter(torch.tensor([0.0, 0, 1]))
+        self.center = nn.Parameter(torch.tensor([0, 0, 1.0]))
         self.angle = nn.Parameter(torch.zeros(3))
 
         self.center_std = nn.Parameter(torch.zeros(3))
