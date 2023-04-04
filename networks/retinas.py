@@ -61,7 +61,7 @@ class AngularMLP(Retina):
             self.layers.append(linear)
 
         self.proj = Linear(out_features=3).add(in_features=in_features)
-        # nn.init.constant_(self.proj.gain, 0)
+        nn.init.constant_(self.proj.gain, 0)
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear=nonlinear)
 
