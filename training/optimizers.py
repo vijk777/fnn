@@ -32,8 +32,8 @@ class SGD:
             clip=clip,
             eps=eps,
         )
-        self.param_groups = model.param_groups(**self.defaults)
-        self.norm_dims = model.param_norm_dims()
+        self.param_groups = list(model.param_groups(**self.defaults))
+        self.norm_dims = dict(model.param_norm_dims())
 
     @torch.no_grad()
     def step(self, lr_scale: float = 1.0):
