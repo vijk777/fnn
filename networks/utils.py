@@ -1,6 +1,8 @@
 import torch
 import torch.nn.functional as F
 
+from typing import Optional
+
 
 def to_groups_2d(
     tensor: torch.Tensor,
@@ -67,6 +69,7 @@ def rmat_3d(
 def isotropic_grid_2d(
     height: int,
     width: int,
+    device: Optional[str] = None,
 ):
     """
     Args:
@@ -86,4 +89,4 @@ def isotropic_grid_2d(
         w = w * width / height
         scale = (height - 1) / height
 
-    return torch.stack(torch.meshgrid(w * scale, h * scale, indexing="xy"), -1)
+    return torch.stack(torch.meshgrid(w * scale, h * scale, indexing="xy"), dim=2).to(device=device)
