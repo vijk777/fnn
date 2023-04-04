@@ -6,6 +6,18 @@ from .containers import Module, ModuleList
 from .elements import Linear, nonlinearity
 
 
+def default_shifter(
+    in_features: int = 2,
+    out_features: int = 3,
+):
+    return MLP(
+        in_features=in_features,
+        out_features=out_features,
+        hidden_features=[8, 8],
+        nonlinear="gelu",
+    )
+
+
 class Shifter(Module):
     def __init__(
         self,
@@ -21,21 +33,23 @@ class MLP(Shifter):
     def __init__(
         self,
         in_features: int,
-        out_features: Sequence[int],
+        out_features: int,
+        hidden_features: Sequence[int],
         nonlinear: Optional[str] = None,
     ):
         super().__init__(
             in_features=in_features,
-            out_features=out_features[-1],
+            out_features=out_features,
         )
+        self.hidden_features = [int(f) for f in hidden_features]
 
         self.layers = ModuleList()
 
         in_features = self.in_features
-        for out_features in out_features:
+        for features in [*self.hidden_features, self.out_features]:
 
-            linear = Linear(out_features=out_features).add(in_features=in_features)
-            in_features = out_features
+            linear = Linear(out_features=features).add(in_features=in_features)
+            in_features = features
 
             self.layers.append(linear)
 
