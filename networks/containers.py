@@ -55,7 +55,6 @@ class Module(nn.Module):
             params = set(module.parameters()) - collected
             if params:
                 group = {"params": list(params), **kwargs}
-
                 add_group(group)
                 yield group
 
