@@ -16,11 +16,7 @@ def default_shifter(eye_position: EyePosition):
 
 
 class Shifter(Module):
-    def __init__(
-        self,
-        eye_position: EyePosition,
-        out_features: int,
-    ):
+    def __init__(self, eye_position: EyePosition, out_features: int):
         super().__init__()
         self.eye_position = eye_position
         self.out_features = int(out_features)
