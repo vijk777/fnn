@@ -57,11 +57,10 @@ class Plane(Monitor):
             self.center_std.fill_(self.init_center_std)
             self.angle_std.fill_(self.init_angle_std)
 
-    def special_param_groups(self, **kwargs):
-        if "weight_decay" in kwargs:
-            kwargs["weight_decay"] = 0
-
-        return [dict(params=[self.center, self.angle, self.center_std, self.angle_std], **kwargs)]
+    def _param_groups(self, **kwargs):
+        if kwargs.get("weight_decay"):
+            kwargs.update(weight_decay=0)
+            yield dict(params=list(self.parameters()), **kwargs)
 
     def position(self, batch_size: int = 1):
         """
