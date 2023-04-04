@@ -7,9 +7,7 @@ from .elements import Linear, nonlinearity
 from .standardization import EyePosition
 
 
-def default_shifter(
-    eye_position: EyePosition,
-):
+def default_shifter(eye_position: EyePosition):
     return MLP(
         eye_position=eye_position,
         out_features=[8, 8],
