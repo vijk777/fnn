@@ -14,7 +14,7 @@ class Recurrent(Module):
         out_channels: int,
     ):
         super().__init__()
-        self.in_channels = [int(c) for c in in_channels]
+        self.in_channels = list(map(int, in_channels))
         self.out_channels = int(out_channels)
 
 
