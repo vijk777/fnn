@@ -149,4 +149,4 @@ class AngularMLP(Retina):
         return torch.stack(proj, dim=3)
 
     def extra_repr(self):
-        return f"degrees={self.degrees}"
+        return f"degrees={self.degrees:.3g}"
