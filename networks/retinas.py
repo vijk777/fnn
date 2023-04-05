@@ -139,12 +139,12 @@ class AngularMLP(_MLP):
         Returns:
             (torch.Tensor)                  : shape = [n, h, w, 3]
         """
+        rmat = self.rmat(
+            eye_position=eye_position,
+        )
         grid = self.grid(
             height=height,
             width=width,
-        )
-        rmat = self.rmat(
-            eye_position=eye_position,
         )
         return torch.einsum("N C D , H W D -> N H W C", rmat, grid)
 
