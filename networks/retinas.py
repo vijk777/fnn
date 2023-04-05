@@ -101,22 +101,6 @@ class AngularMLP(_MLP):
         self.degrees = float(degrees)
         self.radians = self.degrees / 180 * torch.pi
 
-        self.features = [int(f) for f in features]
-        self.layers = ModuleList()
-
-        in_features = self.eye_position.n_features
-        for out_features in features:
-
-            linear = Linear(out_features=out_features).add(in_features=in_features)
-            in_features = out_features
-
-            self.layers.append(linear)
-
-        self.proj = Linear(out_features=3).add(in_features=in_features)
-        nn.init.constant_(self.proj.gain, 0)
-
-        self.nonlinear, self.gamma = nonlinearity(nonlinear=nonlinear)
-
     def grid(self, height: int = 144, width: int = 256):
         """
         Args:
