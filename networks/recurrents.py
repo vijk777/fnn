@@ -17,6 +17,16 @@ class Recurrent(Module):
         self.in_channels = list(map(int, in_channels))
         self.out_channels = int(out_channels)
 
+    def forward(self, inputs: Sequence[torch.Tensor], dropout: float = 0):
+        """
+        Args:
+            inputs (Sequence of torch.Tensors): shape = [n, c, h, w]
+            dropout (float): dropout probability
+        Returns:
+            (torch.Tensor): shape = [n, c', h, w]
+        """
+        raise NotImplementedError()
+
 
 class RvT(Recurrent):
     def __init__(
@@ -126,11 +136,7 @@ class RvT(Recurrent):
     def _reset(self):
         self._past.clear()
 
-    def forward(
-        self,
-        inputs: Sequence[torch.Tensor],
-        dropout: float = 0,
-    ):
+    def forward(self, inputs: Sequence[torch.Tensor], dropout: float = 0):
         """
         Args:
             inputs (Sequence of torch.Tensors): shape = [n, c, h, w]
