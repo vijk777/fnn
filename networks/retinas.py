@@ -55,7 +55,7 @@ class _MLP(Retina):
     ):
         super().__init__(eye_position=eye_position)
 
-        self.features = [int(f) for f in features]
+        self.features = list(map(int, features))
         self.layers = ModuleList()
 
         in_features = self.eye_position.n_features
