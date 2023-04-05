@@ -1,6 +1,6 @@
 import torch
 from itertools import chain
-from typing import Sequence
+from typing import Optional, Sequence
 
 from .containers import Module
 from .feedforwards import Feedforward
@@ -15,8 +15,8 @@ class Core(Module):
     def add_inputs(
         self,
         perspective: int,
-        grid: int,
-        modulation: int,
+        grid: Optional[int] = None,
+        modulation: Optional[int] = None,
     ):
         """
         Args:
@@ -29,8 +29,8 @@ class Core(Module):
     def forward(
         self,
         perspective: Sequence[torch.Tensor],
-        grid: Sequence[torch.Tensor],
-        modulation: Sequence[torch.Tensor],
+        grid: Sequence[Optional[torch.Tensor]],
+        modulation: Sequence[Optional[torch.Tensor]],
         dropout: float = 0,
     ):
         """
@@ -57,8 +57,8 @@ class FeedforwardRecurrent(Core):
     def add_inputs(
         self,
         perspective: int,
-        grid: int,
-        modulation: int,
+        grid: Optional[int] = None,
+        modulation: Optional[int] = None,
     ):
         """
         Args:
@@ -67,14 +67,18 @@ class FeedforwardRecurrent(Core):
             modulation  (int)  : modulation channels
         """
         self.feedforward.add_input(perspective)
-        self.recurrent.add_input(grid)
-        self.recurrent.add_input(modulation)
+
+        if grid is not None:
+            self.recurrent.add_input(grid)
+
+        if modulation is not None:
+            self.recurrent.add_input(modulation)
 
     def forward(
         self,
         perspective: Sequence[torch.Tensor],
-        grid: Sequence[torch.Tensor],
-        modulation: Sequence[torch.Tensor],
+        grid: Sequence[Optional[torch.Tensor]],
+        modulation: Sequence[Optional[torch.Tensor]],
         dropout: float = 0,
     ):
         """
@@ -86,6 +90,9 @@ class FeedforwardRecurrent(Core):
         Returns:
             (torch.Tensor)              : shape = [n, c', h, w]
         """
-        x = self.feedforward(perspective)
-        x = self.recurrent([x, *chain(*zip(grid, modulation))], dropout=dropout)
-        return x
+        inputs = (x for x in chain(*zip(grid, modulation)) if x is not None)
+        inputs = [
+            self.feedforward(perspective),
+            *inputs,
+        ]
+        return self.recurrent(inputs=inputs, dropout=dropout)
