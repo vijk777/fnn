@@ -3,23 +3,22 @@ import numpy as np
 from typing import Sequence, Optional
 
 from .containers import Module, ModuleList
-from .variables import Stimulus
 from .elements import Conv, nonlinearity
 
 
 class Feedforward(Module):
-    def __init__(self, stimulus: Stimulus, out_channels: int, downscale: int):
+    def __init__(self, in_channels: int, out_channels: int, downscale: int):
         super().__init__()
-        self.stimulus = stimulus
+        self.in_channels = int(in_channels)
         self.out_channels = int(out_channels)
         self.downscale = int(downscale)
 
-    def forward(self, stimulus: torch.Tensor):
+    def forward(self, x: torch.Tensor):
         """
         Args:
-            stimulus (torch.Tensor) : shape = [n, c, h, w]
+            x (torch.Tensor)    : shape = [n, c, h, w]
         Returns:
-            (torch.Tensor)          : shape = [n, c', h', w']
+            (torch.Tensor)      : shape = [n, c', h', w']
         """
         raise NotImplementedError()
 
@@ -27,7 +26,7 @@ class Feedforward(Module):
 class Res3d(Feedforward):
     def __init__(
         self,
-        stimulus: Stimulus,
+        in_channels: int,
         channels: Sequence[int],
         kernel_sizes: Sequence[int],
         strides: Sequence[int],
@@ -39,12 +38,16 @@ class Res3d(Feedforward):
 
         assert len(self.channels) == len(self.kernel_sizes) == len(self.strides)
 
-        super().__init__(stimulus, self.channels[-1], np.prod(self.strides))
+        super().__init__(
+            in_channels=in_channels,
+            out_channels=self.channels[-1],
+            downscale=np.prod(self.strides),
+        )
 
         self.conv = ModuleList()
         self.res = ModuleList()
 
-        in_channels = self.stimulus.n_channels
+        in_channels = self.in_channels
         for out_channels, size, stride in zip(self.channels, self.kernel_sizes, self.strides):
 
             conv = Conv(out_channels=out_channels).add(
@@ -67,15 +70,13 @@ class Res3d(Feedforward):
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
 
-    def forward(self, stimulus: torch.Tensor):
+    def forward(self, x: torch.Tensor):
         """
         Args:
-            stimulus (torch.Tensor) : shape = [n, c, h, w]
+            x   (torch.Tensor)  : shape = [n, c, h, w]
         Returns:
-            (torch.Tensor)          : shape = [n, c', h', w']
+            (torch.Tensor)      : shape = [n, c', h', w']
         """
-        x = self.stimulus(stimulus)
-
         for conv, res in zip(self.conv, self.res):
             c = conv([x])
             r = res([x])
