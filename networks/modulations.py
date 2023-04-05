@@ -2,7 +2,7 @@ import torch
 from typing import Optional
 
 from .containers import Module
-from .standardization import Behavior
+from .variables import Behavior
 from .elements import Linear
 
 

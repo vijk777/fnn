@@ -3,7 +3,7 @@ import numpy as np
 from typing import Sequence, Optional
 
 from .containers import Module, ModuleList
-from .standardization import Stimulus
+from .variables import Stimulus
 from .elements import Conv, nonlinearity
 
 

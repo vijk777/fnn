@@ -4,7 +4,7 @@ from functools import reduce
 from typing import Sequence, Optional
 
 from .containers import Module, ModuleList
-from .standardization import EyePosition
+from .variables import EyePosition
 from .elements import Linear, nonlinearity
 from .utils import isotropic_grid_2d, rmat_3d
 
