@@ -48,24 +48,25 @@ class Res3d(Feedforward):
         self.res = ModuleList([Conv(out_channels=self.channels[0])])
 
         in_channels = self.channels[0]
-        for out_channels, size, stride in zip(self.channels[1:], self.kernel_sizes[1:], self.strides[1:]):
-
-            conv = Conv(out_channels=out_channels).add(
+        for channels, size, stride in zip(
+            self.channels[1:],
+            self.kernel_sizes[1:],
+            self.strides[1:],
+        ):
+            conv = Conv(out_channels=channels).add(
                 in_channels=in_channels,
                 kernel_size=size,
                 dynamic_size=size,
                 stride=stride,
             )
-            self.conv.append(conv)
-
-            res = Conv(out_channels=out_channels).add(
+            res = Conv(out_channels=channels).add(
                 in_channels=in_channels,
                 kernel_size=stride,
                 stride=stride,
             )
+            in_channels = channels
+            self.conv.append(conv)
             self.res.append(res)
-
-            in_channels = out_channels
 
         for res in self.res:
             torch.nn.init.constant_(res.gain, 0)
