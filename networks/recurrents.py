@@ -19,7 +19,7 @@ class Recurrent(Module):
     def forward(self, inputs: Sequence[torch.Tensor], dropout: float = 0):
         """
         Args:
-            inputs (torch.Tensors)  : shape = [n, c, h, w]
+            inputs  (torch.Tensors) : shape = [n, c, h, w]
             dropout (float)         : dropout probability
         Returns:
             (torch.Tensor)          : shape = [n, c', h, w]
