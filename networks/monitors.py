@@ -138,5 +138,5 @@ class Plane(Monitor):
         return center[:, None, None, :] + X + Y
 
     def extra_repr(self):
-        params = self.angle.tolist() + self.center.tolist()
-        return "center=[{:.3f}, {:.3f}, {:.3f}], angle=[{:.3f}, {:.3f}, {:.3f}]".format(*params)
+        params = self.center.tolist() + self.angle.tolist()
+        return "center=[{:.3g}, {:.3g}, {:.3g}], angle=[{:.3g}, {:.3g}, {:.3g}]".format(*params)
