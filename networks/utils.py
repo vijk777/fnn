@@ -69,6 +69,7 @@ def rmat_3d(
 def isotropic_grid_2d(
     height: int,
     width: int,
+    major: str = "x",
     dtype: Optional[torch.dtype] = None,
     device: Optional[str] = None,
 ):
@@ -76,16 +77,19 @@ def isotropic_grid_2d(
     Args:
         height  (int)
         width   (int)
+        major   (str)   : 'x' or 'y'
     Returns:
-        (torch.Tensor): shape = [height, width, 2]
+        (torch.Tensor)  : shape = [height, width, 2]
     """
     grid_x = torch.linspace(-1, 1, width, dtype=dtype, device=device)
     grid_y = torch.linspace(-1, 1, height, dtype=dtype, device=device)
 
-    if height < width:
+    if major == "x":
         grid_y = grid_y * height / width
-    else:
+    elif major == "y":
         grid_x = grid_x * width / height
+    else:
+        raise ValueError("major must be either 'x' or 'y'")
 
     grid = torch.meshgrid(
         grid_x,
@@ -98,6 +102,7 @@ def isotropic_grid_2d(
 def isotropic_grid_sample_2d(
     x: torch.Tensor,
     grid: torch.Tensor,
+    major: str = "x",
     pad_mode: str = "constant",
     pad_value: float = 0,
 ):
@@ -105,6 +110,7 @@ def isotropic_grid_sample_2d(
     Args:
         x       (torch.Tensor)  : shape = [n, c, h, w]
         grid    (torch.Tensor)  : shape = [n, h', w', 2]
+        major            (str)  : 'x' or 'y'
         pad_mode         (str)  : 'constant' or 'replicate'
         pad_value      (float)  : value used when pad_mode=='constant'
     Returns:
@@ -127,10 +133,12 @@ def isotropic_grid_sample_2d(
     grid_x, grid_y = grid.unbind(dim=3)
 
     _, _, height, width = x.shape
-    if height < width:
+    if major == "x":
         grid_y = grid_y * width / height
-    else:
+    elif major == "y":
         grid_x = grid_x * height / width
+    else:
+        raise ValueError("major must be either 'x' or 'y'")
 
     _, height, width, _ = grid.shape
     grid = [
