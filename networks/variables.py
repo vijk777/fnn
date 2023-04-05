@@ -5,6 +5,34 @@ from typing import Optional
 from .containers import Module
 
 
+def default_stimulus(n_channels: int = 1):
+    return Stimulus(
+        mean=[0] * n_channels,
+        std=[1] * n_channels,
+    )
+
+
+def default_eye_position(n_features: int = 2):
+    return EyePosition(
+        mean=[0] * n_features,
+        std=[1] * n_features,
+    )
+
+
+def default_behavior(n_features: int = 3):
+    return Behavior(
+        mean=[0] * n_features,
+        std=[1] * n_features,
+        zero=[False] * n_features,
+    )
+
+
+def default_response(n_units: int = 100):
+    return Response(
+        mean=[1] * n_units,
+    )
+
+
 class Stimulus(Module):
     def __init__(
         self,
@@ -21,17 +49,19 @@ class Stimulus(Module):
 
         self.register_buffer("mean", torch.tensor(mean, dtype=torch.float))
         self.register_buffer("std", torch.tensor(std, dtype=torch.float))
-        self.n_channels = len(self.mean)
 
-        assert self.n_channels == self.mean.numel() == self.std.numel()
+        assert self.mean.ndim == self.std.ndim == 1
+        assert self.mean.numel() == self.std.numel()
         assert self.std.min().item() > eps
+
+        self.n_channels = self.mean.numel()
 
     def forward(self, x: torch.Tensor):
         """
         Args:
-            x (torch.Tensor)    : shape = [N, C, H, W]
+            x (torch.Tensor)    : shape = [n, c, h, w]
         Returns:
-            (torch.Tensor)      : shape = [N, C, H, W]
+            (torch.Tensor)      : shape = [n, c, h, w]
         """
         x = x.to(device=self.device)
 
@@ -41,7 +71,7 @@ class Stimulus(Module):
         return (x - mean) / std
 
     def extra_repr(self):
-        f = ", ".join(["{:.3g}" for _ in range(self.n_channels)])
+        f = ", ".join(["{:.3g}"] * self.n_channels)
         f = f"mean=[{f}], std=[{f}]"
         return f.format(*self.mean.tolist(), *self.std.tolist())
 
@@ -62,17 +92,19 @@ class EyePosition(Module):
 
         self.register_buffer("mean", torch.tensor(mean, dtype=torch.float))
         self.register_buffer("std", torch.tensor(std, dtype=torch.float))
-        self.n_features = len(self.mean)
 
-        assert self.n_features == self.mean.numel() == self.std.numel()
+        assert self.mean.ndim == self.std.ndim == 1
+        assert self.mean.numel() == self.std.numel()
         assert self.std.min().item() > eps
+
+        self.n_features = self.mean.numel()
 
     def forward(self, x: Optional[torch.Tensor] = None):
         """
         Args:
-            x (torch.Tensor)    : shape = [N, C, H, W]
+            x (torch.Tensor)    : shape = [n, f]
         Returns:
-            (torch.Tensor)      : shape = [N, C, H, W]
+            (torch.Tensor)      : shape = [n, f]
         """
         if x is None:
             return torch.zeros(1, self.n_features, device=self.device)
@@ -81,7 +113,7 @@ class EyePosition(Module):
             return (x - self.mean) / self.std
 
     def extra_repr(self):
-        f = ", ".join(["{:.3g}" for _ in range(self.n_features)])
+        f = ", ".join(["{:.3g}"] * self.n_features)
         f = f"mean=[{f}], std=[{f}]"
         return f.format(*self.mean.tolist(), *self.std.tolist())
 
@@ -107,8 +139,11 @@ class Behavior(Module):
         self.register_buffer("zero", torch.tensor(zero, dtype=torch.bool))
         self.n_features = len(self.mean)
 
-        assert self.n_features == self.mean.numel() == self.std.numel() == self.zero.numel()
+        assert self.mean.ndim == self.std.ndim == self.zero.ndim == 1
+        assert self.mean.numel() == self.std.numel() == self.zero.numel()
         assert self.std.min().item() > eps
+
+        self.n_features = self.mean.numel()
 
         adj_mean = self.mean.clone()
         adj_mean[self.zero] = 0
@@ -117,9 +152,9 @@ class Behavior(Module):
     def forward(self, x: Optional[torch.Tensor] = None):
         """
         Args:
-            x (torch.Tensor)    : shape = [N, F]
+            x (torch.Tensor)    : shape = [n, f]
         Returns:
-            (torch.Tensor)      : shape = [N, F]
+            (torch.Tensor)      : shape = [n, f]
         """
         if x is None:
             return torch.zeros(1, self.n_features, device=self.device)
@@ -128,8 +163,8 @@ class Behavior(Module):
             return (x - self.adj_mean) / self.std
 
     def extra_repr(self):
-        f = ", ".join(["{:.3g}" for _ in range(self.n_features)])
-        m = ", ".join(["{}" for _ in range(self.n_features)])
+        f = ", ".join(["{:.3g}"] * self.n_features)
+        m = ", ".join(["{}"] * self.n_features)
         f = f"mean=[{f}], std=[{f}], zero=[{m}]"
         return f.format(*self.mean.tolist(), *self.std.tolist(), *self.zero.tolist())
 
@@ -147,10 +182,11 @@ class Response(Module):
         super().__init__()
 
         self.register_buffer("mean", torch.tensor(mean, dtype=torch.float))
-        self.n_units = len(self.mean)
 
-        assert self.n_units == self.mean.numel()
+        assert self.mean.ndim == 1
         assert self.mean.min().item() > eps
+
+        self.n_units = self.mean.numel()
 
     def forward(
         self,
@@ -160,11 +196,11 @@ class Response(Module):
     ):
         """
         Args:
-            x       (torch.Tensor)  : shape = [N, U]
+            x       (torch.Tensor)  : shape = [n, u]
             log     (bool)          : log response or normal response
             inverse (bool)          : raw or standardize
         Returns:
-            (torch.Tensor)          : shape = [N, U]
+            (torch.Tensor)          : shape = [n, u]
         """
         x = x.to(device=self.device)
 
@@ -180,4 +216,4 @@ class Response(Module):
                 return x / self.mean
 
     def extra_repr(self):
-        return f"{self.n_units}"
+        return f"n_units={self.n_units}"
