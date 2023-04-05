@@ -34,12 +34,7 @@ def default_response(n_units: int = 100):
 
 
 class Stimulus(Module):
-    def __init__(
-        self,
-        mean: ArrayLike,
-        std: ArrayLike,
-        eps: float = 1e-5,
-    ):
+    def __init__(self, mean: ArrayLike, std: ArrayLike, eps: float = 1e-5):
         """
         Args:
             mean    (ArrayLike) : shape = [number of channels], dtype = float
@@ -56,19 +51,22 @@ class Stimulus(Module):
 
         self.n_channels = self.mean.numel()
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, inverse: bool = False):
         """
         Args:
-            x (torch.Tensor)    : shape = [n, c, h, w]
+            x       (torch.Tensor)  : shape = [n, c, h, w]
+            inverse (bool)          : inverse transform or normal transform
         Returns:
             (torch.Tensor)      : shape = [n, c, h, w]
         """
         x = x.to(device=self.device)
-
         mean = self.mean[:, None, None]
         std = self.std[:, None, None]
 
-        return (x - mean) / std
+        if inverse:
+            return x * std + mean
+        else:
+            return (x - mean) / std
 
     def extra_repr(self):
         f = ", ".join(["{:.3g}"] * self.n_channels)
@@ -77,12 +75,7 @@ class Stimulus(Module):
 
 
 class EyePosition(Module):
-    def __init__(
-        self,
-        mean: ArrayLike,
-        std: ArrayLike,
-        eps: float = 1e-5,
-    ):
+    def __init__(self, mean: ArrayLike, std: ArrayLike, eps: float = 1e-5):
         """
         Args:
             mean    (ArrayLike) : shape = [number of features], dtype = float
@@ -119,13 +112,7 @@ class EyePosition(Module):
 
 
 class Behavior(Module):
-    def __init__(
-        self,
-        mean: ArrayLike,
-        std: ArrayLike,
-        zero: ArrayLike,
-        eps: float = 1e-5,
-    ):
+    def __init__(self, mean: ArrayLike, std: ArrayLike, zero: ArrayLike, eps: float = 1e-5):
         """
         Args:
             mean        (ArrayLike) : shape = [number of features], dtype = float
@@ -170,11 +157,7 @@ class Behavior(Module):
 
 
 class Response(Module):
-    def __init__(
-        self,
-        mean: ArrayLike,
-        eps: float = 1e-5,
-    ):
+    def __init__(self, mean: ArrayLike, eps: float = 1e-5):
         """
         Args:
             mean    (ArrayLike) : shape = [number of units], dtype = float
@@ -188,17 +171,12 @@ class Response(Module):
 
         self.n_units = self.mean.numel()
 
-    def forward(
-        self,
-        x: torch.Tensor,
-        log: bool = False,
-        inverse: bool = False,
-    ):
+    def forward(self, x: torch.Tensor, log: bool = False, inverse: bool = False):
         """
         Args:
             x       (torch.Tensor)  : shape = [n, u]
             log     (bool)          : log response or normal response
-            inverse (bool)          : raw or standardize
+            inverse (bool)          : inverse transform or normal transform
         Returns:
             (torch.Tensor)          : shape = [n, u]
         """
