@@ -86,14 +86,18 @@ def isotropic_grid_2d(
 
     if major == "x":
         grid_y = grid_y * height / width
+        scale = (width - 1) / width
+
     elif major == "y":
         grid_x = grid_x * width / height
+        scale = (height - 1) / height
+
     else:
         raise ValueError("major must be either 'x' or 'y'")
 
     grid = torch.meshgrid(
-        grid_x,
-        grid_y,
+        grid_x * scale,
+        grid_y * scale,
         indexing="xy",
     )
     return torch.stack(grid, dim=2)
@@ -123,7 +127,7 @@ def isotropic_grid_sample_2d(
 
     elif pad_mode == "replicate":
         if pad_value:
-            raise ValueError("cannot specify pad_value with pad_mode='pad_value'")
+            raise ValueError("cannot specify pad_value with pad_mode='constant'")
         finalize = lambda x: x
         padding_mode = "border"
 
@@ -135,15 +139,19 @@ def isotropic_grid_sample_2d(
     _, _, height, width = x.shape
     if major == "x":
         grid_y = grid_y * width / height
+        scale = width / (width - 1)
+
     elif major == "y":
         grid_x = grid_x * height / width
+        scale = height / (height - 1)
+
     else:
         raise ValueError("major must be either 'x' or 'y'")
 
     _, height, width, _ = grid.shape
     grid = [
-        grid_x * (width - 1) / width,
-        grid_y * (height - 1) / height,
+        grid_x * scale * (width - 1) / width,
+        grid_y * scale * (height - 1) / height,
     ]
 
     x = F.grid_sample(
