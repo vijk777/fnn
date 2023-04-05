@@ -13,7 +13,7 @@ def to_groups_2d(
         tensor  (torch.Tensor)  : shape = [n, c, h, w]
         groups  (float)
     Returns:
-        (torch.Tensor): shape = [n, groups, c // groups, h, w]
+        (torch.Tensor)          : shape = [n, groups, c // groups, h, w]
     """
     N, _, H, W = tensor.shape
     return tensor.view(N, groups, -1, H, W)
@@ -26,11 +26,11 @@ def rmat_3d(
 ):
     """
     Args:
-        x (torch.Tensor): shape = [N]
-        y (torch.Tensor): shape = [N]
-        z (torch.Tensor): shape = [N]
+        x (torch.Tensor)    : shape = [N]
+        y (torch.Tensor)    : shape = [N]
+        z (torch.Tensor)    : shape = [N]
     Returns:
-        (torch.Tensor): shape = [N, 3, 3]
+        (torch.Tensor)      : shape = [N, 3, 3]
     """
     N = len(x)
     assert N == len(y) == len(z)
@@ -112,13 +112,13 @@ def isotropic_grid_sample_2d(
 ):
     """
     Args:
-        x       (torch.Tensor)  : shape = [n, c, h, w]
-        grid    (torch.Tensor)  : shape = [n, h', w', 2]
-        major            (str)  : 'x' or 'y'
-        pad_mode         (str)  : 'constant' or 'replicate'
-        pad_value      (float)  : value used when pad_mode=='constant'
+        x           (torch.Tensor)  : shape = [n, c, h, w]
+        grid        (torch.Tensor)  : shape = [n, h', w', 2]
+        major       (str)           : 'x' or 'y'
+        pad_mode    (str)           : 'constant' or 'replicate'
+        pad_value   (float)         : value of padding when pad_mode=='constant'
     Returns:
-        (torch.Tensor)          : shape = [n, c, h', w']
+        (torch.Tensor)              : shape = [n, c, h', w']
     """
     if pad_mode == "constant":
         x = x - pad_value
