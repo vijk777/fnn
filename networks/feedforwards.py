@@ -7,18 +7,20 @@ from .elements import Conv, nonlinearity
 
 
 class Feedforward(Module):
-    def __init__(self, in_channels: int, out_channels: int, downscale: int):
+    def __init__(self, out_channels: int, downscale: int):
         super().__init__()
-        self.in_channels = int(in_channels)
         self.out_channels = int(out_channels)
         self.downscale = int(downscale)
 
-    def forward(self, x: torch.Tensor):
+    def add_input(self, channels: int):
+        raise NotImplementedError()
+
+    def forward(self, inputs: Sequence[torch.Tensor]):
         """
         Args:
-            x (torch.Tensor)    : shape = [n, c, h, w]
+            inputs (Sequence of torch.Tensors): shape = [n, c, h, w]
         Returns:
-            (torch.Tensor)      : shape = [n, c', h', w']
+            (torch.Tensor): shape = [n, c', h, w]
         """
         raise NotImplementedError()
 
@@ -26,7 +28,6 @@ class Feedforward(Module):
 class Res3d(Feedforward):
     def __init__(
         self,
-        in_channels: int,
         channels: Sequence[int],
         kernel_sizes: Sequence[int],
         strides: Sequence[int],
@@ -39,16 +40,15 @@ class Res3d(Feedforward):
         assert len(self.channels) == len(self.kernel_sizes) == len(self.strides)
 
         super().__init__(
-            in_channels=in_channels,
             out_channels=self.channels[-1],
             downscale=np.prod(self.strides),
         )
 
-        self.conv = ModuleList()
-        self.res = ModuleList()
+        self.conv = ModuleList([Conv(out_channels=self.channels[0])])
+        self.res = ModuleList([Conv(out_channels=self.channels[0])])
 
-        in_channels = self.in_channels
-        for out_channels, size, stride in zip(self.channels, self.kernel_sizes, self.strides):
+        in_channels = self.channels[0]
+        for out_channels, size, stride in zip(self.channels[1:], self.kernel_sizes[1:], self.strides[1:]):
 
             conv = Conv(out_channels=out_channels).add(
                 in_channels=in_channels,
@@ -63,23 +63,38 @@ class Res3d(Feedforward):
                 kernel_size=stride,
                 stride=stride,
             )
-            torch.nn.init.constant_(res.gain, 0)
             self.res.append(res)
 
             in_channels = out_channels
 
+        for res in self.res:
+            torch.nn.init.constant_(res.gain, 0)
+
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
 
-    def forward(self, x: torch.Tensor):
+    def add_input(self, channels: int):
+        self.conv[0].add(
+            in_channels=int(channels),
+            kernel_size=self.kernel_sizes[0],
+            dynamic_size=self.kernel_sizes[0],
+            stride=self.strides[0],
+        )
+        self.res[0].add(
+            in_channels=int(channels),
+            kernel_size=self.strides[0],
+            stride=self.strides[0],
+        )
+
+    def forward(self, inputs: Sequence[torch.Tensor]):
         """
         Args:
-            x   (torch.Tensor)  : shape = [n, c, h, w]
+            inputs (Sequence of torch.Tensors): shape = [n, c, h, w]
         Returns:
-            (torch.Tensor)      : shape = [n, c', h', w']
+            (torch.Tensor): shape = [n, c', h, w]
         """
         for conv, res in zip(self.conv, self.res):
-            c = conv([x])
-            r = res([x])
-            x = self.nonlinear(c).mul(self.gamma).add(r)
+            c = conv(inputs)
+            r = res(inputs)
+            inputs = [self.nonlinear(c) * self.gamma + r]
 
-        return x
+        return inputs[0]
