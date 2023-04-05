@@ -7,7 +7,7 @@ from .elements import Conv, nonlinearity
 
 
 class Feedforward(Module):
-    def __init__(self, out_channels: int, downscale: int):
+    def __init__(self, out_channels: int, downscale: int = 1):
         super().__init__()
         self.out_channels = int(out_channels)
         self.downscale = int(downscale)
@@ -18,9 +18,9 @@ class Feedforward(Module):
     def forward(self, inputs: Sequence[torch.Tensor]):
         """
         Args:
-            inputs (Sequence of torch.Tensors)  : shape = [n, c, h, w]
+            inputs (torch.Tensors)  : shape = [n, c, h, w]
         Returns:
-            (torch.Tensor)                      : shape = [n, c', h, w]
+            (torch.Tensor)          : shape = [n, c', h, w]
         """
         raise NotImplementedError()
 
@@ -75,13 +75,13 @@ class Res3d(Feedforward):
 
     def add_input(self, channels: int):
         self.conv[0].add(
-            in_channels=int(channels),
+            in_channels=channels,
             kernel_size=self.kernel_sizes[0],
             dynamic_size=self.kernel_sizes[0],
             stride=self.strides[0],
         )
         self.res[0].add(
-            in_channels=int(channels),
+            in_channels=channels,
             kernel_size=self.strides[0],
             stride=self.strides[0],
         )

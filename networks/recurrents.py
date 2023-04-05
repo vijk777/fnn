@@ -8,22 +8,21 @@ from .utils import to_groups_2d
 
 
 class Recurrent(Module):
-    def __init__(
-        self,
-        in_channels: Sequence[int],
-        out_channels: int,
-    ):
+    def __init__(self, out_channels: int, downscale: int = 1):
         super().__init__()
-        self.in_channels = list(map(int, in_channels))
         self.out_channels = int(out_channels)
+        self.downscale = int(downscale)
+
+    def add_input(self, channels: int):
+        raise NotImplementedError()
 
     def forward(self, inputs: Sequence[torch.Tensor], dropout: float = 0):
         """
         Args:
-            inputs (Sequence of torch.Tensors): shape = [n, c, h, w]
-            dropout (float): dropout probability
+            inputs (torch.Tensors)  : shape = [n, c, h, w]
+            dropout (float)         : dropout probability
         Returns:
-            (torch.Tensor): shape = [n, c', h, w]
+            (torch.Tensor)          : shape = [n, c', h, w]
         """
         raise NotImplementedError()
 
@@ -31,12 +30,11 @@ class Recurrent(Module):
 class RvT(Recurrent):
     def __init__(
         self,
-        in_channels: Sequence[int],
         channels: int,
         kernel_size: int,
         groups: int = 1,
     ):
-        super().__init__(in_channels, channels)
+        super().__init__(channels)
 
         self.channels = self.out_channels
         self.kernel_size = int(kernel_size)
@@ -57,10 +55,6 @@ class RvT(Recurrent):
             gain=False,
             bias=False,
         )
-
-        for c in self.in_channels:
-            self.proj_x.add(in_channels=c)
-
         if self.groups > 1:
             self.proj_x.add_intergroup()
 
@@ -136,22 +130,26 @@ class RvT(Recurrent):
     def _reset(self):
         self._past.clear()
 
+    def add_input(self, channels: int):
+        self.proj_x.add(in_channels=channels)
+
     def forward(self, inputs: Sequence[torch.Tensor], dropout: float = 0):
         """
         Args:
-            inputs (Sequence of torch.Tensors): shape = [n, c, h, w]
-            dropout (float): dropout probability
+            inputs (torch.Tensors)  : shape = [n, c, h, w]
+            dropout (float)         : dropout probability
         Returns:
-            (torch.Tensor): shape = [n, c', h, w]
+            (torch.Tensor)          : shape = [n, c', h, w]
         """
         if self._past:
             h = self._past["h"]
             c = self._past["c"]
         else:
-            h = c = torch.zeros(1, self.out_channels, 1, 1, device=self.device)
+            N, _, H, W = inputs[0].shape
+            h = c = torch.zeros(N, self.out_channels, H, W, device=self.device)
 
         if self.groups > 1:
-            x = self.proj_x([*inputs, h])
+            x = self.proj_x([h, *inputs])
         else:
             x = self.proj_x(inputs)
 
