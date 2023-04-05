@@ -30,17 +30,19 @@ class Monitor(Module):
 class Plane(Monitor):
     def __init__(
         self,
+        init_center: float = 0.5,
         init_center_std: float = 0.05,
         init_angle_std: float = 0.05,
         eps: float = 1e-5,
     ):
         super().__init__()
 
+        self.init_center = float(init_center)
         self.init_center_std = float(init_center_std)
         self.init_angle_std = float(init_angle_std)
         self.eps = float(eps)
 
-        self.center = nn.Parameter(torch.tensor([0, 0, 1.0]))
+        self.center = nn.Parameter(torch.tensor([0, 0, self.init_center]))
         self.angle = nn.Parameter(torch.zeros(3))
 
         self.center_std = nn.Parameter(torch.zeros(3))
@@ -137,4 +139,4 @@ class Plane(Monitor):
 
     def extra_repr(self):
         params = self.angle.tolist() + self.center.tolist()
-        return "rotate=[{:.3f}, {:.3f}, {:.3f}], translate=[{:.3f}, {:.3f}, {:.3f}]".format(*params)
+        return "center=[{:.3f}, {:.3f}, {:.3f}], angle=[{:.3f}, {:.3f}, {:.3f}]".format(*params)
