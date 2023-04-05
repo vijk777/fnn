@@ -153,7 +153,11 @@ class RvT(Recurrent):
         else:
             x = self.proj_x(inputs)
 
-        xh = torch.stack([to_groups_2d(x, self.groups), to_groups_2d(h.expand_as(x), self.groups)], 2)
+        xh = [
+            to_groups_2d(x, self.groups),
+            to_groups_2d(h, self.groups),
+        ]
+        xh = torch.stack(xh, 2)
         xh = self.drop(xh, p=dropout).flatten(1, 3)
 
         q = to_groups_2d(self.proj_q([xh]), self.groups).flatten(3, 4)
