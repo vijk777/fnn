@@ -18,9 +18,9 @@ class Feedforward(Module):
     def forward(self, inputs: Sequence[torch.Tensor]):
         """
         Args:
-            inputs (Sequence of torch.Tensors): shape = [n, c, h, w]
+            inputs (Sequence of torch.Tensors)  : shape = [n, c, h, w]
         Returns:
-            (torch.Tensor): shape = [n, c', h, w]
+            (torch.Tensor)                      : shape = [n, c', h, w]
         """
         raise NotImplementedError()
 
@@ -88,9 +88,9 @@ class Res3d(Feedforward):
     def forward(self, inputs: Sequence[torch.Tensor]):
         """
         Args:
-            inputs (Sequence of torch.Tensors): shape = [n, c, h, w]
+            inputs (Sequence of torch.Tensors)  : shape = [n, c, h, w]
         Returns:
-            (torch.Tensor): shape = [n, c', h, w]
+            (torch.Tensor)                      : shape = [n, c', h, w]
         """
         for conv, res in zip(self.conv, self.res):
             c = conv(inputs)
