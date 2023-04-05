@@ -79,15 +79,70 @@ def isotropic_grid_2d(
     Returns:
         (torch.Tensor): shape = [height, width, 2]
     """
-    h = torch.linspace(-1, 1, height, dtype=dtype, device=device)
-    w = torch.linspace(-1, 1, width, dtype=dtype, device=device)
+    grid_x = torch.linspace(-1, 1, width, dtype=dtype, device=device)
+    grid_y = torch.linspace(-1, 1, height, dtype=dtype, device=device)
 
     if height < width:
-        h = h * height / width
-        scale = (width - 1) / width
+        grid_y = grid_y * height / width
+    else:
+        grid_x = grid_x * width / height
+
+    grid = torch.meshgrid(
+        grid_x,
+        grid_y,
+        indexing="xy",
+    )
+    return torch.stack(grid, dim=2)
+
+
+def isotropic_grid_sample_2d(
+    x: torch.Tensor,
+    grid: torch.Tensor,
+    pad_mode: str = "constant",
+    pad_value: float = 0,
+):
+    """
+    Args:
+        x       (torch.Tensor)  : shape = [n, c, h, w]
+        grid    (torch.Tensor)  : shape = [n, h', w', 2]
+        pad_mode         (str)  : 'constant' or 'replicate'
+        pad_value      (float)  : value used when pad_mode=='constant'
+    Returns:
+        (torch.Tensor)          : shape = [n, c, h', w']
+    """
+    if pad_mode == "constant":
+        x = x - pad_value
+        finalize = lambda x: x + pad_value
+        padding_mode = "zeros"
+
+    elif pad_mode == "replicate":
+        if pad_value:
+            raise ValueError("cannot specify pad_value with pad_mode='pad_value'")
+        finalize = lambda x: x
+        padding_mode = "border"
 
     else:
-        w = w * width / height
-        scale = (height - 1) / height
+        raise ValueError("pad_mode must either be 'constant' or 'replicate'")
 
-    return torch.stack(torch.meshgrid(w * scale, h * scale, indexing="xy"), dim=2)
+    grid_x, grid_y = grid.unbind(dim=3)
+
+    _, _, height, width = x.shape
+    if height < width:
+        grid_y = grid_y * width / height
+    else:
+        grid_x = grid_x * height / width
+
+    _, height, width, _ = grid.shape
+    grid = [
+        grid_x * (width - 1) / width,
+        grid_y * (height - 1) / height,
+    ]
+
+    x = F.grid_sample(
+        x,
+        grid=torch.stack(grid, dim=3),
+        mode="bilinear",
+        padding_mode=padding_mode,
+        align_corners=False,
+    )
+    return finalize(x)
