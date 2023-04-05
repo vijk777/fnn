@@ -14,6 +14,16 @@ class Retina(Module):
         super().__init__()
         self.eye_position = eye_position
 
+    def grid(self, height: int = 144, width: int = 256):
+        """
+        Args:
+            height          (int)
+            width           (int)
+        Returns:
+            (torch.Tensor)                  : shape = [h, w, 3]
+        """
+        raise NotImplementedError()
+
     def rays(self, eye_position: Optional[torch.Tensor] = None, height: int = 144, width: int = 256):
         """
         Args:
