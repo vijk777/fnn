@@ -91,27 +91,27 @@ class Behavior(Module):
         self,
         mean: ArrayLike,
         std: ArrayLike,
-        mask: ArrayLike,
+        zero: ArrayLike,
         eps: float = 1e-5,
     ):
         """
         Args:
             mean        (ArrayLike) : shape = [number of features], dtype = float
             std         (ArrayLike) : shape = [number of features], dtype = float
-            mask        (ArrayLike) : shape = [number of features], dtype = bool
+            zero        (ArrayLike) : shape = [number of features], dtype = bool
         """
         super().__init__()
 
         self.register_buffer("mean", torch.tensor(mean, dtype=torch.float))
         self.register_buffer("std", torch.tensor(std, dtype=torch.float))
-        self.register_buffer("mask", torch.tensor(mask, dtype=torch.bool))
+        self.register_buffer("zero", torch.tensor(zero, dtype=torch.bool))
         self.n_features = len(self.mean)
 
-        assert self.n_features == self.mean.numel() == self.std.numel() == self.mask.numel()
+        assert self.n_features == self.mean.numel() == self.std.numel() == self.zero.numel()
         assert self.std.min().item() > eps
 
         adj_mean = self.mean.clone()
-        adj_mean[self.mask] = 0
+        adj_mean[self.zero] = 0
         self.register_buffer("adj_mean", adj_mean)
 
     def forward(self, x: Optional[torch.Tensor] = None):
@@ -130,8 +130,8 @@ class Behavior(Module):
     def extra_repr(self):
         f = ", ".join(["{:.3g}" for _ in range(self.n_features)])
         m = ", ".join(["{}" for _ in range(self.n_features)])
-        f = f"mean=[{f}], std=[{f}], mask=[{m}]"
-        return f.format(*self.mean.tolist(), *self.std.tolist(), *self.mask.tolist())
+        f = f"mean=[{f}], std=[{f}], zero=[{m}]"
+        return f.format(*self.mean.tolist(), *self.std.tolist(), *self.zero.tolist())
 
 
 class Response(Module):
