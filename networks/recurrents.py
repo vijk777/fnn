@@ -22,16 +22,16 @@ class RvT(Recurrent):
     def __init__(
         self,
         in_channels: Sequence[int],
-        out_channels: int,
+        channels: int,
         kernel_size: int,
         groups: int = 1,
     ):
-        super().__init__(in_channels, out_channels)
+        super().__init__(in_channels, channels)
 
-        self.out_channels = int(out_channels)
+        self.channels = self.out_channels
         self.kernel_size = int(kernel_size)
         self.groups = int(groups)
-        self.group_channels = self.out_channels // self.groups
+        self.group_channels = self.channels // self.groups
 
         self.tau = nn.Parameter(torch.ones(self.groups))
         nn.init.constant_(self.tau, self.group_channels**-0.5)
@@ -42,7 +42,7 @@ class RvT(Recurrent):
         )
 
         self.proj_x = Conv(
-            out_channels=self.out_channels,
+            out_channels=self.channels,
             out_groups=self.groups,
             gain=False,
             bias=False,
@@ -54,69 +54,69 @@ class RvT(Recurrent):
         if self.groups > 1:
             self.proj_x.add_intergroup()
 
-        self.proj_q = Conv(out_channels=self.out_channels, out_groups=self.groups, gain=False, bias=False)
+        self.proj_q = Conv(out_channels=self.channels, out_groups=self.groups, gain=False, bias=False)
         self.proj_q.add(
-            in_channels=self.out_channels * 2,
+            in_channels=self.channels * 2,
             in_groups=self.groups,
             kernel_size=self.kernel_size,
         )
 
-        self.proj_k = Conv(out_channels=self.out_channels, out_groups=self.groups, gain=False, bias=False)
+        self.proj_k = Conv(out_channels=self.channels, out_groups=self.groups, gain=False, bias=False)
         self.proj_k.add(
-            in_channels=self.out_channels * 2,
+            in_channels=self.channels * 2,
             in_groups=self.groups,
             kernel_size=self.kernel_size,
             pad=False,
         )
 
-        self.proj_v = Conv(out_channels=self.out_channels, out_groups=self.groups, gain=False, bias=False)
+        self.proj_v = Conv(out_channels=self.channels, out_groups=self.groups, gain=False, bias=False)
         self.proj_v.add(
-            in_channels=self.out_channels * 2,
+            in_channels=self.channels * 2,
             in_groups=self.groups,
             kernel_size=self.kernel_size,
             pad=False,
         )
 
-        self.proj_i = Conv(out_channels=self.out_channels, out_groups=self.groups)
+        self.proj_i = Conv(out_channels=self.channels, out_groups=self.groups)
         self.proj_i.add(
-            in_channels=self.out_channels,
+            in_channels=self.channels,
             in_groups=self.groups,
         )
         self.proj_i.add(
-            in_channels=self.out_channels * 2,
+            in_channels=self.channels * 2,
             in_groups=self.groups,
             kernel_size=self.kernel_size,
         )
 
-        self.proj_f = Conv(out_channels=self.out_channels, out_groups=self.groups)
+        self.proj_f = Conv(out_channels=self.channels, out_groups=self.groups)
         self.proj_f.add(
-            in_channels=self.out_channels,
+            in_channels=self.channels,
             in_groups=self.groups,
         )
         self.proj_f.add(
-            in_channels=self.out_channels * 2,
+            in_channels=self.channels * 2,
             in_groups=self.groups,
             kernel_size=self.kernel_size,
         )
 
-        self.proj_g = Conv(out_channels=self.out_channels, out_groups=self.groups)
+        self.proj_g = Conv(out_channels=self.channels, out_groups=self.groups)
         self.proj_g.add(
-            in_channels=self.out_channels,
+            in_channels=self.channels,
             in_groups=self.groups,
         )
         self.proj_g.add(
-            in_channels=self.out_channels * 2,
+            in_channels=self.channels * 2,
             in_groups=self.groups,
             kernel_size=self.kernel_size,
         )
 
-        self.proj_o = Conv(out_channels=self.out_channels, out_groups=self.groups)
+        self.proj_o = Conv(out_channels=self.channels, out_groups=self.groups)
         self.proj_o.add(
-            in_channels=self.out_channels,
+            in_channels=self.channels,
             in_groups=self.groups,
         )
         self.proj_o.add(
-            in_channels=self.out_channels * 2,
+            in_channels=self.channels * 2,
             in_groups=self.groups,
             kernel_size=self.kernel_size,
         )
