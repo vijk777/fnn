@@ -6,6 +6,15 @@ from .utils import isotropic_grid_2d, rmat_3d
 
 
 class Monitor(Module):
+    def project(self, rays: torch.Tensor):
+        """
+        Args:
+            rays (torch.Tensor) : shape = [n, h, w, 3]
+        Returns:
+            (torch.Tensor)      : shape = [n, h, w, 2]
+        """
+        raise NotImplementedError()
+
     def rays(self, batch_size: int = 1, height: int = 144, width: int = 256):
         """
         Args:
@@ -14,15 +23,6 @@ class Monitor(Module):
             width       (int)
         Returns:
             (torch.Tensor)      : shape = [batch_size, height, width, 3]
-        """
-        raise NotImplementedError()
-
-    def project(self, rays: torch.Tensor):
-        """
-        Args:
-            rays (torch.Tensor) : shape = [n, h, w, 3]
-        Returns:
-            (torch.Tensor)      : shape = [n, h, w, 2]
         """
         raise NotImplementedError()
 
@@ -94,6 +94,27 @@ class Plane(Monitor):
 
         return self._position["center"], self._position["X"], self._position["Y"], self._position["Z"]
 
+    def project(self, rays: torch.Tensor):
+        """
+        Args:
+            rays (torch.Tensor) : shape = [n, h, w, 3]
+        Returns:
+            (torch.Tensor)      : shape = [n, h, w, 2]
+        """
+        center, X, Y, Z = self.position(batch_size=rays.size(0))
+
+        a = torch.einsum("N D , N D -> N", Z, center)[:, None, None]
+        b = torch.einsum("N D , N H W D -> N H W", Z, rays).clip(self.eps)
+
+        c = torch.einsum("N H W , N H W D -> N H W D", a / b, rays)
+        d = c - center[:, None, None, :]
+
+        proj = [
+            torch.einsum("N H W D , N D -> N H W", d, X),
+            torch.einsum("N H W D , N D -> N H W", d, Y),
+        ]
+        return torch.stack(proj, dim=3)
+
     def rays(self, batch_size: int = 1, height: int = 144, width: int = 256):
         """
         Args:
@@ -115,27 +136,6 @@ class Plane(Monitor):
         Y = torch.einsum("H W , N D -> N H W D", y, Y)
 
         return center[:, None, None, :] + X + Y
-
-    def project(self, rays: torch.Tensor):
-        """
-        Args:
-            rays (torch.Tensor) : shape = [n, h, w, 3]
-        Returns:
-            (torch.Tensor)      : shape = [n, h, w, 2]
-        """
-        center, X, Y, Z = self.position(batch_size=rays.size(0))
-
-        a = torch.einsum("N D , N D -> N", Z, center)[:, None, None]
-        b = torch.einsum("N D , N H W D -> N H W", Z, rays).clip(self.eps)
-
-        c = torch.einsum("N H W , N H W D -> N H W D", a / b, rays)
-        d = c - center[:, None, None, :]
-
-        proj = [
-            torch.einsum("N H W D , N D -> N H W", d, X),
-            torch.einsum("N H W D , N D -> N H W", d, Y),
-        ]
-        return torch.stack(proj, dim=3)
 
     def extra_repr(self):
         params = self.angle.tolist() + self.center.tolist()
