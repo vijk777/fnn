@@ -24,26 +24,30 @@ class Retina(Module):
         """
         raise NotImplementedError()
 
-    def rays(self, eye_position: Optional[torch.Tensor] = None, height: int = 144, width: int = 256):
+    def project(self, rmat: torch.Tensor, eye_position: Optional[torch.Tensor] = None):
         """
         Args:
-            eye_position    (torch.Tensor)  : shape = [n, f]
-            height          (int)
-            width           (int)
-        Returns:
-            (torch.Tensor)                  : shape = [n, h, w, 3]
-        """
-        raise NotImplementedError()
-
-    def project(self, rays: torch.Tensor, eye_position: Optional[torch.Tensor] = None):
-        """
-        Args:
-            rays            (torch.Tensor)  : shape = [n, h, w, 3]
+            rmat            (torch.Tensor)  : shape = [n, 3, 3]
             eye_position    (torch.Tensor)  : shape = [n, f]
         Returns:
             (torch.Tensor)                  : shape = [n, h, w, 2]
         """
         raise NotImplementedError()
+
+    def rays(self, rmat: torch.Tensor, height: int = 144, width: int = 256):
+        """
+        Args:
+            rmat            (torch.Tensor)  : shape = [n, 3, 3]
+            height          (int)
+            width           (int)
+        Returns:
+            (torch.Tensor)                  : shape = [n, h, w, 3]
+        """
+        grid = self.grid(
+            height=height,
+            width=width,
+        )
+        return torch.einsum("N C D , H W D -> N H W C", rmat, grid)
 
 
 class _MLP(Retina):
