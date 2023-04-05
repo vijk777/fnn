@@ -1,38 +1,51 @@
 import torch
+import numpy as np
 from typing import Sequence, Optional
 
 from .containers import Module, ModuleList
+from .standardization import Stimulus
 from .elements import Conv, nonlinearity
 
 
 class Feedforward(Module):
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-    ):
+    def __init__(self, stimulus: Stimulus, out_channels: int, downscale: int):
         super().__init__()
-        self.in_channels = int(in_channels)
+        self.stimulus = stimulus
         self.out_channels = int(out_channels)
+        self.downscale = int(downscale)
+
+    def forward(self, stimulus: torch.Tensor):
+        """
+        Args:
+            stimulus (torch.Tensor) : shape = [n, c, h, w]
+        Returns:
+            (torch.Tensor)          : shape = [n, c', h', w']
+        """
+        raise NotImplementedError()
 
 
 class Res3d(Feedforward):
     def __init__(
         self,
-        in_channels: int,
-        out_channels: Sequence[int],
+        stimulus: Stimulus,
+        channels: Sequence[int],
         kernel_sizes: Sequence[int],
         strides: Sequence[int],
         nonlinear: Optional[str] = None,
     ):
-        assert len(out_channels) == len(kernel_sizes) == len(strides)
-        super().__init__(in_channels, out_channels[-1])
+        self.channels = list(map(int, channels))
+        self.kernel_sizes = list(map(int, kernel_sizes))
+        self.strides = list(map(int, strides))
+
+        assert len(self.channels) == len(self.kernel_sizes) == len(self.strides)
+
+        super().__init__(stimulus, self.channels[-1], np.prod(self.strides))
 
         self.conv = ModuleList()
         self.res = ModuleList()
 
-        in_channels = self.in_channels
-        for out_channels, size, stride in zip(out_channels, kernel_sizes, strides):
+        in_channels = self.stimulus.n_channels
+        for out_channels, size, stride in zip(self.channels, self.kernel_sizes, self.strides):
 
             conv = Conv(out_channels=out_channels).add(
                 in_channels=in_channels,
@@ -54,13 +67,15 @@ class Res3d(Feedforward):
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, stimulus: torch.Tensor):
         """
         Args:
-            x (torch.Tensor): shape = [n, c, h, w]
+            stimulus (torch.Tensor) : shape = [n, c, h, w]
         Returns:
-            (torch.Tensor): shape = [n, c', h', w']
+            (torch.Tensor)          : shape = [n, c', h', w']
         """
+        x = self.stimulus(stimulus)
+
         for conv, res in zip(self.conv, self.res):
             c = conv([x])
             r = res([x])
