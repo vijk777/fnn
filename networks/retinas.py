@@ -46,7 +46,45 @@ class Retina(Module):
         raise NotImplementedError()
 
 
-class AngularMLP(Retina):
+class _MLP(Retina):
+    def __init__(
+        self,
+        eye_position: EyePosition,
+        features: Sequence[int],
+        nonlinear: Optional[str] = None,
+    ):
+        super().__init__(eye_position=eye_position)
+
+        self.features = [int(f) for f in features]
+        self.layers = ModuleList()
+
+        in_features = self.eye_position.n_features
+        for out_features in self.features:
+
+            linear = Linear(out_features=out_features).add(in_features=in_features)
+            in_features = out_features
+
+            self.layers.append(linear)
+
+        self.proj = Linear(out_features=3).add(in_features=in_features)
+        nn.init.constant_(self.proj.gain, 0)
+
+        self.nonlinear, self.gamma = nonlinearity(nonlinear=nonlinear)
+
+    def rmat(self, eye_position: Optional[torch.Tensor] = None):
+        """
+        Args:
+            eye_position    (torch.Tensor)  : shape = [n, f]
+        Returns:
+            (torch.Tensor)                  : shape = [n, 3, 3]
+        """
+        x = self.eye_position(eye_position)
+        x = reduce(lambda x, layer: self.nonlinear(layer([x])) * self.gamma, self.layers, x)
+        x = self.proj([x])
+        return rmat_3d(*x.unbind(1))
+
+
+class AngularMLP(_MLP):
     def __init__(
         self,
         eye_position: EyePosition,
@@ -54,7 +92,11 @@ class AngularMLP(Retina):
         features: Sequence[int],
         nonlinear: Optional[str] = None,
     ):
-        super().__init__(eye_position=eye_position)
+        super().__init__(
+            eye_position=eye_position,
+            features=features,
+            nonlinear=nonlinear,
+        )
 
         self.degrees = float(degrees)
         self.radians = self.degrees / 180 * torch.pi
@@ -89,7 +131,7 @@ class AngularMLP(Retina):
             device=self.device,
         ).unbind(2)
 
-        r = (x.pow(2) + y.pow(2)).sqrt().mul(self.radians).clip(0, torch.pi / 2)
+        r = torch.sqrt(x.pow(2) + y.pow(2)).mul(self.radians).clip(0, torch.pi / 2)
         cos_r = torch.cos(r)
         sin_r = torch.sin(r)
 
@@ -103,18 +145,6 @@ class AngularMLP(Retina):
             cos_r,
         ]
         return torch.stack(grid, dim=2)
-
-    def rmat(self, eye_position: Optional[torch.Tensor] = None):
-        """
-        Args:
-            eye_position    (torch.Tensor)  : shape = [n, f]
-        Returns:
-            (torch.Tensor)                  : shape = [n, 3, 3]
-        """
-        x = self.eye_position(eye_position)
-        x = reduce(lambda x, layer: self.gamma * self.nonlinear(layer([x])), self.layers, x)
-        x = self.proj([x])
-        return rmat_3d(*x.unbind(1))
 
     def rays(self, eye_position: Optional[torch.Tensor] = None, height: int = 144, width: int = 256):
         """
