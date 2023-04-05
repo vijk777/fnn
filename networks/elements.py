@@ -39,8 +39,8 @@ class Dropout(Module):
         reduce_dim: Sequence[int],
     ):
         super().__init__()
-        self.drop_dim = [int(d) for d in sorted(drop_dim)]
-        self.reduce_dim = [int(d) for d in sorted(reduce_dim)]
+        self.drop_dim = list(map(int, sorted(drop_dim)))
+        self.reduce_dim = list(map(int, sorted(reduce_dim)))
         self._past = dict()
 
     def _reset(self):
