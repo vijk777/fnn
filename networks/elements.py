@@ -5,7 +5,6 @@ from torch import nn
 from torch.nn import functional as F
 from functools import reduce
 from collections import deque
-from typing import Sequence
 
 from .containers import Module, ModuleList
 
@@ -33,11 +32,15 @@ def nonlinearity(nonlinear=None):
 
 
 class Dropout(Module):
-    def __init__(
-        self,
-        drop_dim: Sequence[int],
-        reduce_dim: Sequence[int],
-    ):
+    def __init__(self, drop_dim, reduce_dim):
+        """
+        Parameters
+        ----------
+        drop_dim : Sequence[int]
+            dimensions to drop entirely
+        reduce_dim : Sequence[int]
+            dimensions to reduce across
+        """
         super().__init__()
         self.drop_dim = list(map(int, sorted(drop_dim)))
         self.reduce_dim = list(map(int, sorted(reduce_dim)))
@@ -46,7 +49,20 @@ class Dropout(Module):
     def _reset(self):
         self._past.clear()
 
-    def forward(self, x: torch.Tensor, p: float = 0):
+    def forward(self, x, p=0):
+        """
+        Parameters
+        ----------
+        x : Tensor
+            input
+        p : float
+            dropout probability
+
+        Returns
+        -------
+        Tensor
+            dropped input
+        """
         if not self.training:
             return x
 
@@ -84,15 +100,35 @@ class Dropout(Module):
 class Input(Module):
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
-        groups: int = 1,
-        kernel_size: int = 1,
-        dynamic_size: int = 1,
-        stride: int = 1,
-        pad: bool = True,
+        in_channels,
+        out_channels,
+        groups=1,
+        kernel_size=1,
+        dynamic_size=1,
+        stride=1,
+        pad=True,
         mask=None,
     ):
+        """
+        Parameters
+        ----------
+        in_channels : int
+            input channels, must be divisible by groups
+        out_channels : int
+            output channels, must be divisible by groups
+        groups : int
+            groups
+        kernel_size : int
+            spatial kernel size
+        dynamic_size : int
+            temporal kernel size
+        stride :int
+            spatial stride
+        pad : bool
+            whether to pad to maintain spatial dimensions
+        mask : Tensor (bool)
+            masks the kernel, shape must be broadcastable with the kernel
+        """
         if in_channels % groups != 0 or out_channels % groups != 0:
             raise ValueError("channels must be divisible by groups")
 
@@ -142,10 +178,15 @@ class Input(Module):
 
     def forward(self, x: torch.Tensor):
         """
-        Args:
-            x (torch.Tensor): shape = [n, c, h, w]
-        Returns:
-            (torch.Tensor): shape = [n, c, t, h, w]
+        Parameters
+        ----------
+        x : Sequence[Tensor]
+            shape = [n, c, h, w]
+
+        Returns
+        -------
+        Tensor
+            shape = [n, c, t, h, w]
         """
         if self.pad:
             x = F.pad(x, pad=[self.pad] * 4)
@@ -174,14 +215,21 @@ class Input(Module):
 
 
 class Conv(Module):
-    def __init__(
-        self,
-        out_channels: int,
-        out_groups: int = 1,
-        gain: bool = True,
-        bias: bool = True,
-        eps: float = 1e-5,
-    ):
+    def __init__(self, out_channels, out_groups=1, gain=True, bias=True, eps=1e-5):
+        """
+        Parameters
+        ----------
+        out_channels : int
+            output channels, must be divisible by output groups
+        out_groups : int
+            output groups
+        gain : bool
+            output gain
+        bias :bool
+            output bias
+        eps : float
+            small value added to denominator for numerical stability
+        """
         if out_channels % out_groups != 0:
             raise ValueError("out_channels must be divisible by groups")
 
@@ -252,16 +300,25 @@ class Conv(Module):
 
         return biases
 
-    def add(
-        self,
-        in_channels: int,
-        in_groups: int = 1,
-        kernel_size: int = 1,
-        dynamic_size: int = 1,
-        stride: int = 1,
-        pad: bool = True,
-        mask=None,
-    ):
+    def add(self, in_channels, in_groups=1, kernel_size=1, dynamic_size=1, stride=1, pad=True, mask=None):
+        """
+        Parameters
+        ----------
+        in_channels : int
+            input channels
+        in_groups : int
+            input groups
+        kernel_size : int
+            spatial kernel size
+        dynamic_size : int
+            temporal kernel size
+        stride : int
+            spatial stride
+        pad : bool
+            whether to pad to maintain spatial dimensions
+        mask : Tensor (bool)
+            masks the kernel, shape must be broadcastable with the kernel
+        """
         self.inputs.append(
             Input(
                 in_channels=in_channels,
@@ -290,12 +347,17 @@ class Conv(Module):
 
         return self.add(in_channels=self.out_channels, mask=mask)
 
-    def forward(self, inputs: Sequence[torch.Tensor]):
+    def forward(self, inputs):
         """
-        Args:
-            inputs (torch.Tensors): shape = [n, c, h, w]
-        Returns:
-            (torch.Tensor): shape = [n, c', h, w]
+        Parameters
+        ----------
+        inputs : Sequence[Tensor]
+            shape = [n, c, h, w]
+
+        Returns
+        -------
+        Tensor
+            shape = [n, c', h, w] (pad==True) or [n, c', h', w'] (pad==False)
         """
         weights = self.weights
         biases = self.biases
@@ -312,38 +374,45 @@ class Conv(Module):
 
 
 class Linear(Conv):
-    def __init__(
-        self,
-        out_features: int,
-        out_groups: int = 1,
-        gain: bool = True,
-        bias: bool = True,
-        eps: float = 1e-5,
-    ):
-        super().__init__(
-            out_channels=out_features,
-            out_groups=out_groups,
-            gain=gain,
-            bias=bias,
-            eps=eps,
-        )
-
-    def add(
-        self,
-        in_features: int,
-        in_groups: int = 1,
-    ):
-        return super().add(
-            in_channels=in_features,
-            in_groups=in_groups,
-        )
-
-    def forward(self, inputs: torch.Tensor):
+    def __init__(self, out_features, out_groups=1, gain=True, bias=True, eps=1e-5):
         """
-        Args:
-            x (torch.Tensors): shape = [n, f]
-        Returns:
-            (torch.Tensor): shape = [n, f']
+        Parameters
+        ----------
+        out_feature : int
+            output feature, must be divisible by output groups
+        out_groups : int
+            output groups
+        gain : bool
+            output gain
+        bias :bool
+            output bias
+        eps : float
+            small value added to denominator for numerical stability
+        """
+        super().__init__(out_channels=out_features, out_groups=out_groups, gain=gain, bias=bias, eps=eps)
+
+    def add(self, in_features, in_groups=1):
+        """
+        Parameters
+        ----------
+        in_features : int
+            input features
+        in_groups : int
+            input groups
+        """
+        return super().add(in_channels=in_features, in_groups=in_groups)
+
+    def forward(self, inputs):
+        """
+        Parameters
+        ----------
+        inputs : Sequence[Tensor]
+            shape = [n, f]
+
+        Returns
+        -------
+        Tensor
+            shape = [n, f']
         """
         inputs = [x[:, :, None, None] for x in inputs]
         return super().forward(inputs)[:, :, 0, 0]
