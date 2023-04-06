@@ -32,7 +32,11 @@ def nonlinearity(nonlinear=None):
 
 
 class Dropout(Module):
-    def __init__(self, drop_dim, reduce_dim):
+    def __init__(
+        self,
+        drop_dim,
+        reduce_dim,
+    ):
         """
         Parameters
         ----------
@@ -215,7 +219,14 @@ class Input(Module):
 
 
 class Conv(Module):
-    def __init__(self, out_channels, out_groups=1, gain=True, bias=True, eps=1e-5):
+    def __init__(
+        self,
+        out_channels,
+        out_groups=1,
+        gain=True,
+        bias=True,
+        eps=1e-5,
+    ):
         """
         Parameters
         ----------
@@ -374,7 +385,14 @@ class Conv(Module):
 
 
 class Linear(Conv):
-    def __init__(self, out_features, out_groups=1, gain=True, bias=True, eps=1e-5):
+    def __init__(
+        self,
+        out_features,
+        out_groups=1,
+        gain=True,
+        bias=True,
+        eps=1e-5,
+    ):
         """
         Parameters
         ----------
