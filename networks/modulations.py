@@ -19,7 +19,7 @@ class Modulation(Module):
         self.behavior = behavior
 
     @property
-    def out_channels(self):
+    def out_features(self):
         raise NotImplementedError
 
     def forward(self, behavior=None):
@@ -32,7 +32,7 @@ class Modulation(Module):
         Returns
         -------
         Tensor
-            shape = [n, c, h, w] or [n, c, 1, 1]
+            shape = [n, f']
         """
         raise NotImplementedError()
 
@@ -55,7 +55,7 @@ class LSTM(Modulation):
 
         self.size = int(size)
 
-        features = self.behavior.n_features
+        features = self.behavior.features
         linear = lambda: Linear(out_features=self.size).add(in_features=features).add(in_features=self.size)
 
         self.proj_i = linear()
@@ -69,7 +69,7 @@ class LSTM(Modulation):
         self._past.clear()
 
     @property
-    def out_channels(self):
+    def out_features(self):
         return self.size
 
     def forward(self, behavior=None):
@@ -82,7 +82,7 @@ class LSTM(Modulation):
         Returns
         -------
         Tensor
-            shape = [n, c, 1, 1]
+            shape = [n, f']
         """
         if self._past:
             h = self._past["h"]
@@ -103,4 +103,4 @@ class LSTM(Modulation):
         self._past["c"] = c
         self._past["h"] = h
 
-        return h[:, :, None, None]
+        return h

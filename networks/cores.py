@@ -43,14 +43,14 @@ class Core(Module):
         grid : Tensor
             shape = [n, c', h, w]
         modulation : Tensor
-            shape = [n, c'', h, w] or [n, c'', 1, 1]
+            shape = [n, f]
         dropout : float
             dropout probability
 
         Returns
         -------
         Tensor
-            shape = [n, c''', h, w]
+            shape = [n, c'', h', w']
         """
         raise NotImplementedError()
 
@@ -109,15 +109,18 @@ class FeedforwardRecurrent(Core):
         grid : Tensor
             shape = [n, c', h, w]
         modulation : Tensor
-            shape = [n, c'', h, w] or [n, c'', 1, 1]
+            shape = [n, f]
         dropout : float
             dropout probability
 
         Returns
         -------
         Tensor
-            shape = [n, c''', h', w']
+            shape = [n, c'', h', w']
         """
-        x = self.feedforward([perspective])
-        x = self.recurrent([x, grid, modulation], dropout=dropout)
-        return x
+        inputs = [
+            self.feedforward([perspective]),
+            grid,
+            modulation[:, :, None, None],
+        ]
+        return self.recurrent(inputs, dropout=dropout)

@@ -100,7 +100,7 @@ class MonitorRetina(Perspective):
         self.retina = retina
         self.features = list(map(int, features))
 
-        in_features = [self.eye_position.n_features, *self.features]
+        in_features = [self.eye_position.features, *self.features]
         layers = [Linear(out_features=o).add(in_features=i) for o, i in zip(self.features, in_features)]
         self.layers = ModuleList(layers)
 
@@ -111,7 +111,7 @@ class MonitorRetina(Perspective):
 
     @property
     def out_channels(self):
-        return self.stimulus.n_channels
+        return self.stimulus.channels
 
     def rmat(self, eye_position=None):
         """
