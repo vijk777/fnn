@@ -37,8 +37,7 @@ class SGD:
 
     @torch.no_grad()
     def step(self, lr_scale=1):
-        """
-        Perform a single optimization step
+        """Perform a single optimization step
 
         Parameters
         ----------
