@@ -52,9 +52,11 @@ class Core(Module):
 class FeedforwardRecurrent(Core):
     def __init__(self, feedforward: Feedforward, recurrent: Recurrent):
         super().__init__()
+
+        recurrent.add_input(feedforward.out_channels)
+
         self.feedforward = feedforward
         self.recurrent = recurrent
-        self.recurrent.add_input(self.feedforward.out_channels)
 
     @property
     def out_channels(self):
