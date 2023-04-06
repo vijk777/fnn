@@ -122,7 +122,7 @@ class Input(Module):
             spatial kernel size
         dynamic_size : int
             temporal kernel size
-        stride :int
+        stride : int
             spatial stride
         pad : bool
             whether to pad to maintain spatial dimensions
