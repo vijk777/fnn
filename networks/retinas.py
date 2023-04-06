@@ -63,7 +63,7 @@ class Retina(Module):
 class Angular(Retina):
     def __init__(
         self,
-        degrees,
+        degrees=75,
     ):
         """
         Parameters
