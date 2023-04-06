@@ -7,7 +7,7 @@ from .utils import isotropic_grid_sample_2d, rmat_3d
 
 
 class Perspective(Module):
-    def init(self, channels, eye_position):
+    def init(self, channels, eye_positions):
         """
         Parameters
         ----------
@@ -99,7 +99,7 @@ class MonitorRetina(Perspective):
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear=nonlinear)
 
-    def init(self, channels, eye_position):
+    def init(self, channels, eye_positions):
         """
         Parameters
         ----------
@@ -109,7 +109,7 @@ class MonitorRetina(Perspective):
             eye position features
         """
         self._channels = int(channels)
-        self.layers[0].add(in_features=eye_position)
+        self.layers[0].add(in_features=eye_positions)
 
     @property
     def channels(self):
