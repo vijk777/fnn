@@ -8,9 +8,13 @@ from .recurrents import Recurrent
 
 
 class Core(Module):
-    def __init__(self, out_channels: int):
-        super().__init__()
-        self.out_channels = int(out_channels)
+    @property
+    def out_channels(self):
+        raise NotImplementedError
+
+    @property
+    def grid_scale(self):
+        raise NotImplementedError
 
     def add_inputs(
         self,
@@ -47,12 +51,18 @@ class Core(Module):
 
 class FeedforwardRecurrent(Core):
     def __init__(self, feedforward: Feedforward, recurrent: Recurrent):
-
-        super().__init__(out_channels=recurrent.out_channels)
-
+        super().__init__()
         self.feedforward = feedforward
         self.recurrent = recurrent
         self.recurrent.add_input(self.feedforward.out_channels)
+
+    @property
+    def out_channels(self):
+        return self.recurrent.out_channels
+
+    @property
+    def grid_scale(self):
+        return self.feedforward.scale
 
     def add_inputs(
         self,

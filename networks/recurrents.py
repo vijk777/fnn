@@ -8,10 +8,9 @@ from .utils import to_groups_2d
 
 
 class Recurrent(Module):
-    def __init__(self, out_channels: int, downscale: int = 1):
-        super().__init__()
-        self.out_channels = int(out_channels)
-        self.downscale = int(downscale)
+    @property
+    def out_channels(self):
+        raise NotImplementedError
 
     def add_input(self, channels: int):
         raise NotImplementedError()
@@ -34,9 +33,9 @@ class RvT(Recurrent):
         kernel_size: int,
         groups: int = 1,
     ):
-        super().__init__(channels)
+        super().__init__()
 
-        self.channels = self.out_channels
+        self.channels = int(channels)
         self.kernel_size = int(kernel_size)
         self.groups = int(groups)
         self.group_channels = self.channels // self.groups
@@ -129,6 +128,10 @@ class RvT(Recurrent):
 
     def _reset(self):
         self._past.clear()
+
+    @property
+    def out_channels(self):
+        return self.channels
 
     def add_input(self, channels: int):
         self.proj_x.add(in_channels=channels)

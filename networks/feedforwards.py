@@ -7,10 +7,13 @@ from .elements import Conv, nonlinearity
 
 
 class Feedforward(Module):
-    def __init__(self, out_channels: int, downscale: int = 1):
-        super().__init__()
-        self.out_channels = int(out_channels)
-        self.downscale = int(downscale)
+    @property
+    def out_channels(self):
+        raise NotImplementedError()
+
+    @property
+    def scale(self):
+        raise NotImplementedError()
 
     def add_input(self, channels: int):
         raise NotImplementedError()
@@ -33,16 +36,13 @@ class Res3d(Feedforward):
         strides: Sequence[int],
         nonlinear: Optional[str] = None,
     ):
+        super().__init__()
+
         self.channels = list(map(int, channels))
         self.kernel_sizes = list(map(int, kernel_sizes))
         self.strides = list(map(int, strides))
 
         assert len(self.channels) == len(self.kernel_sizes) == len(self.strides)
-
-        super().__init__(
-            out_channels=self.channels[-1],
-            downscale=np.prod(self.strides),
-        )
 
         self.conv = ModuleList([Conv(out_channels=self.channels[0])])
         self.res = ModuleList([Conv(out_channels=self.channels[0])])
@@ -72,6 +72,14 @@ class Res3d(Feedforward):
             torch.nn.init.constant_(res.gain, 0)
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
+
+    @property
+    def out_channels(self):
+        return self.channels[-1]
+
+    @property
+    def scale(self):
+        return np.prod(self.strides)
 
     def add_input(self, channels: int):
         self.conv[0].add(
