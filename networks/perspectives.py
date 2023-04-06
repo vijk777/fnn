@@ -7,28 +7,22 @@ from .utils import isotropic_grid_sample_2d, rmat_3d
 
 
 class Perspective(Module):
-    def __init__(
-        self,
-        stimulus,
-        eye_position,
-    ):
+    def init(self, channels, eye_position):
         """
         Parameters
         ----------
-        stimulus : .variables.Stimulus
-            stimulus variable
-        eye_position : .variables.EyePosition
-            eye position variable
+        channels : int
+            stimulus channels
+        eye_positions : int
+            eye position features
         """
-        super().__init__()
-        self.stimulus = stimulus
-        self.eye_position = eye_position
+        raise NotImplementedError()
 
     @property
     def channels(self):
-        raise NotImplementedError
+        raise NotImplementedError()
 
-    def forward(self, stimulus, eye_position=None, height=144, width=256, pad_mode="constant", pad_value=0):
+    def forward(self, stimulus, eye_position, height=144, width=256, pad_mode="constant", pad_value=0):
         """
         Parameters
         ----------
@@ -52,7 +46,7 @@ class Perspective(Module):
         """
         raise NotImplementedError()
 
-    def inverse(self, stimulus, eye_position=None, height=144, width=256, pad_mode="constant", pad_value=0):
+    def inverse(self, stimulus, eye_position, height=144, width=256, pad_mode="constant", pad_value=0):
         """
         Parameters
         ----------
@@ -78,14 +72,10 @@ class Perspective(Module):
 
 
 class MonitorRetina(Perspective):
-    def __init__(self, stimulus, eye_position, monitor, retina, features, nonlinear=None):
+    def __init__(self, monitor, retina, features, nonlinear=None):
         """
         Parameters
         ----------
-        stimulus : .variables.Stimulus
-            stimulus variable
-        eye_position : .variables.EyePosition
-            eye position variable
         monitor : .monitors.Monitor
             3D monitor model
         retina : .retinas.Retina
@@ -95,29 +85,41 @@ class MonitorRetina(Perspective):
         nonlinear : str | None
             nonlinearity
         """
-        super().__init__(stimulus=stimulus, eye_position=eye_position)
+        super().__init__()
         self.monitor = monitor
         self.retina = retina
         self.features = list(map(int, features))
+        self.layers = ModuleList([Linear(out_features=f) for f in self.features])
 
-        in_features = [self.eye_position.features, *self.features]
-        layers = [Linear(out_features=o).add(in_features=i) for o, i in zip(self.features, in_features)]
-        self.layers = ModuleList(layers)
+        for layer, f in zip(self.layers[1:], self.features):
+            layer.add(in_features=f)
 
         self.proj = Linear(out_features=3).add(in_features=self.features[-1])
         torch.nn.init.constant_(self.proj.gain, 0)
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear=nonlinear)
 
-    @property
-    def channels(self):
-        return self.stimulus.channels
-
-    def rmat(self, eye_position=None):
+    def init(self, channels, eye_position):
         """
         Parameters
         ----------
-        eye_position : Tensor | None
+        channels : int
+            stimulus channels
+        eye_positions : int
+            eye position features
+        """
+        self._channels = int(channels)
+        self.layers[0].add(in_features=eye_position)
+
+    @property
+    def channels(self):
+        return self._channels
+
+    def rmat(self, eye_position):
+        """
+        Parameters
+        ----------
+        eye_position : Tensor
             shape = [n, f]
 
         Returns
@@ -125,12 +127,11 @@ class MonitorRetina(Perspective):
         Tensor
             shape = [n, 3, 3]
         """
-        x = self.eye_position(eye_position)
-        x = reduce(lambda x, layer: self.nonlinear(layer([x])) * self.gamma, self.layers, x)
+        x = reduce(lambda x, layer: self.nonlinear(layer([x])) * self.gamma, self.layers, eye_position)
         x = self.proj([x])
         return rmat_3d(*x.unbind(1))
 
-    def forward(self, stimulus, eye_position=None, height=144, width=256, pad_mode="constant", pad_value=0):
+    def forward(self, stimulus, eye_position, height=144, width=256, pad_mode="constant", pad_value=0):
         """
         Parameters
         ----------
@@ -155,13 +156,12 @@ class MonitorRetina(Perspective):
         rmat = self.rmat(eye_position)
         rays = self.retina.rays(rmat, height, width)
         grid = self.monitor.project(rays)
-        out = isotropic_grid_sample_2d(
+        return isotropic_grid_sample_2d(
             stimulus,
             grid=grid,
             pad_mode=pad_mode,
             pad_value=pad_value,
         )
-        return self.stimulus(out)
 
     def inverse(self, stimulus, eye_position=None, height=144, width=256, pad_mode="constant", pad_value=0):
         """
@@ -188,10 +188,9 @@ class MonitorRetina(Perspective):
         rays = self.monitor.rays(stimulus.size(0), height, width)
         rmat = self.rmat(eye_position)
         grid = self.retina.project(rays, rmat)
-        out = isotropic_grid_sample_2d(
+        return isotropic_grid_sample_2d(
             stimulus,
             grid=grid,
             pad_mode=pad_mode,
             pad_value=pad_value,
         )
-        return self.stimulus(out, inverse=True)
