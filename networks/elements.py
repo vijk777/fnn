@@ -10,8 +10,14 @@ from .containers import Module, ModuleList
 
 
 def nonlinearity(nonlinear=None):
-    # https://github.com/deepmind/deepmind-research/blob/cb555c241b20c661a3e46e5d1eb722a0a8b0e8f4/nfnets/base.py#L101
+    """
+    Parameters
+    ----------
+    nonlinear : str | None
+        "elu" | "silu" | "gelu" | "tanh" | None
 
+    Adapted from: https://github.com/deepmind/deepmind-research/blob/cb555c241b20c661a3e46e5d1eb722a0a8b0e8f4/nfnets/base.py#L101
+    """
     if nonlinear is None:
         return nn.Identity(), 1.0
 

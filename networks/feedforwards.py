@@ -1,6 +1,5 @@
 import torch
 import math
-from typing import Sequence, Optional
 
 from .containers import Module, ModuleList
 from .elements import Conv, nonlinearity
@@ -15,15 +14,26 @@ class Feedforward(Module):
     def scale(self):
         raise NotImplementedError()
 
-    def add_input(self, channels: int):
+    def add_input(self, channels):
+        """
+        Parameters
+        ----------
+        channels : int
+            input channels
+        """
         raise NotImplementedError()
 
-    def forward(self, inputs: Sequence[torch.Tensor]):
+    def forward(self, inputs):
         """
-        Args:
-            inputs (torch.Tensors)  : shape = [n, c, h, w]
-        Returns:
-            (torch.Tensor)          : shape = [n, c', h, w]
+        Parameters
+        ----------
+        inputs : Sequence[Tensor]
+            shape = [n, c, h, w]
+
+        Returns
+        -------
+        Tensor
+            shape = [n, c', h // scale, w // scale]
         """
         raise NotImplementedError()
 
@@ -31,11 +41,23 @@ class Feedforward(Module):
 class Res3d(Feedforward):
     def __init__(
         self,
-        channels: Sequence[int],
-        kernel_sizes: Sequence[int],
-        strides: Sequence[int],
-        nonlinear: Optional[str] = None,
+        channels,
+        kernel_sizes,
+        strides,
+        nonlinear=None,
     ):
+        """
+        Parameters
+        ----------
+        channels : Sequence[int]
+            layer channels
+        kernel_sizes : Sequence[int]
+            layer kernel sizes
+        strides : Sequence[int]
+            layer strides
+        nonlinear : str | None
+            nonlinearity
+        """
         super().__init__()
 
         self.channels = list(map(int, channels))
@@ -81,7 +103,13 @@ class Res3d(Feedforward):
     def scale(self):
         return math.prod(self.strides)
 
-    def add_input(self, channels: int):
+    def add_input(self, channels):
+        """
+        Parameters
+        ----------
+        channels : int
+            input channels
+        """
         self.conv[0].add(
             in_channels=channels,
             kernel_size=self.kernel_sizes[0],
@@ -94,12 +122,17 @@ class Res3d(Feedforward):
             stride=self.strides[0],
         )
 
-    def forward(self, inputs: Sequence[torch.Tensor]):
+    def forward(self, inputs):
         """
-        Args:
-            inputs (Sequence of torch.Tensors)  : shape = [n, c, h, w]
-        Returns:
-            (torch.Tensor)                      : shape = [n, c', h, w]
+        Parameters
+        ----------
+        inputs : Sequence[Tensor]
+            shape = [n, c, h, w]
+
+        Returns
+        -------
+        Tensor
+            shape = [n, c', h // scale, w // scale]
         """
         for conv, res in zip(self.conv, self.res):
             c = conv(inputs)
