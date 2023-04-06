@@ -36,10 +36,14 @@ class SGD:
         self.norm_dims = dict(model.param_norm_dims())
 
     @torch.no_grad()
-    def step(self, lr_scale: float = 1.0):
-        """Performs a single optimization step.
-        Arguments:
-            lr_scale (float)
+    def step(self, lr_scale=1):
+        """
+        Perform a single optimization step
+
+        Parameters
+        ----------
+        lr_scale : float
+            multiplies the learning rate by this amount
         """
         assert lr_scale > 0
 
