@@ -4,33 +4,41 @@ import torch.nn.functional as F
 from typing import Optional
 
 
-def to_groups_2d(
-    tensor: torch.Tensor,
-    groups: int,
-):
-    """
-    Args:
-        tensor  (torch.Tensor)  : shape = [n, c, h, w]
-        groups  (float)
-    Returns:
-        (torch.Tensor)          : shape = [n, groups, c // groups, h, w]
+def to_groups_2d(tensor, groups):
+    """Reshapes a 2D tensor to channel groups
+
+    Parameters
+    ----------
+    tensor : Tensor
+        shape = [n, c, h, w]
+    groups : int
+        channel groups
+
+    Returns
+    -------
+    Tensor
+        shape = [n, groups, c // groups, h, w]
     """
     N, _, H, W = tensor.shape
     return tensor.view(N, groups, -1, H, W)
 
 
-def rmat_3d(
-    x: torch.Tensor,
-    y: torch.Tensor,
-    z: torch.Tensor,
-):
-    """
-    Args:
-        x (torch.Tensor)    : shape = [N]
-        y (torch.Tensor)    : shape = [N]
-        z (torch.Tensor)    : shape = [N]
-    Returns:
-        (torch.Tensor)      : shape = [N, 3, 3]
+def rmat_3d(x, y, z):
+    """Creates a 3D rotation matrix
+
+    Parameters
+    ----------
+    x : Tensor
+        shape = [n], angle (radians) of rotation around x axis
+    y : Tensor
+        shape = [n], angle (radians) of rotation around y axis
+    z : Tensor
+        shape = [n], angle (radians) of rotation around z axis
+
+    Returns
+    -------
+    Tensor
+        shape = [n, 3, 3]
     """
     N = len(x)
     assert N == len(y) == len(z)
@@ -66,20 +74,26 @@ def rmat_3d(
     return A.matmul(B).matmul(C)
 
 
-def isotropic_grid_2d(
-    height: int,
-    width: int,
-    major: str = "x",
-    dtype: Optional[torch.dtype] = None,
-    device: Optional[str] = None,
-):
-    """
-    Args:
-        height  (int)
-        width   (int)
-        major   (str)   : 'x' or 'y'
-    Returns:
-        (torch.Tensor)  : shape = [height, width, 2]
+def isotropic_grid_2d(height, width, major="x", dtype=None, device=None):
+    """Creates an isotropic 2d grid
+
+    Parameters
+    ----------
+    height : int
+        grid height, h
+    width : int
+        grid width, w
+    major : str
+        "x" | "y" , axis by which grid is scaled
+    dtype : torch.dtype | None
+        grid dtype
+    device : torch.device | None
+        grid device
+
+    Returns
+    -------
+    Tensor
+        shape = [h, w, 2]
     """
     grid_x = torch.linspace(-1, 1, width, dtype=dtype, device=device)
     grid_y = torch.linspace(-1, 1, height, dtype=dtype, device=device)
@@ -103,22 +117,26 @@ def isotropic_grid_2d(
     return torch.stack(grid, dim=2)
 
 
-def isotropic_grid_sample_2d(
-    x: torch.Tensor,
-    grid: torch.Tensor,
-    major: str = "x",
-    pad_mode: str = "constant",
-    pad_value: float = 0,
-):
-    """
-    Args:
-        x           (torch.Tensor)  : shape = [n, c, h, w]
-        grid        (torch.Tensor)  : shape = [n, h', w', 2]
-        major       (str)           : 'x' or 'y'
-        pad_mode    (str)           : 'constant' or 'replicate'
-        pad_value   (float)         : value of padding when pad_mode=='constant'
-    Returns:
-        (torch.Tensor)              : shape = [n, c, h', w']
+def isotropic_grid_sample_2d(x, grid, major="x", pad_mode="constant", pad_value=0):
+    """Isotropic 2D sampling
+
+    Parameters
+    ----------
+    x : Tensor
+        shape = [n, c, h, w]
+    grid : Tensor
+        shape = [n, h', w', 2]
+    major : str
+        "x" | "y" , axis by which sampling is scaled
+    pad_mode : str
+        "constant" | "replicate" , padding mode for out-of-bounds grid values
+    pad_value : float
+        value of padding when pad_mode=="constant"
+
+    Returns
+    -------
+    Tensor
+        shape = [n, c, h', w']
     """
     if pad_mode == "constant":
         x = x - pad_value

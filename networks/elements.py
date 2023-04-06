@@ -127,7 +127,7 @@ class Input(Module):
         out_channels : int
             output channels, must be divisible by groups
         groups : int
-            groups
+            channel groups
         kernel_size : int
             spatial kernel size
         dynamic_size : int
@@ -239,7 +239,7 @@ class Conv(Module):
         out_channels : int
             output channels, must be divisible by output groups
         out_groups : int
-            output groups
+            output channel groups
         gain : bool
             output gain
         bias : bool
@@ -324,7 +324,7 @@ class Conv(Module):
         in_channels : int
             input channels
         in_groups : int
-            input groups
+            input channel groups
         kernel_size : int
             spatial kernel size
         dynamic_size : int
@@ -405,7 +405,7 @@ class Linear(Conv):
         out_feature : int
             output feature, must be divisible by output groups
         out_groups : int
-            output groups
+            output channel groups
         gain : bool
             output gain
         bias : bool
@@ -422,7 +422,7 @@ class Linear(Conv):
         in_features : int
             input features
         in_groups : int
-            input groups
+            input channel groups
         """
         return super().add(in_channels=in_features, in_groups=in_groups)
 

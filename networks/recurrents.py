@@ -55,7 +55,7 @@ class RvT(Recurrent):
         kernel_size : int
             spatial kernel size
         groups : int
-            recurrent groups
+            recurrent channel groups
         """
         super().__init__()
 
