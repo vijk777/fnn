@@ -225,7 +225,7 @@ class Conv(Module):
             output groups
         gain : bool
             output gain
-        bias :bool
+        bias : bool
             output bias
         eps : float
             small value added to denominator for numerical stability
@@ -384,7 +384,7 @@ class Linear(Conv):
             output groups
         gain : bool
             output gain
-        bias :bool
+        bias : bool
             output bias
         eps : float
             small value added to denominator for numerical stability
