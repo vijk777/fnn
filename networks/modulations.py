@@ -20,7 +20,7 @@ class Modulation(Module):
         Args:
             behavior (torch.Tensor) : shape = [n, f]
         Returns:
-            (torch.Tensor)          : shape = [n, c, 1, 1]
+            (torch.Tensor)          : shape = [n, c, h, w]
         """
         raise NotImplementedError()
 
@@ -29,11 +29,11 @@ class LSTM(Modulation):
     def __init__(self, behavior: Behavior, size: int):
         super().__init__(behavior=behavior)
 
-        linear = (
-            lambda: Linear(out_features=self.out_channels)
-            .add(in_features=self.behavior.n_features)
-            .add(in_features=self.out_channels)
-        )
+        self.size = int(size)
+
+        features = self.behavior.n_features
+        linear = lambda: Linear(out_features=self.size).add(in_features=features).add(in_features=self.size)
+
         self.proj_i = linear()
         self.proj_f = linear()
         self.proj_g = linear()
