@@ -12,7 +12,7 @@ class Core(Module):
         perspectives : int
             perspective channels
         grids : int
-            perspective channels
+            grid channels
         modulations : int
             modulation channels
         """
@@ -69,7 +69,7 @@ class FeedforwardRecurrent(Core):
         perspectives : int
             perspective channels
         grids : int
-            perspective channels
+            grid channels
         modulations : int
             modulation channels
         """

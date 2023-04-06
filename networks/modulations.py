@@ -5,22 +5,18 @@ from .elements import Linear
 
 
 class Modulation(Module):
-    def __init__(
-        self,
-        behavior,
-    ):
+    def init(self, behaviors):
         """
         Parameters
         ----------
-        behavior : .variables.Behavior
-            behavior variable
+        behaviors : int
+            behavior features
         """
-        super().__init__()
-        self.behavior = behavior
+        raise NotImplementedError()
 
     @property
     def features(self):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def forward(self, behavior=None):
         """
@@ -38,26 +34,18 @@ class Modulation(Module):
 
 
 class LSTM(Modulation):
-    def __init__(
-        self,
-        behavior,
-        features,
-    ):
+    def __init__(self, features):
         """
         Parameters
         ----------
-        behavior : .variables.Behavior
-            behavior variable
         features : int
             LSTM features
         """
-        super().__init__(behavior=behavior)
+        super().__init__()
 
         self._features = int(features)
 
-        features = self.behavior.features
-        linear = lambda: Linear(out_features=self.features).add(in_features=features).add(in_features=self.features)
-
+        linear = lambda: Linear(out_features=self.features).add(in_features=self.features)
         self.proj_i = linear()
         self.proj_f = linear()
         self.proj_g = linear()
@@ -68,15 +56,27 @@ class LSTM(Modulation):
     def _reset(self):
         self._past.clear()
 
+    def init(self, behaviors):
+        """
+        Parameters
+        ----------
+        behaviors : int
+            behavior features
+        """
+        self.proj_i.add(in_features=behaviors)
+        self.proj_f.add(in_features=behaviors)
+        self.proj_g.add(in_features=behaviors)
+        self.proj_o.add(in_features=behaviors)
+
     @property
     def features(self):
         return self._features
 
-    def forward(self, behavior=None):
+    def forward(self, behavior):
         """
         Parameters
         ----------
-        behavior : Tensor | None
+        behavior : Tensor
             shape = [n, f]
 
         Returns
@@ -88,14 +88,12 @@ class LSTM(Modulation):
             h = self._past["h"]
             c = self._past["c"]
         else:
-            h = c = torch.zeros(1, self.features, device=self.device)
+            h = c = torch.zeros(behavior.size(0), self.features, device=self.device)
 
-        x = self.behavior(behavior)
-
-        i = torch.sigmoid(self.proj_i([x, h]))
-        f = torch.sigmoid(self.proj_f([x, h]))
-        g = torch.tanh(self.proj_g([x, h]))
-        o = torch.sigmoid(self.proj_o([x, h]))
+        i = torch.sigmoid(self.proj_i([h, behavior]))
+        f = torch.sigmoid(self.proj_f([h, behavior]))
+        g = torch.tanh(self.proj_g([h, behavior]))
+        o = torch.sigmoid(self.proj_o([h, behavior]))
 
         c = f * c + i * g
         h = o * torch.tanh(c)
