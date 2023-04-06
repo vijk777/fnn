@@ -8,7 +8,7 @@ from .utils import to_groups_2d
 class Recurrent(Module):
     @property
     def channels(self):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     @property
     def scale(self):
