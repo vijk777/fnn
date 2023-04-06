@@ -1,5 +1,4 @@
 import torch
-from torch import nn
 
 from .containers import Module
 from .elements import Dropout, Conv
@@ -65,8 +64,8 @@ class RvT(Recurrent):
         self.groups = int(groups)
         self.group_channels = self.channels // self.groups
 
-        self.tau = nn.Parameter(torch.ones(self.groups))
-        nn.init.constant_(self.tau, self.group_channels**-0.5)
+        self.tau = torch.nn.Parameter(torch.ones(self.groups))
+        torch.nn.init.constant_(self.tau, self.group_channels**-0.5)
 
         self.drop = Dropout(
             drop_dim=[4, 5],
