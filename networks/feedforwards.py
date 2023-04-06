@@ -1,5 +1,5 @@
 import torch
-import numpy as np
+import math
 from typing import Sequence, Optional
 
 from .containers import Module, ModuleList
@@ -79,7 +79,7 @@ class Res3d(Feedforward):
 
     @property
     def scale(self):
-        return np.prod(self.strides)
+        return math.prod(self.strides)
 
     def add_input(self, channels: int):
         self.conv[0].add(
