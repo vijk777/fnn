@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from typing import Sequence
 
 from .containers import Module
 from .elements import Dropout, Conv
@@ -12,16 +11,32 @@ class Recurrent(Module):
     def out_channels(self):
         raise NotImplementedError
 
-    def add_input(self, channels: int):
+    @property
+    def scale(self):
         raise NotImplementedError()
 
-    def forward(self, inputs: Sequence[torch.Tensor], dropout: float = 0):
+    def add_input(self, channels):
         """
-        Args:
-            inputs  (torch.Tensors) : shape = [n, c, h, w]
-            dropout (float)         : dropout probability
-        Returns:
-            (torch.Tensor)          : shape = [n, c', h, w]
+        Parameters
+        ----------
+        channels : int
+            input channels
+        """
+        raise NotImplementedError()
+
+    def forward(self, inputs, dropout=0):
+        """
+        Parameters
+        ----------
+        inputs : Sequence[Tensor]
+            shapes = [n, c, h, w]
+        dropout : float
+            dropout probability
+
+        Returns
+        -------
+        Tensor
+            shape = [n, c', h // scale, w // scale]
         """
         raise NotImplementedError()
 
@@ -29,10 +44,20 @@ class Recurrent(Module):
 class RvT(Recurrent):
     def __init__(
         self,
-        channels: int,
-        kernel_size: int,
-        groups: int = 1,
+        channels,
+        kernel_size,
+        groups=1,
     ):
+        """
+        Parameters
+        ----------
+        channels : int
+            recurrent channels
+        kernel_size : int
+            spatial kernel size
+        groups : int
+            recurrent groups
+        """
         super().__init__()
 
         self.channels = int(channels)
@@ -133,16 +158,32 @@ class RvT(Recurrent):
     def out_channels(self):
         return self.channels
 
-    def add_input(self, channels: int):
+    @property
+    def scale(self):
+        return 1
+
+    def add_input(self, channels):
+        """
+        Parameters
+        ----------
+        channels : int
+            input channels
+        """
         self.proj_x.add(in_channels=channels)
 
-    def forward(self, inputs: Sequence[torch.Tensor], dropout: float = 0):
+    def forward(self, inputs, dropout=0):
         """
-        Args:
-            inputs (torch.Tensors)  : shape = [n, c, h, w]
-            dropout (float)         : dropout probability
-        Returns:
-            (torch.Tensor)          : shape = [n, c', h, w]
+        Parameters
+        ----------
+        inputs : Sequence[Tensor]
+            shapes = [n, c, h, w]
+        dropout : float
+            dropout probability
+
+        Returns
+        -------
+        Tensor
+            shape = [n, c', h // scale, w // scale]
         """
         if self._past:
             h = self._past["h"]

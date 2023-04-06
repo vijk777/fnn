@@ -28,7 +28,7 @@ class Feedforward(Module):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shape = [n, c, h, w]
+            shapes = [n, c, h, w] or broadcastable
 
         Returns
         -------
@@ -127,7 +127,7 @@ class Res3d(Feedforward):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shape = [n, c, h, w]
+            shapes = [n, c, h, w] or broadcastable
 
         Returns
         -------
