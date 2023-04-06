@@ -169,7 +169,7 @@ class Response(Module):
         assert self.mean.ndim == 1
         assert self.mean.min().item() > eps
 
-        self.n_units = self.mean.numel()
+        self.units = self.mean.numel()
 
     def forward(self, x: torch.Tensor, log: bool = False, inverse: bool = False):
         """
@@ -194,4 +194,4 @@ class Response(Module):
                 return x / self.mean
 
     def extra_repr(self):
-        return f"n_units={self.n_units}"
+        return f"units={self.units}"

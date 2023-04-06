@@ -5,12 +5,7 @@ from .containers import Module
 
 
 class Core(Module):
-    def __init__(
-        self,
-        perspectives,
-        grids,
-        modulations,
-    ):
+    def init(self, perspectives, grids, modulations):
         """
         Parameters
         ----------
@@ -21,10 +16,7 @@ class Core(Module):
         modulations : int
             modulation channels
         """
-        super().__init__()
-        self.perspectives = int(perspectives)
-        self.grids = int(grids)
-        self.modulations = int(modulations)
+        raise NotImplementedError
 
     @property
     def channels(self):
@@ -56,14 +48,21 @@ class Core(Module):
 
 
 class FeedforwardRecurrent(Core):
-    def __init__(
-        self,
-        perspectives,
-        grids,
-        modulations,
-        feedforward,
-        recurrent,
-    ):
+    def __init__(self, feedforward, recurrent):
+        """
+        Parameters
+        ----------
+        feedforward : .feedforwards.Feedforward
+            feedforward network
+        recurrent : .recurrents.Feedforward
+            recurrent network
+        """
+        super().__init__()
+        self.feedforward = feedforward
+        self.recurrent = recurrent
+        self.recurrent.add_input(self.feedforward.channels)
+
+    def init(self, perspectives, grids, modulations):
         """
         Parameters
         ----------
@@ -73,24 +72,10 @@ class FeedforwardRecurrent(Core):
             perspective channels
         modulations : int
             modulation channels
-        feedforward : .feedforwards.Feedforward
-            feedforward network
-        recurrent : .recurrents.Feedforward
-            recurrent network
         """
-        super().__init__(
-            perspectives=perspectives,
-            grids=grids,
-            modulations=modulations,
-        )
-
-        self.feedforward = feedforward
-        self.feedforward.add_input(self.perspectives)
-
-        self.recurrent = recurrent
-        self.recurrent.add_input(self.feedforward.channels)
-        self.recurrent.add_input(self.grids)
-        self.recurrent.add_input(self.modulations)
+        self.feedforward.add_input(perspectives)
+        self.recurrent.add_input(grids)
+        self.recurrent.add_input(modulations)
 
     @property
     def channels(self):

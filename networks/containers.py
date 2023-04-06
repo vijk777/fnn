@@ -115,9 +115,9 @@ class Module(nn.Module):
             return x.device
 
 
-class ModuleList(nn.ModuleList, Module):
+class Sequential(nn.Sequential, Module):
     pass
 
 
-class Sequential(nn.Sequential, Module):
+class ModuleList(nn.ModuleList, Module):
     pass
