@@ -1,6 +1,5 @@
 import torch
 from itertools import chain
-from typing import Optional, Sequence
 
 from .containers import Module
 from .feedforwards import Feedforward
@@ -16,35 +15,36 @@ class Core(Module):
     def grid_scale(self):
         raise NotImplementedError
 
-    def add_inputs(
-        self,
-        perspective: int,
-        grid: Optional[int] = None,
-        modulation: Optional[int] = None,
-    ):
+    def add_inputs(self, perspective, grid=None, modulation=None):
         """
-        Args:
-            perspective (int)  : perspective channels
-            grid        (int)  : grid channels
-            modulation  (int)  : modulation channels
+        Parameters
+        ----------
+        perspective : int
+            number of perspective channels
+        grid : int | None
+            number of perspective channels
+        modulation : int | None
+            number of modulation channels
         """
         raise NotImplementedError()
 
-    def forward(
-        self,
-        perspective: Sequence[torch.Tensor],
-        grid: Sequence[Optional[torch.Tensor]],
-        modulation: Sequence[Optional[torch.Tensor]],
-        dropout: float = 0,
-    ):
+    def forward(self, perspective, grid, modulation, dropout=0):
         """
-        Args:
-            perspective (torch.Tensors) : shape = [n, c, h, w]
-            grid        (torch.Tensors) : shape = [n, c, h, w]
-            modulation  (torch.Tensors) : shape = [n, c, h, w]
-            dropout     (float)         : dropout probability
-        Returns:
-            (torch.Tensor)              : shape = [n, c', h, w]
+        Parameters
+        ----------
+        perspective : Sequence[Tensor]
+            shape = [n, c, h, w]
+        grid : Sequence[Tensor | None]
+            shape = [n, c', h, w]
+        modulation : Sequence[Tensor | None]
+            shape = [n, c', h, w]
+        dropout : float
+            dropout probability
+
+        Returns
+        -------
+        Tensor
+            shape = [n, c''', h, w]
         """
         raise NotImplementedError()
 
@@ -66,17 +66,16 @@ class FeedforwardRecurrent(Core):
     def grid_scale(self):
         return self.feedforward.scale
 
-    def add_inputs(
-        self,
-        perspective: int,
-        grid: Optional[int] = None,
-        modulation: Optional[int] = None,
-    ):
+    def add_inputs(self, perspective, grid=None, modulation=None):
         """
-        Args:
-            perspective (int)  : perspective channels
-            grid        (int)  : grid channels
-            modulation  (int)  : modulation channels
+        Parameters
+        ----------
+        perspective : int
+            number of perspective channels
+        grid : int | None
+            number of perspective channels
+        modulation : int | None
+            number of modulation channels
         """
         self.feedforward.add_input(perspective)
 
@@ -86,21 +85,23 @@ class FeedforwardRecurrent(Core):
         if modulation is not None:
             self.recurrent.add_input(modulation)
 
-    def forward(
-        self,
-        perspective: Sequence[torch.Tensor],
-        grid: Sequence[Optional[torch.Tensor]],
-        modulation: Sequence[Optional[torch.Tensor]],
-        dropout: float = 0,
-    ):
+    def forward(self, perspective, grid, modulation, dropout=0):
         """
-        Args:
-            perspective (torch.Tensors) : shape = [n, c, h, w]
-            grid        (torch.Tensors) : shape = [n, c, h, w]
-            modulation  (torch.Tensors) : shape = [n, c, h, w]
-            dropout     (float)         : dropout probability
-        Returns:
-            (torch.Tensor)              : shape = [n, c', h, w]
+        Parameters
+        ----------
+        perspective : Sequence[Tensor]
+            shape = [n, c, h, w]
+        grid : Sequence[Tensor | None]
+            shape = [n, c', h, w]
+        modulation : Sequence[Tensor | None]
+            shape = [n, c'', h, w]
+        dropout : float
+            dropout probability
+
+        Returns
+        -------
+        Tensor
+            shape = [n, c''', h', w']
         """
         inputs = (x for x in chain(*zip(grid, modulation)) if x is not None)
         inputs = [
