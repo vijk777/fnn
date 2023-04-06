@@ -1,28 +1,39 @@
 import torch
-from torch import nn
 
 from .containers import Module
 from .utils import isotropic_grid_2d, rmat_3d
 
 
 class Monitor(Module):
-    def project(self, rays: torch.Tensor):
+    def project(self, rays):
         """
-        Args:
-            rays (torch.Tensor) : shape = [n, h, w, 3]
-        Returns:
-            (torch.Tensor)      : shape = [n, h, w, 2]
+        Parameters
+        ----------
+        rays : Tensor
+            shape = [n, h, w, 3]
+
+        Returns
+        -------
+        Tensor
+            shape = [n, h, w, 2]
         """
         raise NotImplementedError()
 
-    def rays(self, batch_size: int = 1, height: int = 144, width: int = 256):
+    def rays(self, batch_size=1, height=144, width=256):
         """
-        Args:
-            batch_size  (int)
-            height      (int)
-            width       (int)
-        Returns:
-            (torch.Tensor)      : shape = [batch_size, height, width, 3]
+        Parameters
+        ----------
+        batch_size : int
+            batch size, n
+        height : int
+            output height, h
+        width : int
+            output width, w
+
+        Returns
+        -------
+        Tensor
+            shape = [n, h, w, 2]
         """
         raise NotImplementedError()
 
@@ -30,23 +41,57 @@ class Monitor(Module):
 class Plane(Monitor):
     def __init__(
         self,
-        init_center: float = 0.5,
-        init_center_std: float = 0.05,
-        init_angle_std: float = 0.05,
-        eps: float = 1e-5,
+        init_center_x=0,
+        init_center_y=0,
+        init_center_z=0.5,
+        init_center_std=0.05,
+        init_angle_x=0,
+        init_angle_y=0,
+        init_angle_z=0,
+        init_angle_std=0.05,
+        eps=1e-5,
     ):
+        """
+        Parameters
+        ----------
+        init_center_x : float
+            initial center x
+        init_center_y : float
+            initial center y
+        init_center_z : float
+            initial center z
+        init_center_std : float
+            initial center sampling stddev
+        init_angle_x : float
+            initial angle x
+        init_angle_y : float
+            initial angle y
+        init_angle_z : float
+            initial angle z
+        init_angle_std : float
+            initial angle sampling stddev
+        """
         super().__init__()
 
-        self.init_center = float(init_center)
+        self.init_center = [
+            float(init_center_x),
+            float(init_center_y),
+            float(init_center_z),
+        ]
+        self.init_angle = [
+            float(init_angle_x),
+            float(init_angle_y),
+            float(init_angle_z),
+        ]
         self.init_center_std = float(init_center_std)
         self.init_angle_std = float(init_angle_std)
         self.eps = float(eps)
 
-        self.center = nn.Parameter(torch.tensor([0, 0, self.init_center]))
-        self.angle = nn.Parameter(torch.zeros(3))
+        self.center = torch.nn.Parameter(torch.tensor(self.init_center))
+        self.angle = torch.nn.Parameter(torch.tensor(self.init_angle))
 
-        self.center_std = nn.Parameter(torch.zeros(3))
-        self.angle_std = nn.Parameter(torch.zeros(3))
+        self.center_std = torch.nn.Parameter(torch.zeros(3))
+        self.angle_std = torch.nn.Parameter(torch.zeros(3))
         self._restart()
 
         self._position = dict()
@@ -64,15 +109,23 @@ class Plane(Monitor):
             kwargs.update(weight_decay=0)
             yield dict(params=list(self.parameters()), **kwargs)
 
-    def position(self, batch_size: int = 1):
+    def position(self, batch_size=1):
         """
-        Args:
-            batch_size  (int)
-        Returns:
-            center      (torch.Tensor)  : shape = [batch_size, 1, 1, 3]
-            X           (torch.Tensor)  : shape = [batch_size, 1, 1, 3]
-            Y           (torch.Tensor)  : shape = [batch_size, 1, 1, 3]
-            Z           (torch.Tensor)  : shape = [batch_size, 1, 1, 3]
+        Parameters
+        ----------
+        batch_size : int
+            batch size, n
+
+        Returns
+        -------
+        Tensor
+            center, shape = [n, 1, 1, 3]
+        Tensor
+            X, shape = [n, 1, 1, 3]
+        Tensor
+            Y, shape = [n, 1, 1, 3]
+        Tensor
+            Z, shape = [n, 1, 1, 3]
         """
         if self._position:
             assert batch_size == self._position["center"].size(0)
@@ -94,12 +147,17 @@ class Plane(Monitor):
 
         return self._position["center"], self._position["X"], self._position["Y"], self._position["Z"]
 
-    def project(self, rays: torch.Tensor):
+    def project(self, rays):
         """
-        Args:
-            rays (torch.Tensor) : shape = [n, h, w, 3]
-        Returns:
-            (torch.Tensor)      : shape = [n, h, w, 2]
+        Parameters
+        ----------
+        rays : Tensor
+            shape = [n, h, w, 3]
+
+        Returns
+        -------
+        Tensor
+            shape = [n, h, w, 2]
         """
         center, X, Y, Z = self.position(batch_size=rays.size(0))
 
@@ -115,14 +173,21 @@ class Plane(Monitor):
         ]
         return torch.stack(proj, dim=3)
 
-    def rays(self, batch_size: int = 1, height: int = 144, width: int = 256):
+    def rays(self, batch_size=1, height=144, width=256):
         """
-        Args:
-            batch_size  (int)
-            height      (int)
-            width       (int)
-        Returns:
-            (torch.Tensor)      : shape = [batch_size, height, width, 3]
+        Parameters
+        ----------
+        batch_size : int
+            batch size, n
+        height : int
+            output height, h
+        width : int
+            output width, w
+
+        Returns
+        -------
+        Tensor
+            shape = [n, h, w, 2]
         """
         x, y = isotropic_grid_2d(
             height=height,
