@@ -7,27 +7,27 @@ from .containers import Module
 class Core(Module):
     def __init__(
         self,
-        perspective_channels,
-        grid_channels,
-        modulation_channels,
+        perspectives,
+        grids,
+        modulations,
     ):
         """
         Parameters
         ----------
-        perspective_channels : int
+        perspectives : int
             perspective channels
-        grid_channels : int
+        grids : int
             perspective channels
-        modulation_channels : int
+        modulations : int
             modulation channels
         """
         super().__init__()
-        self.perspective_channels = int(perspective_channels)
-        self.grid_channels = int(grid_channels)
-        self.modulation_channels = int(modulation_channels)
+        self.perspectives = int(perspectives)
+        self.grids = int(grids)
+        self.modulations = int(modulations)
 
     @property
-    def out_channels(self):
+    def channels(self):
         raise NotImplementedError
 
     @property
@@ -41,7 +41,7 @@ class Core(Module):
         perspective : Tensor
             shape = [n, c, h, w]
         grid : Tensor
-            shape = [n, c', h, w]
+            shape = [g, h, w]
         modulation : Tensor
             shape = [n, f]
         dropout : float
@@ -50,7 +50,7 @@ class Core(Module):
         Returns
         -------
         Tensor
-            shape = [n, c'', h', w']
+            shape = [n, c', h', w']
         """
         raise NotImplementedError()
 
@@ -58,20 +58,20 @@ class Core(Module):
 class FeedforwardRecurrent(Core):
     def __init__(
         self,
-        perspective_channels,
-        grid_channels,
-        modulation_channels,
+        perspectives,
+        grids,
+        modulations,
         feedforward,
         recurrent,
     ):
         """
         Parameters
         ----------
-        perspective_channels : int
+        perspectives : int
             perspective channels
-        grid_channels : int
+        grids : int
             perspective channels
-        modulation_channels : int
+        modulations : int
             modulation channels
         feedforward : .feedforwards.Feedforward
             feedforward network
@@ -79,22 +79,22 @@ class FeedforwardRecurrent(Core):
             recurrent network
         """
         super().__init__(
-            perspective_channels=perspective_channels,
-            grid_channels=grid_channels,
-            modulation_channels=modulation_channels,
+            perspectives=perspectives,
+            grids=grids,
+            modulations=modulations,
         )
 
         self.feedforward = feedforward
-        self.feedforward.add_input(self.perspective_channels)
+        self.feedforward.add_input(self.perspectives)
 
         self.recurrent = recurrent
-        self.recurrent.add_input(self.feedforward.out_channels)
-        self.recurrent.add_input(self.grid_channels)
-        self.recurrent.add_input(self.modulation_channels)
+        self.recurrent.add_input(self.feedforward.channels)
+        self.recurrent.add_input(self.grids)
+        self.recurrent.add_input(self.modulations)
 
     @property
-    def out_channels(self):
-        return self.recurrent.out_channels
+    def channels(self):
+        return self.recurrent.channels
 
     @property
     def grid_scale(self):
@@ -107,7 +107,7 @@ class FeedforwardRecurrent(Core):
         perspective : Tensor
             shape = [n, c, h, w]
         grid : Tensor
-            shape = [n, c', h, w]
+            shape = [g, h, w]
         modulation : Tensor
             shape = [n, f]
         dropout : float
@@ -116,11 +116,11 @@ class FeedforwardRecurrent(Core):
         Returns
         -------
         Tensor
-            shape = [n, c'', h', w']
+            shape = [n, c', h', w']
         """
         inputs = [
             self.feedforward([perspective]),
-            grid,
+            grid[None, :, :, :],
             modulation[:, :, None, None],
         ]
         return self.recurrent(inputs, dropout=dropout)

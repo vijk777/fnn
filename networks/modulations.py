@@ -19,7 +19,7 @@ class Modulation(Module):
         self.behavior = behavior
 
     @property
-    def out_features(self):
+    def features(self):
         raise NotImplementedError
 
     def forward(self, behavior=None):
@@ -41,22 +41,22 @@ class LSTM(Modulation):
     def __init__(
         self,
         behavior,
-        size,
+        features,
     ):
         """
         Parameters
         ----------
         behavior : .variables.Behavior
             behavior variable
-        size : int
-            size of LSTM
+        features : int
+            LSTM features
         """
         super().__init__(behavior=behavior)
 
-        self.size = int(size)
+        self._features = int(features)
 
         features = self.behavior.features
-        linear = lambda: Linear(out_features=self.size).add(in_features=features).add(in_features=self.size)
+        linear = lambda: Linear(out_features=self.features).add(in_features=features).add(in_features=self.features)
 
         self.proj_i = linear()
         self.proj_f = linear()
@@ -69,8 +69,8 @@ class LSTM(Modulation):
         self._past.clear()
 
     @property
-    def out_features(self):
-        return self.size
+    def features(self):
+        return self._features
 
     def forward(self, behavior=None):
         """
@@ -88,7 +88,7 @@ class LSTM(Modulation):
             h = self._past["h"]
             c = self._past["c"]
         else:
-            h = c = torch.zeros(1, self.out_channels, device=self.device)
+            h = c = torch.zeros(1, self.features, device=self.device)
 
         x = self.behavior(behavior)
 

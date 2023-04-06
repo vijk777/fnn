@@ -7,7 +7,7 @@ from .utils import to_groups_2d
 
 class Recurrent(Module):
     @property
-    def out_channels(self):
+    def channels(self):
         raise NotImplementedError
 
     @property
@@ -43,23 +43,23 @@ class Recurrent(Module):
 class RvT(Recurrent):
     def __init__(
         self,
-        channels,
         kernel_size,
+        channels,
         groups=1,
     ):
         """
         Parameters
         ----------
-        channels : int
-            recurrent channels
         kernel_size : int
             spatial kernel size
+        channels : int
+            recurrent channels
         groups : int
             recurrent channel groups
         """
         super().__init__()
 
-        self.channels = int(channels)
+        self._channels = int(channels)
         self.kernel_size = int(kernel_size)
         self.groups = int(groups)
         self.group_channels = self.channels // self.groups
@@ -154,8 +154,8 @@ class RvT(Recurrent):
         self._past.clear()
 
     @property
-    def out_channels(self):
-        return self.channels
+    def channels(self):
+        return self._channels
 
     @property
     def scale(self):
@@ -189,7 +189,7 @@ class RvT(Recurrent):
             c = self._past["c"]
         else:
             N, _, H, W = inputs[0].shape
-            h = c = torch.zeros(N, self.out_channels, H, W, device=self.device)
+            h = c = torch.zeros(N, self.channels, H, W, device=self.device)
 
         if self.groups > 1:
             x = self.proj_x([h, *inputs])

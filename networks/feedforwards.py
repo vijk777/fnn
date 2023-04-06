@@ -7,7 +7,7 @@ from .elements import Conv, nonlinearity
 
 class Feedforward(Module):
     @property
-    def out_channels(self):
+    def channels(self):
         raise NotImplementedError()
 
     @property
@@ -60,18 +60,18 @@ class Res3d(Feedforward):
         """
         super().__init__()
 
-        self.channels = list(map(int, channels))
+        self._channels = list(map(int, channels))
         self.kernel_sizes = list(map(int, kernel_sizes))
         self.strides = list(map(int, strides))
 
-        assert len(self.channels) == len(self.kernel_sizes) == len(self.strides)
+        assert len(self._channels) == len(self.kernel_sizes) == len(self.strides)
 
-        self.conv = ModuleList([Conv(out_channels=self.channels[0])])
-        self.res = ModuleList([Conv(out_channels=self.channels[0])])
+        self.conv = ModuleList([Conv(out_channels=self._channels[0])])
+        self.res = ModuleList([Conv(out_channels=self._channels[0])])
 
-        in_channels = self.channels[0]
+        in_channels = self._channels[0]
         for channels, size, stride in zip(
-            self.channels[1:],
+            self._channels[1:],
             self.kernel_sizes[1:],
             self.strides[1:],
         ):
@@ -96,8 +96,8 @@ class Res3d(Feedforward):
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
 
     @property
-    def out_channels(self):
-        return self.channels[-1]
+    def channels(self):
+        return self._channels[-1]
 
     @property
     def scale(self):

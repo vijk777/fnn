@@ -25,7 +25,7 @@ class Perspective(Module):
         self.eye_position = eye_position
 
     @property
-    def out_channels(self):
+    def channels(self):
         raise NotImplementedError
 
     def forward(self, stimulus, eye_position=None, height=144, width=256, pad_mode="constant", pad_value=0):
@@ -110,7 +110,7 @@ class MonitorRetina(Perspective):
         self.nonlinear, self.gamma = nonlinearity(nonlinear=nonlinear)
 
     @property
-    def out_channels(self):
+    def channels(self):
         return self.stimulus.channels
 
     def rmat(self, eye_position=None):
