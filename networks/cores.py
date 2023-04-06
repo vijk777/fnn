@@ -33,11 +33,11 @@ class Core(Module):
         Parameters
         ----------
         perspective : Sequence[Tensor]
-            shape = [n, c, h, w]
+            shapes = [n, c, h, w]
         grid : Sequence[Tensor | None]
-            shape = [n, c', h, w]
+            shapes = [n, c', h, w]
         modulation : Sequence[Tensor | None]
-            shape = [n, c', h, w]
+            shapes = [n, c', h, w]
         dropout : float
             dropout probability
 
@@ -90,11 +90,11 @@ class FeedforwardRecurrent(Core):
         Parameters
         ----------
         perspective : Sequence[Tensor]
-            shape = [n, c, h, w]
+            shapes = [n, c, h, w]
         grid : Sequence[Tensor | None]
-            shape = [n, c', h, w]
+            shapes = [n, c', h, w]
         modulation : Sequence[Tensor | None]
-            shape = [n, c'', h, w]
+            shapes = [n, c'', h, w]
         dropout : float
             dropout probability
 

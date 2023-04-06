@@ -181,7 +181,7 @@ class Input(Module):
         Parameters
         ----------
         x : Sequence[Tensor]
-            shape = [n, c, h, w]
+            shapes = [n, c, h, w]
 
         Returns
         -------
@@ -352,7 +352,7 @@ class Conv(Module):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shape = [n, c, h, w]
+            shapes = [n, c, h, w]
 
         Returns
         -------
@@ -407,7 +407,7 @@ class Linear(Conv):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shape = [n, f]
+            shapes = [n, f]
 
         Returns
         -------
