@@ -2,8 +2,6 @@ import torch
 from itertools import chain
 
 from .containers import Module
-from .feedforwards import Feedforward
-from .recurrents import Recurrent
 
 
 class Core(Module):
@@ -45,7 +43,7 @@ class Core(Module):
         grid : Tensor
             shape = [n, c', h, w]
         modulation : Tensor
-            shape = [n, c'', h or 1, w or 1]
+            shape = [n, c'', h, w] or [n, c'', 1, 1]
         dropout : float
             dropout probability
 
@@ -63,9 +61,23 @@ class FeedforwardRecurrent(Core):
         perspective_channels,
         grid_channels,
         modulation_channels,
-        feedforward: Feedforward,
-        recurrent: Recurrent,
+        feedforward,
+        recurrent,
     ):
+        """
+        Parameters
+        ----------
+        perspective_channels : int
+            perspective channels
+        grid_channels : int
+            perspective channels
+        modulation_channels : int
+            modulation channels
+        feedforward : .feedforwards.Feedforward
+            feedforward network
+        recurrent : .recurrents.Feedforward
+            recurrent network
+        """
         super().__init__(
             perspective_channels=perspective_channels,
             grid_channels=grid_channels,
@@ -97,7 +109,7 @@ class FeedforwardRecurrent(Core):
         grid : Tensor
             shape = [n, c', h, w]
         modulation : Tensor
-            shape = [n, c'', h or 1, w or 1]
+            shape = [n, c'', h, w] or [n, c'', 1, 1]
         dropout : float
             dropout probability
 

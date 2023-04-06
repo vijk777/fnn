@@ -1,13 +1,20 @@
 import torch
-from typing import Optional
 
 from .containers import Module
-from .variables import Behavior
 from .elements import Linear
 
 
 class Modulation(Module):
-    def __init__(self, behavior: Behavior):
+    def __init__(
+        self,
+        behavior,
+    ):
+        """
+        Parameters
+        ----------
+        behavior : .variables.Behavior
+            behavior variable
+        """
         super().__init__()
         self.behavior = behavior
 
@@ -15,18 +22,35 @@ class Modulation(Module):
     def out_channels(self):
         raise NotImplementedError
 
-    def forward(self, behavior: Optional[torch.Tensor] = None):
+    def forward(self, behavior=None):
         """
-        Args:
-            behavior (torch.Tensor) : shape = [n, f]
-        Returns:
-            (torch.Tensor)          : shape = [n, c, h, w]
+        Parameters
+        ----------
+        behavior : Tensor | None
+            shape = [n, f]
+
+        Returns
+        -------
+        Tensor
+            shape = [n, c, h, w] or [n, c, 1, 1]
         """
         raise NotImplementedError()
 
 
 class LSTM(Modulation):
-    def __init__(self, behavior: Behavior, size: int):
+    def __init__(
+        self,
+        behavior,
+        size,
+    ):
+        """
+        Parameters
+        ----------
+        behavior : .variables.Behavior
+            behavior variable
+        size : int
+            size of LSTM
+        """
         super().__init__(behavior=behavior)
 
         self.size = int(size)
@@ -48,12 +72,17 @@ class LSTM(Modulation):
     def out_channels(self):
         return self.size
 
-    def forward(self, behavior: Optional[torch.Tensor] = None):
+    def forward(self, behavior=None):
         """
-        Args:
-            behavior (torch.Tensor) : shape = [n, f]
-        Returns:
-            (torch.Tensor)          : shape = [n, c, 1, 1]
+        Parameters
+        ----------
+        behavior : Tensor | None
+            shape = [n, f]
+
+        Returns
+        -------
+        Tensor
+            shape = [n, c, 1, 1]
         """
         if self._past:
             h = self._past["h"]
