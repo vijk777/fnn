@@ -7,10 +7,13 @@ from .elements import Linear
 
 
 class Modulation(Module):
-    def __init__(self, behavior: Behavior, out_channels: int):
+    def __init__(self, behavior: Behavior):
         super().__init__()
         self.behavior = behavior
-        self.out_channels = int(out_channels)
+
+    @property
+    def out_channels(self):
+        raise NotImplementedError
 
     def forward(self, behavior: Optional[torch.Tensor] = None):
         """
@@ -23,15 +26,8 @@ class Modulation(Module):
 
 
 class LSTM(Modulation):
-    def __init__(
-        self,
-        behavior: Behavior,
-        size: int,
-    ):
-        super().__init__(
-            behavior=behavior,
-            out_channels=size,
-        )
+    def __init__(self, behavior: Behavior, size: int):
+        super().__init__(behavior=behavior)
 
         linear = (
             lambda: Linear(out_features=self.out_channels)
@@ -47,6 +43,10 @@ class LSTM(Modulation):
 
     def _reset(self):
         self._past.clear()
+
+    @property
+    def out_channels(self):
+        return self.size
 
     def forward(self, behavior: Optional[torch.Tensor] = None):
         """

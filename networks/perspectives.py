@@ -11,11 +11,14 @@ from .utils import isotropic_grid_sample_2d, rmat_3d
 
 
 class Perspective(Module):
-    def __init__(self, stimulus: Stimulus, eye_position: EyePosition, out_channels: int):
+    def __init__(self, stimulus: Stimulus, eye_position: EyePosition):
         super().__init__()
         self.stimulus = stimulus
         self.eye_position = eye_position
-        self.out_channels = int(out_channels)
+
+    @property
+    def out_channels(self):
+        raise NotImplementedError
 
     def forward(
         self,
@@ -72,11 +75,7 @@ class MonitorRetina(Perspective):
         features: Sequence[int],
         nonlinear: Optional[str] = None,
     ):
-        super().__init__(
-            stimulus=stimulus,
-            eye_position=eye_position,
-            out_channels=stimulus.n_channels,
-        )
+        super().__init__(stimulus=stimulus, eye_position=eye_position)
         self.monitor = monitor
         self.retina = retina
         self.features = list(map(int, features))
@@ -89,6 +88,10 @@ class MonitorRetina(Perspective):
         torch.nn.init.constant_(self.proj.gain, 0)
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear=nonlinear)
+
+    @property
+    def out_channels(self):
+        return self.stimulus.n_channels
 
     def rmat(self, eye_position: Optional[torch.Tensor] = None):
         """
