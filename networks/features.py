@@ -16,7 +16,7 @@ class Features(Module):
         raise NotImplementedError()
 
     @property
-    def features(self):
+    def weights(self):
         """
         Returns
         -------
@@ -36,10 +36,10 @@ class Standard(Features):
         """
         super().__init__()
         self.eps = float(eps)
-        self._features = None
+        self._weights = None
 
     def _reset(self):
-        self._features = None
+        self._weights = None
 
     def init(self, units, features):
         """
@@ -66,22 +66,22 @@ class Standard(Features):
             yield dict(params=[self.gain], **kwargs)
 
     @property
-    def features(self):
+    def weights(self):
         """
         Returns
         -------
         Tensor
             shape = [u, f]
         """
-        if self._features is None:
+        if self._weights is None:
 
             var, mean = torch.var_mean(self.weight, dim=1, unbiased=False, keepdim=True)
             scale = (var * self.weight.size(dim=1) + self.eps).pow(-0.5)
 
-            self._features = torch.einsum(
+            self._weights = torch.einsum(
                 "U F , U -> U F",
                 (self.weight - mean).mul(scale),
                 self.gain,
             )
 
-        return self._features
+        return self._weights
