@@ -70,6 +70,8 @@ class Plane(Monitor):
             initial angle z
         init_angle_std : float
             initial angle sampling stddev
+        eps : float
+            small value used to clip denominator for numerical stability
         """
         super().__init__()
 
