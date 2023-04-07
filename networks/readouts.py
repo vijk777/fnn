@@ -67,12 +67,19 @@ class PositionFeatures(Readout):
         units : int
             response units, u
         """
-        self.proj.add(in_channels=cores)
-
-        self.position.init(units=units)
-        self.features.init(units=units, features=self.channels)
-
-        self.bias = torch.nn.Parameter(torch.zeros(units))
+        self.proj.add(
+            in_channels=cores,
+        )
+        self.position.init(
+            units=units,
+        )
+        self.features.init(
+            units=units,
+            features=self.channels,
+        )
+        self.bias = torch.nn.Parameter(
+            torch.zeros(units),
+        )
 
     def _param_groups(self, **kwargs):
         if kwargs.get("weight_decay"):

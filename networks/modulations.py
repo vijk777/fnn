@@ -90,10 +90,12 @@ class LSTM(Modulation):
         else:
             h = c = torch.zeros(behavior.size(0), self.features, device=self.device)
 
-        i = torch.sigmoid(self.proj_i([h, behavior]))
-        f = torch.sigmoid(self.proj_f([h, behavior]))
-        g = torch.tanh(self.proj_g([h, behavior]))
-        o = torch.sigmoid(self.proj_o([h, behavior]))
+        inputs = [h, behavior]
+
+        i = torch.sigmoid(self.proj_i(inputs))
+        f = torch.sigmoid(self.proj_f(inputs))
+        g = torch.tanh(self.proj_g(inputs))
+        o = torch.sigmoid(self.proj_o(inputs))
 
         c = f * c + i * g
         h = o * torch.tanh(c)

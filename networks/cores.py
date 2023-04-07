@@ -60,7 +60,9 @@ class FeedforwardRecurrent(Core):
         super().__init__()
         self.feedforward = feedforward
         self.recurrent = recurrent
-        self.recurrent.add_input(channels=self.feedforward.channels)
+        self.recurrent.add_input(
+            channels=self.feedforward.channels,
+        )
 
     def init(self, perspectives, grids, modulations):
         """
@@ -73,9 +75,15 @@ class FeedforwardRecurrent(Core):
         modulations : int
             modulation features, m
         """
-        self.feedforward.add_input(channels=perspectives)
-        self.recurrent.add_input(channels=grids)
-        self.recurrent.add_input(channels=modulations)
+        self.feedforward.add_input(
+            channels=perspectives,
+        )
+        self.recurrent.add_input(
+            channels=grids,
+        )
+        self.recurrent.add_input(
+            channels=modulations,
+        )
 
     @property
     def channels(self):
