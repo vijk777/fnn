@@ -40,6 +40,12 @@ class Position(Module):
 
 class Gaussian(Position):
     def __init__(self, init_std=0.4):
+        """
+        Parameters
+        ----------
+        init_std : float
+            initial stddev
+        """
         super().__init__()
         self.init_std = float(init_std)
         self._position = None

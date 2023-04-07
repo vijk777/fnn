@@ -121,3 +121,7 @@ class Sequential(nn.Sequential, Module):
 
 class ModuleList(nn.ModuleList, Module):
     pass
+
+
+class ParameterList(nn.ParameterList, Module):
+    pass
