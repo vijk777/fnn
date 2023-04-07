@@ -10,11 +10,11 @@ class Core(Module):
         Parameters
         ----------
         perspectives : int
-            perspective channels
+            perspective channels, c
         grids : int
-            grid channels
+            grid channels, g
         modulations : int
-            modulation channels
+            modulation features, m
         """
         raise NotImplementedError
 
@@ -35,7 +35,7 @@ class Core(Module):
         grid : Tensor
             shape = [g, h, w]
         modulation : Tensor
-            shape = [n, f]
+            shape = [n, m]
         dropout : float
             dropout probability
 
@@ -67,11 +67,11 @@ class FeedforwardRecurrent(Core):
         Parameters
         ----------
         perspectives : int
-            perspective channels
+            perspective channels, c
         grids : int
-            grid channels
+            grid channels, g
         modulations : int
-            modulation channels
+            modulation features, m
         """
         self.feedforward.add_input(perspectives)
         self.recurrent.add_input(grids)
@@ -94,7 +94,7 @@ class FeedforwardRecurrent(Core):
         grid : Tensor
             shape = [g, h, w]
         modulation : Tensor
-            shape = [n, f]
+            shape = [n, m]
         dropout : float
             dropout probability
 
