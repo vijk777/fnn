@@ -4,24 +4,24 @@ from .containers import Module
 
 
 class Features(Module):
-    def init(self, units, channels):
+    def init(self, units, features):
         """
         Parameters
         ----------
         units : int
             number of units, u
-        channels : int
-            number of channels, c
+        features : int
+            number of features, f
         """
         raise NotImplementedError()
 
     @property
-    def features(self):
+    def weights(self):
         """
         Returns
         -------
         Tensor
-            shape = [u, c]
+            shape = [u, f]
         """
         raise NotImplementedError()
 
@@ -36,24 +36,24 @@ class Standard(Features):
         """
         super().__init__()
         self.eps = float(eps)
-        self._features = None
+        self._weights = None
 
     def _reset(self):
-        self._features = None
+        self._weights = None
 
-    def init(self, units, channels):
+    def init(self, units, features):
         """
         Parameters
         ----------
         units : int
             number of units, u
-        channels : int
-            number of channels, c
+        features : int
+            number of features, c
         """
-        self.weight = torch.nn.Parameter(torch.ones(units, channels))
+        self.weight = torch.nn.Parameter(torch.ones(units, features))
         self.gain = torch.nn.Parameter(torch.ones(units))
 
-        bound = channels**-0.5
+        bound = features**-0.5
         torch.nn.init.uniform_(self.weight, -bound, bound)
 
     def _param_norm_dims(self):
@@ -65,22 +65,22 @@ class Standard(Features):
             yield dict(params=[self.gain], **kwargs)
 
     @property
-    def features(self):
+    def weights(self):
         """
         Returns
         -------
         Tensor
             shape = [u, c]
         """
-        if self._features is None:
+        if self._weights is None:
 
             var, mean = torch.var_mean(self.weight, dim=1, unbiased=False, keepdim=True)
             scale = (var * self.weight.size(dim=1) + self.eps).pow(-0.5)
 
-            self._features = torch.einsum(
+            self._weights = torch.einsum(
                 "U F , U -> U F",
                 (self.weight - mean).mul(scale),
                 self.gain,
             )
 
-        return self._features
+        return self._weights

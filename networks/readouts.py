@@ -69,8 +69,8 @@ class PositionFeatures(Readout):
         """
         self.proj.add(in_channels=cores)
 
-        self.position.init(units)
-        self.features.init(units, self.channels)
+        self.position.init(units=units)
+        self.features.init(units=units, features=self.channels)
 
         self.bias = torch.nn.Parameter(torch.zeros(units))
 
