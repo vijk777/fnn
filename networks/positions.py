@@ -13,7 +13,17 @@ class Position(Module):
         """
         raise NotImplementedError()
 
-    def forward(self, batch_size=1):
+    @property
+    def mean(self):
+        """
+        Returns
+        -------
+        Tensor
+            shape = [u, 2]
+        """
+        raise NotImplementedError()
+
+    def sample(self, batch_size=1):
         """
         Parameters
         ----------
@@ -44,20 +54,30 @@ class Gaussian(Position):
         units : int
             number of units, u
         """
-        self.mean = torch.nn.Parameter(torch.zeros(units, 2))
-        self.std = torch.nn.Parameter(torch.eye(2).repeat(units, 1, 1))
+        self.mu = torch.nn.Parameter(torch.zeros(units, 2))
+        self.sigma = torch.nn.Parameter(torch.eye(2).repeat(units, 1, 1))
         self._restart()
 
     def _restart(self):
         with torch.no_grad():
-            self.std.copy_(torch.eye(2).mul(self.init_std))
+            self.sigma.copy_(torch.eye(2).mul(self.init_std))
 
     def _param_groups(self, **kwargs):
         if kwargs.get("weight_decay"):
             kwargs.update(weight_decay=0)
-            yield dict(params=[self.mean, self.std], **kwargs)
+            yield dict(params=[self.mu, self.sigma], **kwargs)
 
-    def forward(self, batch_size=1):
+    @property
+    def mean(self):
+        """
+        Returns
+        -------
+        Tensor
+            shape = [u, 2]
+        """
+        return self.mu
+
+    def sample(self, batch_size=1):
         """
         Parameters
         ----------
@@ -70,10 +90,10 @@ class Gaussian(Position):
             shape = [n, u, 2]
         """
         if self._position is None:
-            x = self.mean.repeat(batch_size, 1, 1)
+            x = self.mu.repeat(batch_size, 1, 1)
 
             if self.training:
-                x = x + torch.einsum("U C D , N U D -> N U C", self.std, torch.randn_like(x))
+                x = x + torch.einsum("U C D , N U D -> N U C", self.sigma, torch.randn_like(x))
 
             self._position = x
 
