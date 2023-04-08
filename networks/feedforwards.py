@@ -60,12 +60,11 @@ class Res3d(Feedforward):
         """
         assert len(channels) == len(kernel_sizes) == len(strides)
         super().__init__()
+
         self._channels = list(map(int, channels))
         self.kernel_sizes = list(map(int, kernel_sizes))
         self.strides = list(map(int, strides))
         self._streams = int(streams)
-
-        assert len(self._channels) == len(self.kernel_sizes) == len(self.strides)
 
         self.conv = ModuleList([Conv(channels=channels[0], streams=streams)])
         self.res = ModuleList([Conv(channels=channels[0], streams=streams)])
