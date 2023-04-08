@@ -54,6 +54,9 @@ class LSTM(Modulation):
         self.proj_g = Linear(features=features, streams=streams).add_input(features=features)
         self.proj_o = Linear(features=features, streams=streams).add_input(features=features)
 
+        self._features = int(features)
+        self._streams = int(streams)
+
         self._past = dict()
 
     def _reset(self):
@@ -73,25 +76,29 @@ class LSTM(Modulation):
 
     @property
     def features(self):
-        return self.proj_i.features
+        return self._features
 
     @property
     def streams(self):
-        return self.proj_i.streams
+        return self._streams
 
     def forward(self, behavior, stream=None):
         """
         Parameters
         ----------
         behavior : Tensor
-            shape = [n, f]
+            shape = [n, f] -- when stream is None
+                or
+            shape = [n, f // s] -- when stream is not None
         stream : int | None
             specific stream index (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            shape = [n, f']
+            shape = [n, f'] -- when stream is None
+                or
+            shape = [n, f' // s] -- when stream is not None
         """
         if self._past:
             h = self._past["h"]

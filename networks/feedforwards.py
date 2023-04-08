@@ -11,6 +11,10 @@ class Feedforward(Module):
         raise NotImplementedError()
 
     @property
+    def streams(self):
+        raise NotImplementedError()
+
+    @property
     def scale(self):
         raise NotImplementedError()
 
@@ -39,13 +43,7 @@ class Feedforward(Module):
 
 
 class Res3d(Feedforward):
-    def __init__(
-        self,
-        channels,
-        kernel_sizes,
-        strides,
-        nonlinear=None,
-    ):
+    def __init__(self, channels, kernel_sizes, strides, streams, nonlinear=None):
         """
         Parameters
         ----------
@@ -55,49 +53,57 @@ class Res3d(Feedforward):
             layer kernel sizes
         strides : Sequence[int]
             layer strides
+        streams : int
+            number of streams
         nonlinear : str | None
             nonlinearity
         """
+        assert len(channels) == len(kernel_sizes) == len(strides)
         super().__init__()
-
         self._channels = list(map(int, channels))
         self.kernel_sizes = list(map(int, kernel_sizes))
         self.strides = list(map(int, strides))
+        self._streams = int(streams)
 
         assert len(self._channels) == len(self.kernel_sizes) == len(self.strides)
 
-        self.conv = ModuleList([Conv(out_channels=self._channels[0])])
-        self.res = ModuleList([Conv(out_channels=self._channels[0])])
+        self.conv = ModuleList([Conv(channels=channels[0], streams=streams)])
+        self.res = ModuleList([Conv(channels=channels[0], streams=streams)])
 
-        in_channels = self._channels[0]
+        _channels = channels[0]
         for channels, size, stride in zip(
-            self._channels[1:],
-            self.kernel_sizes[1:],
-            self.strides[1:],
+            channels[1:],
+            kernel_sizes[1:],
+            strides[1:],
         ):
-            conv = Conv(out_channels=channels).add_input(
-                in_channels=in_channels,
+            conv = Conv(channels=channels, streams=streams).add_input(
+                channels=_channels,
                 kernel_size=size,
                 dynamic_size=size,
                 stride=stride,
             )
-            res = Conv(out_channels=channels).add_input(
-                in_channels=in_channels,
+            res = Conv(channels=channels, streams=streams).add_input(
+                channels=_channels,
                 kernel_size=stride,
                 stride=stride,
             )
-            in_channels = channels
             self.conv.append(conv)
             self.res.append(res)
+            _channels = channels
 
         for res in self.res:
-            torch.nn.init.constant_(res.gain, 0)
+            for gain in res.gains:
+                torch.nn.init.constant_(gain, 0)
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
 
     @property
     def channels(self):
         return self._channels[-1]
+
+    @property
+    def streams(self):
+        return self._streams
 
     @property
     def scale(self):
@@ -110,33 +116,41 @@ class Res3d(Feedforward):
         channels : int
             input channels
         """
-        self.conv[0].add(
-            in_channels=channels,
+        self.conv[0].add_input(
+            channels=channels,
             kernel_size=self.kernel_sizes[0],
             dynamic_size=self.kernel_sizes[0],
             stride=self.strides[0],
         )
-        self.res[0].add(
-            in_channels=channels,
+        self.res[0].add_input(
+            channels=channels,
             kernel_size=self.strides[0],
             stride=self.strides[0],
         )
 
-    def forward(self, inputs):
+    def forward(self, inputs, stream=None):
         """
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, c, h, w] or broadcastable
+            shapes = [n, c, h, w] or broadcastable -- when stream is None
+                or
+            shapes = [n, c // s, h, w] or broadcastable -- when stream is not None
+        stream : int | None
+            specific stream index (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            shape = [n, c', h // scale, w // scale]
+            shape = [n, c', h // scale, w // scale] -- when stream is None
+                or
+            shape = [n, c' // s, h // scale, w // scale] -- when stream is not None
         """
         for conv, res in zip(self.conv, self.res):
-            c = conv(inputs)
-            r = res(inputs)
+
+            c = conv(inputs, stream=stream)
+            r = res(inputs, stream=stream)
+
             inputs = [self.nonlinear(c) * self.gamma + r]
 
         return inputs[0]
