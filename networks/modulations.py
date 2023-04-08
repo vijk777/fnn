@@ -101,9 +101,13 @@ class LSTM(Modulation):
             shape = [n, f' // s] -- stream is not None
         """
         if self._past:
+            assert self._past["stream"] == stream
+
             h = self._past["h"]
             c = self._past["c"]
         else:
+            self._past["stream"] = stream
+
             features = self.features if stream is None else self.features // self.streams
             h = c = torch.zeros(behavior.size(0), features, device=self.device)
 
@@ -119,5 +123,6 @@ class LSTM(Modulation):
 
         self._past["c"] = c
         self._past["h"] = h
+        self._past["stream"] = stream
 
         return h
