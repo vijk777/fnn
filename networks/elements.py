@@ -485,9 +485,9 @@ class Linear(Conv):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, f] or broadcastable -- when stream is None
+            shapes = [n, f] -- when stream is None
                 or
-            shapes = [n, f // streams] or broadcastable -- when stream is not None
+            shapes = [n, f // streams] -- when stream is not None
         stream : int | None
             specific stream index (int) or all streams (None)
 
