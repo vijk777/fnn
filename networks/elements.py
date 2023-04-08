@@ -325,7 +325,7 @@ class Conv(Module):
         if channels % (groups * self.streams):
             raise ValueError("in_channels must be divisible by (in_groups * streams)")
 
-        f = lambda: Input(
+        i = lambda: Input(
             in_channels=channels // self.streams,
             out_channels=self.stream_channels,
             groups=groups,
@@ -334,7 +334,7 @@ class Conv(Module):
             stride=stride,
             pad=pad,
         )
-        inputs = ModuleList([f() for _ in range(self.streams)])
+        inputs = ModuleList([i() for _ in range(self.streams)])
         self.inputs.append(inputs)
         return self
 
@@ -351,12 +351,12 @@ class Conv(Module):
         m = m.expand(-1, d, -1, d)
         m = m.reshape(c, c, 1, 1, 1)
 
-        f = lambda: Input(
+        i = lambda: Input(
             in_channels=c,
             out_channels=c,
             mask=m,
         )
-        inputs = ModuleList([f() for _ in range(self.streams)])
+        inputs = ModuleList([i() for _ in range(self.streams)])
         self.inputs.append(inputs)
         return self
 
