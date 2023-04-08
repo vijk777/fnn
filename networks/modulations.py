@@ -22,17 +22,23 @@ class Modulation(Module):
     def streams(self):
         raise NotImplementedError()
 
-    def forward(self, behavior=None):
+    def forward(self, behavior, stream=None):
         """
         Parameters
         ----------
-        behavior : Tensor | None
-            shape = [n, f]
+        behavior : Tensor
+            shape = [n, f] -- stream is None
+                or
+            shape = [n, f // s] -- stream is not None
+        stream : int | None
+            specific stream index (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            shape = [n, f']
+            shape = [n, f'] -- stream is None
+                or
+            shape = [n, f' // s] -- stream is not None
         """
         raise NotImplementedError()
 

@@ -28,19 +28,25 @@ class Recurrent(Module):
         """
         raise NotImplementedError()
 
-    def forward(self, inputs, dropout=0):
+    def forward(self, inputs, stream=None, dropout=0):
         """
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, c, h, w]
+            shapes = [n, c, h, w] -- stream is None
+                or
+            shapes = [n, c // s, h, w] -- stream is not None
+        stream : int | None
+            specific stream index (int) or all streams (None)
         dropout : float
             dropout probability
 
         Returns
         -------
         Tensor
-            shape = [n, c', h // scale, w // scale]
+            shape = [n, c', h // scale, w // scale] -- stream is None
+                or
+            shape = [n, c' // s, h // scale, w // scale] -- stream is not None
         """
         raise NotImplementedError()
 

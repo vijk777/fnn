@@ -27,17 +27,23 @@ class Feedforward(Module):
         """
         raise NotImplementedError()
 
-    def forward(self, inputs):
+    def forward(self, inputs, stream=None):
         """
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, c, h, w] or broadcastable
+            shapes = [n, c, h, w] or broadcastable -- stream is None
+                or
+            shapes = [n, c // s, h, w] or broadcastable -- stream is not None
+        stream : int | None
+            specific stream index (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            shape = [n, c', h // scale, w // scale]
+            shape = [n, c', h // scale, w // scale] -- stream is None
+                or
+            shape = [n, c' // s, h // scale, w // scale] -- stream is not None
         """
         raise NotImplementedError()
 
