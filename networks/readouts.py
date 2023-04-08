@@ -67,7 +67,7 @@ class PositionFeatures(Readout):
         units : int
             response units, u
         """
-        self.proj.add(
+        self.proj.add_input(
             in_channels=cores,
         )
         self.position.init(

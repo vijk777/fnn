@@ -63,10 +63,10 @@ class LSTM(Modulation):
         behaviors : int
             behavior features
         """
-        self.proj_i.add(in_features=behaviors)
-        self.proj_f.add(in_features=behaviors)
-        self.proj_g.add(in_features=behaviors)
-        self.proj_o.add(in_features=behaviors)
+        self.proj_i.add_input(in_features=behaviors)
+        self.proj_f.add_input(in_features=behaviors)
+        self.proj_g.add_input(in_features=behaviors)
+        self.proj_o.add_input(in_features=behaviors)
 
     @property
     def features(self):

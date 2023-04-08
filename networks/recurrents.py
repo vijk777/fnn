@@ -82,14 +82,14 @@ class RvT(Recurrent):
             self.proj_x.add_intergroup()
 
         self.proj_q = Conv(out_channels=self.channels, out_groups=self.groups, gain=False, bias=False)
-        self.proj_q.add(
+        self.proj_q.add_input(
             in_channels=self.channels * 2,
             in_groups=self.groups,
             kernel_size=self.kernel_size,
         )
 
         self.proj_k = Conv(out_channels=self.channels, out_groups=self.groups, gain=False, bias=False)
-        self.proj_k.add(
+        self.proj_k.add_input(
             in_channels=self.channels * 2,
             in_groups=self.groups,
             kernel_size=self.kernel_size,
@@ -97,7 +97,7 @@ class RvT(Recurrent):
         )
 
         self.proj_v = Conv(out_channels=self.channels, out_groups=self.groups, gain=False, bias=False)
-        self.proj_v.add(
+        self.proj_v.add_input(
             in_channels=self.channels * 2,
             in_groups=self.groups,
             kernel_size=self.kernel_size,
@@ -105,44 +105,44 @@ class RvT(Recurrent):
         )
 
         self.proj_i = Conv(out_channels=self.channels, out_groups=self.groups)
-        self.proj_i.add(
+        self.proj_i.add_input(
             in_channels=self.channels,
             in_groups=self.groups,
         )
-        self.proj_i.add(
+        self.proj_i.add_input(
             in_channels=self.channels * 2,
             in_groups=self.groups,
             kernel_size=self.kernel_size,
         )
 
         self.proj_f = Conv(out_channels=self.channels, out_groups=self.groups)
-        self.proj_f.add(
+        self.proj_f.add_input(
             in_channels=self.channels,
             in_groups=self.groups,
         )
-        self.proj_f.add(
+        self.proj_f.add_input(
             in_channels=self.channels * 2,
             in_groups=self.groups,
             kernel_size=self.kernel_size,
         )
 
         self.proj_g = Conv(out_channels=self.channels, out_groups=self.groups)
-        self.proj_g.add(
+        self.proj_g.add_input(
             in_channels=self.channels,
             in_groups=self.groups,
         )
-        self.proj_g.add(
+        self.proj_g.add_input(
             in_channels=self.channels * 2,
             in_groups=self.groups,
             kernel_size=self.kernel_size,
         )
 
         self.proj_o = Conv(out_channels=self.channels, out_groups=self.groups)
-        self.proj_o.add(
+        self.proj_o.add_input(
             in_channels=self.channels,
             in_groups=self.groups,
         )
-        self.proj_o.add(
+        self.proj_o.add_input(
             in_channels=self.channels * 2,
             in_groups=self.groups,
             kernel_size=self.kernel_size,
@@ -168,7 +168,7 @@ class RvT(Recurrent):
         channels : int
             input channels
         """
-        self.proj_x.add(in_channels=channels)
+        self.proj_x.add_input(in_channels=channels)
 
     def forward(self, inputs, dropout=0):
         """

@@ -75,13 +75,13 @@ class Res3d(Feedforward):
             self.kernel_sizes[1:],
             self.strides[1:],
         ):
-            conv = Conv(out_channels=channels).add(
+            conv = Conv(out_channels=channels).add_input(
                 in_channels=in_channels,
                 kernel_size=size,
                 dynamic_size=size,
                 stride=stride,
             )
-            res = Conv(out_channels=channels).add(
+            res = Conv(out_channels=channels).add_input(
                 in_channels=in_channels,
                 kernel_size=stride,
                 stride=stride,

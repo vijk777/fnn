@@ -3,6 +3,7 @@ import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional as F
+from itertools import chain
 from functools import reduce
 from collections import deque
 
@@ -38,11 +39,7 @@ def nonlinearity(nonlinear=None):
 
 
 class Dropout(Module):
-    def __init__(
-        self,
-        drop_dim,
-        reduce_dim,
-    ):
+    def __init__(self, drop_dim, reduce_dim):
         """
         Parameters
         ----------
@@ -78,24 +75,17 @@ class Dropout(Module):
 
         if self._past:
             assert p == self._past.get("p")
-
             mask = self._past.get("mask")
-
         else:
             assert 0 <= p < 1
-
             if p:
                 size = np.array(x.shape)
                 size[self.drop_dim] = 1
-                z = size[self.reduce_dim].prod().item()
-
+                n = size[self.reduce_dim].prod().item()
                 mask = torch.rand(size.tolist(), device=x.device) > p
-                z = z / mask.sum(self.reduce_dim, keepdim=True).clip(1)
-
-                mask = mask * z
+                mask = n * mask / mask.sum(self.reduce_dim, keepdim=True).clip(1)
             else:
                 mask = None
-
             self._past.update(p=p, mask=mask)
 
         if mask is None:
@@ -109,15 +99,7 @@ class Dropout(Module):
 
 class Input(Module):
     def __init__(
-        self,
-        in_channels,
-        out_channels,
-        groups=1,
-        kernel_size=1,
-        dynamic_size=1,
-        stride=1,
-        pad=True,
-        mask=None,
+        self, in_channels, out_channels, groups=1, kernel_size=1, dynamic_size=1, stride=1, pad=True, mask=None
     ):
         """
         Parameters
@@ -127,7 +109,7 @@ class Input(Module):
         out_channels : int
             output channels, must be divisible by groups
         groups : int
-            channel groups
+            number of groups
         kernel_size : int
             spatial kernel size
         dynamic_size : int
@@ -139,8 +121,11 @@ class Input(Module):
         mask : Tensor (bool)
             masks the kernel, shape must be broadcastable with the kernel
         """
-        if in_channels % groups != 0 or out_channels % groups != 0:
-            raise ValueError("channels must be divisible by groups")
+        if in_channels % groups != 0:
+            raise ValueError("in_channels must be divisible by groups")
+
+        if out_channels % groups != 0:
+            raise ValueError("out_channels must be divisible by groups")
 
         if (kernel_size - stride) % 2 != 0:
             raise ValueError("incompatible kernel_size and stride")
@@ -155,9 +140,13 @@ class Input(Module):
         self.stride = int(stride)
         self.pad = (self.kernel_size - self.stride) // 2 if pad else 0
 
-        c = self.in_channels // self.groups
-        shape = [self.out_channels, c, self.dynamic_size, self.kernel_size, self.kernel_size]
-
+        shape = [
+            self.out_channels,
+            self.in_channels // self.groups,
+            self.dynamic_size,
+            self.kernel_size,
+            self.kernel_size,
+        ]
         self.weight = nn.Parameter(torch.empty(shape))
 
         if mask is None:
@@ -186,7 +175,7 @@ class Input(Module):
     def _param_norm_dims(self):
         yield self.weight, [1, 2, 3, 4]
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x):
         """
         Parameters
         ----------
@@ -225,21 +214,16 @@ class Input(Module):
 
 
 class Conv(Module):
-    def __init__(
-        self,
-        out_channels,
-        out_groups=1,
-        gain=True,
-        bias=True,
-        eps=1e-5,
-    ):
+    def __init__(self, channels, groups=1, streams=1, gain=True, bias=True, eps=1e-5):
         """
         Parameters
         ----------
-        out_channels : int
-            output channels, must be divisible by output groups
-        out_groups : int
-            output channel groups
+        channels : int
+            output channels, must be divisible by (groups * streams)
+        groups : int
+            number of output groups per stream
+        streams : int
+            number of streams
         gain : bool
             output gain
         bias : bool
@@ -247,84 +231,86 @@ class Conv(Module):
         eps : float
             small value added to denominator for numerical stability
         """
-        if out_channels % out_groups != 0:
-            raise ValueError("out_channels must be divisible by groups")
+        if channels % (groups * streams) != 0:
+            raise ValueError("stream_channels must be divisible by stream_groups")
 
         super().__init__()
 
-        self.out_channels = int(out_channels)
-        self.out_groups = int(out_groups)
+        self.channels = int(channels)
+        self.groups = int(groups)
+        self.streams = int(streams)
         self.use_gain = bool(gain)
         self.use_bias = bool(bias)
         self.eps = float(eps)
-        self.inputs = ModuleList()
 
-        self.affine = []
-        self.fan_out = self.out_channels // self.out_groups
+        self.inputs = ModuleList()
+        self.gains = nn.ParameterList()
+        self.biases = nn.ParameterList()
+
+        self.stream_channels = self.channels // self.streams
+        self.fan_out = self.stream_channels // self.groups
         assert self.fan_out > 1
 
         if self.use_gain:
-            self.gain = nn.Parameter(torch.ones(self.out_groups, self.fan_out))
-            self.affine.append(self.gain)
+            for _ in range(self.streams):
+                self.gains.append(nn.Parameter(torch.ones(self.groups, self.fan_out)))
 
         if self.use_bias:
-            self.bias = nn.Parameter(torch.zeros(self.out_groups, self.fan_out))
-            self.affine.append(self.bias)
+            for _ in range(self.streams):
+                self.biases.append(nn.Parameter(torch.zeros(self.groups, self.fan_out)))
 
-        self._weights = None
+        self._weights = dict()
 
     def _reset(self):
-        self._weights = None
+        self._weights = dict()
 
     def _param_norm_dims(self):
-        for param in self.affine:
+        for param in chain(self.gains, self.biases):
             yield param, 1
 
     def _param_groups(self, **kwargs):
-        if self.affine and kwargs.get("weight_decay"):
+        params = list(chain(self.gains, self.biases))
+        if params and kwargs.get("weight_decay"):
             kwargs.update(weight_decay=0)
-            yield dict(params=self.affine, **kwargs)
+            yield dict(params=params, **kwargs)
 
-    @property
-    def weights(self):
-        if self._weights is None:
-
-            masks = [i.mask for i in self.inputs]
-            weights = [i.weight for i in self.inputs]
-
-            m_weights = [weight if mask is None else weight[mask] for mask, weight in zip(masks, weights)]
-            m_weights = [weight.view(self.out_channels, -1, 1, 1, 1) for weight in m_weights]
-            m_weights = torch.cat(m_weights, dim=1)
-
-            var, mean = torch.var_mean(m_weights, dim=1, unbiased=False, keepdim=True)
-            scale = (var * m_weights.size(dim=1) + self.eps).pow(-0.5)
-
-            if self.use_gain:
-                scale = scale * self.gain.view_as(scale)
-
-            scales = [scale if mask is None else scale * mask for mask in masks]
-
-            self._weights = [(weight - mean) * scale for weight, scale in zip(weights, scales)]
-
-        return self._weights
-
-    @property
-    def biases(self):
-        biases = [None] * len(self.inputs)
-
-        if self.use_bias:
-            biases[-1] = self.bias.flatten()
-
-        return biases
-
-    def add(self, in_channels, in_groups=1, kernel_size=1, dynamic_size=1, stride=1, pad=True, mask=None):
+    def weights(self, stream):
         """
         Parameters
         ----------
-        in_channels : int
-            input channels
-        in_groups : int
-            input channel groups
+        stream : int
+            stream index
+        """
+        weight = self._weights.get(stream)
+
+        if weight is not None:
+            return weight
+
+        weights, masks = zip(*((i[stream].weight, i[stream].mask) for i in self.inputs))
+
+        _weights = (w if m is None else w[m] for w, m in zip(weights, masks))
+        _weights = (w.view(self.stream_channels, -1) for w in _weights)
+        _weights = torch.cat(list(_weights), dim=1)[:, :, None, None, None]
+
+        var, mean = torch.var_mean(_weights, dim=1, unbiased=False, keepdim=True)
+        fan_in = _weights.size(1)
+        scale = (var * fan_in + self.eps).pow(-0.5)
+
+        if self.use_gain:
+            scale = scale * self.gains[stream].view_as(scale)
+
+        weight = [(w - mean) * scale if m is None else m * (w - mean) * scale for w, m in zip(weights, masks)]
+        self._weights[stream] = weight
+        return weight
+
+    def add_input(self, channels, groups=1, kernel_size=1, dynamic_size=1, stride=1, pad=True):
+        """
+        Parameters
+        ----------
+        channels : int
+            input channels, must be divisible by (groups * streams)
+        groups : int
+            number of input groups per stream
         kernel_size : int
             spatial kernel size
         dynamic_size : int
@@ -332,69 +318,134 @@ class Conv(Module):
         stride : int
             spatial stride
         pad : bool
-            whether to pad to maintain spatial dimensions
+            spatial padding to preserve height and width
         mask : Tensor (bool)
             masks the kernel, shape must be broadcastable with the kernel
         """
-        self.inputs.append(
-            Input(
-                in_channels=in_channels,
-                out_channels=self.out_channels,
-                groups=in_groups,
-                kernel_size=kernel_size,
-                dynamic_size=dynamic_size,
-                stride=stride,
-                pad=pad,
-                mask=mask,
-            )
+        if channels % (groups * self.streams):
+            raise ValueError("in_channels must be divisible by (in_groups * streams)")
+
+        f = lambda: Input(
+            in_channels=channels // self.streams,
+            out_channels=self.stream_channels,
+            groups=groups,
+            kernel_size=kernel_size,
+            dynamic_size=dynamic_size,
+            stride=stride,
+            pad=pad,
         )
+        inputs = ModuleList([f() for _ in range(self.streams)])
+        self.inputs.append(inputs)
         return self
 
     def add_intergroup(self):
-        if self.out_groups <= 1:
-            raise ValueError("out_groups must be > 1")
+        if self.groups <= 1:
+            raise ValueError("there must be > 1 groups to add intergroup")
 
-        g = self.out_groups
-        c = self.out_channels // g
+        g = self.groups
+        c = self.stream_channels
+        d = c // g
 
-        mask = ~torch.eye(g, device=self.device, dtype=torch.bool)
-        mask = mask.view(g, 1, g, 1)
-        mask = mask.expand(-1, c, -1, c)
-        mask = mask.reshape(self.out_channels, self.out_channels, 1, 1, 1)
+        m = ~torch.eye(g, device=self.device, dtype=torch.bool)
+        m = m.view(g, 1, g, 1)
+        m = m.expand(-1, d, -1, d)
+        m = m.reshape(c, c, 1, 1, 1)
 
-        return self.add(in_channels=self.out_channels, mask=mask)
+        f = lambda: Input(
+            in_channels=c,
+            out_channels=c,
+            mask=m,
+        )
+        inputs = ModuleList([f() for _ in range(self.streams)])
+        self.inputs.append(inputs)
+        return self
 
-    def forward(self, inputs):
+    def forward(self, inputs, stream=None):
         """
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, c, h, w] or broadcastable
+            shapes = [n, c, h, w] or broadcastable -- when stream is None
+                or
+            shapes = [n, c // streams, h, w] or broadcastable -- when stream is not None
+        stream : int | None
+            specific stream index (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            shape = [n, c', h, w] (pad==True) or [n, c', h', w'] (pad==False)
+            shape = [n, c', h, w] -- stream is None and pad==True
+                or
+            shape = [n, c', h', w'] -- stream is None and pad==False
+                or
+            shape = [n, c' // streams, h, w] -- stream is not None and pad==True
+                or
+            shape = [n, c' // streams, h', w'] -- stream is not None and pad==False
         """
-        weights = self.weights
-        biases = self.biases
-        assert len(inputs) == len(weights) == len(biases)
-        outs = [
-            F.conv3d(x=i(x), weight=w, bias=b, stride=i.stride, groups=i.groups).squeeze(dim=2)
-            for i, x, w, b in zip(self.inputs, inputs, weights, biases)
-        ]
+        assert len(inputs) == len(self.inputs)
+
+        if stream is None:
+            weights = (self.weights(s) for s in range(self.streams))
+            weights = (torch.cat(w, dim=0) for w in zip(*weights))
+        else:
+            weights = self.weights(stream)
+
+        if self.use_bias:
+            if stream is None:
+                bias = torch.cat([b.flatten() for b in self.biases])
+            else:
+                bias = self.biases[stream].flatten()
+        else:
+            bias = None
+
+        outs = []
+
+        for inps, x, weight in zip(self.inputs, inputs, weights):
+
+            if stream is None:
+                x = x.chunk(self.streams, dim=1)
+                x = [inp(_x) for inp, _x in zip(inps, x)]
+                x = torch.cat(x, dim=1)
+
+                stride = inps[0].stride
+                groups = inps[0].groups * self.streams
+
+            else:
+                x = inps[stream](x)
+
+                stride = inps[stream].stride
+                groups = inps[stream].groups
+
+            out = F.conv3d(
+                x,
+                weight=weight,
+                bias=bias,
+                stride=stride,
+                groups=groups,
+            ).squeeze(dim=2)
+
+            outs.append(out)
+            bias = None
+
         return reduce(torch.Tensor.add_, outs)
 
     def extra_repr(self):
-        s = "{out_channels}, groups={out_groups}, gain={use_gain}, bias={use_bias}"
-        return s.format(**self.__dict__)
+        s = "{channels}, groups={groups}, streams={streams}, gain={gain}, bias={bias}"
+        return s.format(
+            channels=self.channels,
+            groups=self.groups,
+            streams=self.streams,
+            gain=self.use_gain,
+            bias=self.use_bias,
+        )
 
 
 class Linear(Conv):
     def __init__(
         self,
-        out_features,
-        out_groups=1,
+        features,
+        groups=1,
+        streams=1,
         gain=True,
         bias=True,
         eps=1e-5,
@@ -402,10 +453,12 @@ class Linear(Conv):
         """
         Parameters
         ----------
-        out_feature : int
-            output feature, must be divisible by output groups
-        out_groups : int
-            output channel groups
+        features : int
+            output features, must be divisible by output groups
+        groups : int
+            number of output groups per stream
+        streams : int
+            number of streams
         gain : bool
             output gain
         bias : bool
@@ -413,30 +466,37 @@ class Linear(Conv):
         eps : float
             small value added to denominator for numerical stability
         """
-        super().__init__(out_channels=out_features, out_groups=out_groups, gain=gain, bias=bias, eps=eps)
+        super().__init__(channels=features, groups=groups, streams=streams, gain=gain, bias=bias, eps=eps)
+        self.features = self.channels
 
-    def add(self, in_features, in_groups=1):
+    def add_input(self, features, groups=1):
         """
         Parameters
         ----------
-        in_features : int
-            input features
-        in_groups : int
-            input channel groups
+        channels : int
+            input features, must be divisible by (groups * streams)
+        groups : int
+            number of input groups per stream
         """
-        return super().add(in_channels=in_features, in_groups=in_groups)
+        return super().add_input(channels=features, groups=groups)
 
-    def forward(self, inputs):
+    def forward(self, inputs, stream=None):
         """
         Parameters
         ----------
-        inputs : Sequence[Tensor]  or broadcastable
-            shapes = [n, f]
+        inputs : Sequence[Tensor]
+            shapes = [n, f] or broadcastable -- when stream is None
+                or
+            shapes = [n, f // streams] or broadcastable -- when stream is not None
+        stream : int | None
+            specific stream index (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            shape = [n, f']
+            shape = [n, f'] -- when stream is None
+                or
+            shape = [n, f' // streams] -- when stream is not None
         """
         inputs = [x[:, :, None, None] for x in inputs]
         return super().forward(inputs)[:, :, 0, 0]
