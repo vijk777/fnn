@@ -365,9 +365,9 @@ class Conv(Module):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, c, h, w] or broadcastable -- when stream is None
+            shapes = [n, c, h, w] or broadcastable -- stream is None
                 or
-            shapes = [n, c // s, h, w] or broadcastable -- when stream is not None
+            shapes = [n, c // s, h, w] or broadcastable -- stream is not None
         stream : int | None
             specific stream index (int) or all streams (None)
 
@@ -485,18 +485,18 @@ class Linear(Conv):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, f] -- when stream is None
+            shapes = [n, f] -- stream is None
                 or
-            shapes = [n, f // s] -- when stream is not None
+            shapes = [n, f // s] -- stream is not None
         stream : int | None
             specific stream index (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            shape = [n, f'] -- when stream is None
+            shape = [n, f'] -- stream is None
                 or
-            shape = [n, f' // s] -- when stream is not None
+            shape = [n, f' // s] -- stream is not None
         """
         inputs = [x[:, :, None, None] for x in inputs]
         return super().forward(inputs, stream=stream)[:, :, 0, 0]

@@ -133,18 +133,18 @@ class Res3d(Feedforward):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, c, h, w] or broadcastable -- when stream is None
+            shapes = [n, c, h, w] or broadcastable -- stream is None
                 or
-            shapes = [n, c // s, h, w] or broadcastable -- when stream is not None
+            shapes = [n, c // s, h, w] or broadcastable -- stream is not None
         stream : int | None
             specific stream index (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            shape = [n, c', h // scale, w // scale] -- when stream is None
+            shape = [n, c', h // scale, w // scale] -- stream is None
                 or
-            shape = [n, c' // s, h // scale, w // scale] -- when stream is not None
+            shape = [n, c' // s, h // scale, w // scale] -- stream is not None
         """
         for conv, res in zip(self.conv, self.res):
 

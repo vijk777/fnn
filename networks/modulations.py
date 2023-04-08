@@ -87,18 +87,18 @@ class LSTM(Modulation):
         Parameters
         ----------
         behavior : Tensor
-            shape = [n, f] -- when stream is None
+            shape = [n, f] -- stream is None
                 or
-            shape = [n, f // s] -- when stream is not None
+            shape = [n, f // s] -- stream is not None
         stream : int | None
             specific stream index (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            shape = [n, f'] -- when stream is None
+            shape = [n, f'] -- stream is None
                 or
-            shape = [n, f' // s] -- when stream is not None
+            shape = [n, f' // s] -- stream is not None
         """
         if self._past:
             h = self._past["h"]
