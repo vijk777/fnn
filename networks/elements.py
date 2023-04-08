@@ -499,4 +499,4 @@ class Linear(Conv):
             shape = [n, f' // streams] -- when stream is not None
         """
         inputs = [x[:, :, None, None] for x in inputs]
-        return super().forward(inputs)[:, :, 0, 0]
+        return super().forward(inputs, stream=stream)[:, :, 0, 0]

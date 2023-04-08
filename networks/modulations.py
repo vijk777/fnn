@@ -18,6 +18,10 @@ class Modulation(Module):
     def features(self):
         raise NotImplementedError()
 
+    @property
+    def streams(self):
+        raise NotImplementedError()
+
     def forward(self, behavior=None):
         """
         Parameters
@@ -34,22 +38,21 @@ class Modulation(Module):
 
 
 class LSTM(Modulation):
-    def __init__(self, features):
+    def __init__(self, features, streams):
         """
         Parameters
         ----------
         features : int
-            LSTM features
+            number of features
+        streams : int
+            number of streams
         """
         super().__init__()
 
-        self._features = int(features)
-
-        linear = lambda: Linear(out_features=self.features).add(in_features=self.features)
-        self.proj_i = linear()
-        self.proj_f = linear()
-        self.proj_g = linear()
-        self.proj_o = linear()
+        self.proj_i = Linear(features=features, streams=streams).add_input(features=features)
+        self.proj_f = Linear(features=features, streams=streams).add_input(features=features)
+        self.proj_g = Linear(features=features, streams=streams).add_input(features=features)
+        self.proj_o = Linear(features=features, streams=streams).add_input(features=features)
 
         self._past = dict()
 
@@ -63,21 +66,27 @@ class LSTM(Modulation):
         behaviors : int
             behavior features
         """
-        self.proj_i.add_input(in_features=behaviors)
-        self.proj_f.add_input(in_features=behaviors)
-        self.proj_g.add_input(in_features=behaviors)
-        self.proj_o.add_input(in_features=behaviors)
+        self.proj_i.add_input(features=behaviors)
+        self.proj_f.add_input(features=behaviors)
+        self.proj_g.add_input(features=behaviors)
+        self.proj_o.add_input(features=behaviors)
 
     @property
     def features(self):
-        return self._features
+        return self.proj_i.features
 
-    def forward(self, behavior):
+    @property
+    def streams(self):
+        return self.proj_i.streams
+
+    def forward(self, behavior, stream=None):
         """
         Parameters
         ----------
         behavior : Tensor
             shape = [n, f]
+        stream : int | None
+            specific stream index (int) or all streams (None)
 
         Returns
         -------
@@ -88,14 +97,15 @@ class LSTM(Modulation):
             h = self._past["h"]
             c = self._past["c"]
         else:
-            h = c = torch.zeros(behavior.size(0), self.features, device=self.device)
+            features = self.features if stream is None else self.features // self.streams
+            h = c = torch.zeros(behavior.size(0), features, device=self.device)
 
         inputs = [h, behavior]
 
-        i = torch.sigmoid(self.proj_i(inputs))
-        f = torch.sigmoid(self.proj_f(inputs))
-        g = torch.tanh(self.proj_g(inputs))
-        o = torch.sigmoid(self.proj_o(inputs))
+        i = torch.sigmoid(self.proj_i(inputs, stream=stream))
+        f = torch.sigmoid(self.proj_f(inputs, stream=stream))
+        g = torch.tanh(self.proj_g(inputs, stream=stream))
+        o = torch.sigmoid(self.proj_o(inputs, stream=stream))
 
         c = f * c + i * g
         h = o * torch.tanh(c)
