@@ -280,6 +280,11 @@ class Conv(Module):
         ----------
         stream : int
             stream index
+        
+        Returns
+        -------
+        List[Tensor]
+            shapes = [o, i, d, k, k]
         """
         weight = self._weights.get(stream)
 
@@ -367,9 +372,9 @@ class Conv(Module):
         inputs : Sequence[Tensor]
             shapes = [n, c, h, w] or broadcastable -- stream is None
                 or
-            shapes = [n, c // s, h, w] or broadcastable -- stream is not None
+            shapes = [n, c // s, h, w] or broadcastable -- stream is int
         stream : int | None
-            specific stream index (int) or all streams (None)
+            specific stream (int) or all streams (None)
 
         Returns
         -------
@@ -378,9 +383,9 @@ class Conv(Module):
                 or
             shape = [n, c', h', w'] -- stream is None and pad==False
                 or
-            shape = [n, c' // s, h, w] -- stream is not None and pad==True
+            shape = [n, c' // s, h, w] -- stream is int and pad==True
                 or
-            shape = [n, c' // s, h', w'] -- stream is not None and pad==False
+            shape = [n, c' // s, h', w'] -- stream is int and pad==False
         """
         assert len(inputs) == len(self.inputs)
 
@@ -441,15 +446,7 @@ class Conv(Module):
 
 
 class Linear(Conv):
-    def __init__(
-        self,
-        features,
-        groups=1,
-        streams=1,
-        gain=True,
-        bias=True,
-        eps=1e-5,
-    ):
+    def __init__(self, features, groups=1, streams=1, gain=True, bias=True, eps=1e-5):
         """
         Parameters
         ----------
@@ -487,16 +484,16 @@ class Linear(Conv):
         inputs : Sequence[Tensor]
             shapes = [n, f] -- stream is None
                 or
-            shapes = [n, f // s] -- stream is not None
+            shapes = [n, f // s] -- stream is int
         stream : int | None
-            specific stream index (int) or all streams (None)
+            specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
             shape = [n, f'] -- stream is None
                 or
-            shape = [n, f' // s] -- stream is not None
+            shape = [n, f' // s] -- stream is int
         """
         inputs = [x[:, :, None, None] for x in inputs]
         return super().forward(inputs, stream=stream)[:, :, 0, 0]

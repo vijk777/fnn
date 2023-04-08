@@ -35,9 +35,9 @@ class Recurrent(Module):
         inputs : Sequence[Tensor]
             shapes = [n, c, h, w] -- stream is None
                 or
-            shapes = [n, c // s, h, w] -- stream is not None
+            shapes = [n, c // s, h, w] -- stream is int
         stream : int | None
-            specific stream index (int) or all streams (None)
+            specific stream (int) or all streams (None)
         dropout : float
             dropout probability
 
@@ -46,7 +46,7 @@ class Recurrent(Module):
         Tensor
             shape = [n, c', h // scale, w // scale] -- stream is None
                 or
-            shape = [n, c' // s, h // scale, w // scale] -- stream is not None
+            shape = [n, c' // s, h // scale, w // scale] -- stream is int
         """
         raise NotImplementedError()
 
@@ -73,7 +73,7 @@ class RvT(Recurrent):
         self._streams = int(streams)
 
         init = (channels / groups / streams) ** -0.5
-        param = lambda: nn.Parameter(torch.full([channels // streams], init))
+        param = lambda: nn.Parameter(torch.full([groups], init))
         self.tau = nn.ParameterList([param() for _ in range(streams)])
 
         self.drop = Dropout(
@@ -149,9 +149,9 @@ class RvT(Recurrent):
         inputs : Sequence[Tensor]
             shapes = [n, c, h, w] -- stream is None
                 or
-            shapes = [n, c // s, h, w] -- stream is not None
+            shapes = [n, c // s, h, w] -- stream is int
         stream : int | None
-            specific stream index (int) or all streams (None)
+            specific stream (int) or all streams (None)
         dropout : float
             dropout probability
 
@@ -160,18 +160,24 @@ class RvT(Recurrent):
         Tensor
             shape = [n, c', h // scale, w // scale] -- stream is None
                 or
-            shape = [n, c' // s, h // scale, w // scale] -- stream is not None
+            shape = [n, c' // s, h // scale, w // scale] -- stream is int
         """
+        if stream is None:
+            channels = self.channels
+            groups = self.groups * self.streams
+            tau = torch.cat(list(self.tau))
+        else:
+            channels = self.channels // self.streams
+            groups = self.groups
+            tau = self.tau[stream]
+
         if self._past:
             assert self._past["stream"] == stream
-
             h = self._past["h"]
             c = self._past["c"]
         else:
             self._past["stream"] = stream
-
             N, _, H, W = inputs[0].shape
-            channels = self.channels if stream is None else self.channels // self.streams
             h = c = torch.zeros(N, channels, H, W, device=self.device)
 
         if self.groups > 1:
@@ -180,25 +186,18 @@ class RvT(Recurrent):
             x = self.proj_x(inputs, stream=stream)
 
         xh = [
-            to_groups_2d(x, self.groups),
-            to_groups_2d(h, self.groups),
+            to_groups_2d(x, groups),
+            to_groups_2d(h, groups),
         ]
         xh = torch.stack(xh, 2)
         xh = self.drop(xh, p=dropout).flatten(1, 3)
 
-        if stream is None:
-            heads = self.groups * self.streams
-            tau = torch.cat(list(self.tau))
-        else:
-            heads = self.groups
-            tau = self.tau[stream]
+        q = to_groups_2d(self.proj_q([xh], stream=stream), groups).flatten(3, 4)
+        k = to_groups_2d(self.proj_k([xh], stream=stream), groups).flatten(3, 4)
+        v = to_groups_2d(self.proj_v([xh], stream=stream), groups).flatten(3, 4)
 
-        q = to_groups_2d(self.proj_q([xh], stream=stream), heads).flatten(3, 4)
-        k = to_groups_2d(self.proj_k([xh], stream=stream), heads).flatten(3, 4)
-        v = to_groups_2d(self.proj_v([xh], stream=stream), heads).flatten(3, 4)
-
-        w = torch.einsum("G, N H C Q , N H C D -> N H Q D", tau, q, k).softmax(dim=3)
-        a = torch.einsum("N H C D , N H Q D -> N H C Q", v, w).view_as(x)
+        w = torch.einsum("G , N G C Q , N G C D -> N G Q D", tau, q, k).softmax(dim=3)
+        a = torch.einsum("N G C D , N G Q D -> N G C Q", v, w).view_as(x)
 
         i = torch.sigmoid(self.proj_i([a, xh], stream=stream))
         f = torch.sigmoid(self.proj_f([a, xh], stream=stream))

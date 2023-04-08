@@ -29,16 +29,16 @@ class Modulation(Module):
         behavior : Tensor
             shape = [n, f] -- stream is None
                 or
-            shape = [n, f // s] -- stream is not None
+            shape = [n, f // s] -- stream is int
         stream : int | None
-            specific stream index (int) or all streams (None)
+            specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
             shape = [n, f'] -- stream is None
                 or
-            shape = [n, f' // s] -- stream is not None
+            shape = [n, f' // s] -- stream is int
         """
         raise NotImplementedError()
 
@@ -95,16 +95,16 @@ class LSTM(Modulation):
         behavior : Tensor
             shape = [n, f] -- stream is None
                 or
-            shape = [n, f // s] -- stream is not None
+            shape = [n, f // s] -- stream is int
         stream : int | None
-            specific stream index (int) or all streams (None)
+            specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
             shape = [n, f'] -- stream is None
                 or
-            shape = [n, f' // s] -- stream is not None
+            shape = [n, f' // s] -- stream is int
         """
         if self._past:
             assert self._past["stream"] == stream

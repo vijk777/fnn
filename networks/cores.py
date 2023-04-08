@@ -16,11 +16,15 @@ class Core(Module):
         modulations : int
             modulation features, m
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     @property
     def channels(self):
-        raise NotImplementedError
+        raise NotImplementedError()
+
+    @property
+    def streams(self):
+        raise NotImplementedError()
 
     @property
     def grid_scale(self):
@@ -31,18 +35,28 @@ class Core(Module):
         Parameters
         ----------
         perspective : Tensor
-            shape = [n, c, h, w]
+            shape = [n, c, h, w] -- stream is None
+                or
+            shape = [n, c // s, h, w] -- stream is int
         grid : Tensor
-            shape = [g, h, w]
+            shape = [g, h, w] -- stream is None
+                or
+            shape = [g // s, h, w] -- stream is int
         modulation : Tensor
-            shape = [n, m]
+            shape = [n, m] -- stream is None
+                or
+            shape = [n, m // s] -- stream is int
+        stream : int | None
+            specific stream (int) or all streams (None)
         dropout : float
             dropout probability
 
         Returns
         -------
         Tensor
-            shape = [n, c', h', w']
+            shape = [n, c', h', w'] -- stream is None
+                or
+            shape = [n, c' // s, h', w'] -- stream is None
         """
         raise NotImplementedError()
 
@@ -57,12 +71,13 @@ class FeedforwardRecurrent(Core):
         recurrent : .recurrents.Feedforward
             recurrent network
         """
+        assert feedforward.streams == recurrent.streams
         super().__init__()
+
         self.feedforward = feedforward
         self.recurrent = recurrent
-        self.recurrent.add_input(
-            channels=self.feedforward.channels,
-        )
+
+        self.recurrent.add_input(channels=self.feedforward.channels)
 
     def init(self, perspectives, grids, modulations):
         """
@@ -90,30 +105,44 @@ class FeedforwardRecurrent(Core):
         return self.recurrent.channels
 
     @property
+    def streams(self):
+        return self.recurrent.streams
+
+    @property
     def grid_scale(self):
         return self.feedforward.scale
 
-    def forward(self, perspective, grid, modulation, dropout=0):
+    def forward(self, perspective, grid, modulation, stream=None, dropout=0):
         """
         Parameters
         ----------
         perspective : Tensor
-            shape = [n, c, h, w]
+            shape = [n, c, h, w] -- stream is None
+                or
+            shape = [n, c // s, h, w] -- stream is int
         grid : Tensor
-            shape = [g, h, w]
+            shape = [g, h, w] -- stream is None
+                or
+            shape = [g // s, h, w] -- stream is int
         modulation : Tensor
-            shape = [n, m]
+            shape = [n, m] -- stream is None
+                or
+            shape = [n, m // s] -- stream is int
+        stream : int | None
+            specific stream (int) or all streams (None)
         dropout : float
             dropout probability
 
         Returns
         -------
         Tensor
-            shape = [n, c', h', w']
+            shape = [n, c', h', w'] -- stream is None
+                or
+            shape = [n, c' // s, h', w'] -- stream is None
         """
         inputs = [
-            self.feedforward([perspective]),
+            self.feedforward([perspective], stream=stream),
             grid[None, :, :, :],
             modulation[:, :, None, None],
         ]
-        return self.recurrent(inputs, dropout=dropout)
+        return self.recurrent(inputs, stream=stream, dropout=dropout)

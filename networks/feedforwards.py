@@ -34,16 +34,16 @@ class Feedforward(Module):
         inputs : Sequence[Tensor]
             shapes = [n, c, h, w] or broadcastable -- stream is None
                 or
-            shapes = [n, c // s, h, w] or broadcastable -- stream is not None
+            shapes = [n, c // s, h, w] or broadcastable -- stream is int
         stream : int | None
-            specific stream index (int) or all streams (None)
+            specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
             shape = [n, c', h // scale, w // scale] -- stream is None
                 or
-            shape = [n, c' // s, h // scale, w // scale] -- stream is not None
+            shape = [n, c' // s, h // scale, w // scale] -- stream is int
         """
         raise NotImplementedError()
 
@@ -140,16 +140,16 @@ class Res3d(Feedforward):
         inputs : Sequence[Tensor]
             shapes = [n, c, h, w] or broadcastable -- stream is None
                 or
-            shapes = [n, c // s, h, w] or broadcastable -- stream is not None
+            shapes = [n, c // s, h, w] or broadcastable -- stream is int
         stream : int | None
-            specific stream index (int) or all streams (None)
+            specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
             shape = [n, c', h // scale, w // scale] -- stream is None
                 or
-            shape = [n, c' // s, h // scale, w // scale] -- stream is not None
+            shape = [n, c' // s, h // scale, w // scale] -- stream is int
         """
         for conv, res in zip(self.conv, self.res):
 
