@@ -256,8 +256,8 @@ class Conv(Module):
         eps : float
             small value added to denominator for numerical stability
         """
-        if channels % (groups * streams) != 0:
-            raise ValueError("stream_channels must be divisible by stream_groups")
+        if channels % groups != 0:
+            raise ValueError("channels must be divisible by groups")
 
         super().__init__()
 
@@ -316,12 +316,12 @@ class Conv(Module):
                 kernel size
             ]
         """
-        weight = self._weights.get(stream)
+        weights = self._weights.get(stream)
 
-        if weight is not None:
-            return weight
+        if weights is not None:
+            return weights
 
-        weights, masks = zip(*((i[stream].weight, i[stream].mask) for i in self.inputs))
+        weights, masks = zip(*((i.weights[stream], i.mask) for i in self.inputs))
 
         _weights = (w if m is None else w[m] for w, m in zip(weights, masks))
         _weights = (w.view(self.channels, -1) for w in _weights)
@@ -334,18 +334,19 @@ class Conv(Module):
         if self.use_gain:
             scale = scale * self.gains[stream].view_as(scale)
 
-        weight = [(w - mean) * scale if m is None else m * (w - mean) * scale for w, m in zip(weights, masks)]
-        self._weights[stream] = weight
-        return weight
+        weights = [(w - mean) * scale if m is None else m * (w - mean) * scale for w, m in zip(weights, masks)]
+
+        self._weights[stream] = weights
+        return weights
 
     def add_input(self, channels, groups=1, kernel_size=1, dynamic_size=1, stride=1, pad=True):
         """
         Parameters
         ----------
         channels : int
-            input channels, must be divisible by (groups * streams)
+            input channels per stream, must be divisible by groups
         groups : int
-            number of input groups per stream
+            input groups per stream
         kernel_size : int
             spatial kernel size
         dynamic_size : int
@@ -357,20 +358,17 @@ class Conv(Module):
         mask : Tensor (bool)
             masks the kernel, shape must be broadcastable with the kernel
         """
-        if channels % (groups * self.streams):
-            raise ValueError("in_channels must be divisible by (in_groups * streams)")
-
-        module = lambda: Input(
+        module = Input(
             in_channels=channels,
             out_channels=self.channels,
             groups=groups,
+            streams=self.streams,
             kernel_size=kernel_size,
             dynamic_size=dynamic_size,
             stride=stride,
             pad=pad,
         )
-        inputs = ModuleList([module() for _ in range(self.streams)])
-        self.inputs.append(inputs)
+        self.inputs.append(module)
         return self
 
     def add_intergroup(self):
@@ -386,13 +384,13 @@ class Conv(Module):
         m = m.expand(-1, d, -1, d)
         m = m.reshape(c, c, 1, 1, 1)
 
-        module = lambda: Input(
+        module = Input(
             in_channels=c,
             out_channels=c,
             mask=m,
+            streams=self.streams,
         )
-        inputs = ModuleList([module() for _ in range(self.streams)])
-        self.inputs.append(inputs)
+        self.inputs.append(module)
         return self
 
     def forward(self, inputs, stream=None):
@@ -435,37 +433,24 @@ class Conv(Module):
 
         outs = []
 
-        for inps, x, weight in zip(self.inputs, inputs, weights):
+        for i, x, w in zip(self.inputs, inputs, weights):
 
             if stream is None:
-                x = x.chunk(self.streams, dim=1)
-                x = [inp(_x) for inp, _x in zip(inps, x)]
+                x = [i(_x, stream=s) for s, _x in enumerate(x.chunk(self.streams, dim=1))]
                 x = torch.cat(x, dim=1)
-
-                stride = inps[0].stride
-                groups = inps[0].groups * self.streams
-
+                g = i.groups * self.streams
             else:
-                x = inps[stream](x)
+                x = i(x, stream=stream)
+                g = i.groups
 
-                stride = inps[stream].stride
-                groups = inps[stream].groups
-
-            out = F.conv3d(
-                x,
-                weight=weight,
-                bias=bias,
-                stride=stride,
-                groups=groups,
-            ).squeeze(dim=2)
-
+            out = F.conv3d(x, weight=w, groups=g, bias=bias, stride=i.stride).squeeze(dim=2)
             outs.append(out)
             bias = None
 
         return reduce(torch.Tensor.add_, outs)
 
     def extra_repr(self):
-        s = "{channels}, groups={groups}, streams={streams}, gain={gain}, bias={bias}"
+        s = "channels={channels}, groups={groups}, streams={streams}, gain={gain}, bias={bias}"
         return s.format(
             channels=self.channels,
             groups=self.groups,
