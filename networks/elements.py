@@ -466,9 +466,9 @@ class Linear(Conv):
         Parameters
         ----------
         features : int
-            output features, must be divisible by output groups
+            features per stream, must be divisible by groups
         groups : int
-            number of output groups per stream
+            groups per stream
         streams : int
             number of streams
         gain : bool
