@@ -7,18 +7,6 @@ from .utils import to_groups_2d
 
 
 class Recurrent(Module):
-    @property
-    def channels(self):
-        raise NotImplementedError()
-
-    @property
-    def streams(self):
-        raise NotImplementedError()
-
-    @property
-    def scale(self):
-        raise NotImplementedError()
-
     def add_input(self, channels):
         """
         Parameters
@@ -48,6 +36,18 @@ class Recurrent(Module):
                 or
             shape = [n, c' // s, h // scale, w // scale] -- stream is int
         """
+        raise NotImplementedError()
+
+    @property
+    def channels(self):
+        raise NotImplementedError()
+
+    @property
+    def streams(self):
+        raise NotImplementedError()
+
+    @property
+    def scale(self):
         raise NotImplementedError()
 
 
@@ -120,18 +120,6 @@ class RvT(Recurrent):
 
     def _reset(self):
         self._past.clear()
-
-    @property
-    def channels(self):
-        return self._channels
-
-    @property
-    def streams(self):
-        return self._streams
-
-    @property
-    def scale(self):
-        return 1
 
     def add_input(self, channels):
         """
@@ -211,3 +199,15 @@ class RvT(Recurrent):
         self._past["h"] = h
 
         return h
+
+    @property
+    def channels(self):
+        return self._channels
+
+    @property
+    def streams(self):
+        return self._streams
+
+    @property
+    def scale(self):
+        return 1

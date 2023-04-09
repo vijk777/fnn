@@ -1,39 +1,37 @@
 import torch
 
-from .containers import Module, ParameterList
+from .containers import Module
 
 
 class Features(Module):
-    def init(self, units, outputs):
+    def init(self, units, inputs, outputs, streams):
         """
         Parameters
         ----------
         units : int
             number of units, u
-        features : int
+        inputs : int
+            number of inputs, i
+        outputs : int
             number of outputs, o
+        streams : int
+            number of streams, s
         """
         raise NotImplementedError()
 
-    def add_group(self, inputs):
+    def weights(self, stream=None):
         """
         Parameters
         ----------
-        inputs : int
-            number of inputs, i
-        """
-
-    def weight(self, index):
-        """
-        Parameters
-        ----------
-        index : int
-            group index
+        stream : int | None
+            specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            shape = [u, o, i]
+            shape = [u, i, o] -- stream is None
+                or
+            shape = [u, i // s, o // s] -- stream is int
         """
         raise NotImplementedError()
 
@@ -49,8 +47,8 @@ class Standard(Features):
         super().__init__()
         self.eps = float(eps)
 
-        self.weights = ParameterList()
-        self.gains = ParameterList()
+        self.weights = nn.ParameterList()
+        self.gains = nn.ParameterList()
 
         self._weights = dict()
 

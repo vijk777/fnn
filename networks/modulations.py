@@ -14,14 +14,6 @@ class Modulation(Module):
         """
         raise NotImplementedError()
 
-    @property
-    def features(self):
-        raise NotImplementedError()
-
-    @property
-    def streams(self):
-        raise NotImplementedError()
-
     def forward(self, behavior, stream=None):
         """
         Parameters
@@ -40,6 +32,14 @@ class Modulation(Module):
                 or
             shape = [n, f' // s] -- stream is int
         """
+        raise NotImplementedError()
+
+    @property
+    def features(self):
+        raise NotImplementedError()
+
+    @property
+    def streams(self):
         raise NotImplementedError()
 
 
@@ -79,14 +79,6 @@ class LSTM(Modulation):
         self.proj_f.add_input(features=behaviors)
         self.proj_g.add_input(features=behaviors)
         self.proj_o.add_input(features=behaviors)
-
-    @property
-    def features(self):
-        return self._features
-
-    @property
-    def streams(self):
-        return self._streams
 
     def forward(self, behavior, stream=None):
         """
@@ -132,3 +124,11 @@ class LSTM(Modulation):
         self._past["stream"] = stream
 
         return h
+
+    @property
+    def features(self):
+        return self._features
+
+    @property
+    def streams(self):
+        return self._streams

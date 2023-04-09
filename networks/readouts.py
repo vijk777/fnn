@@ -6,6 +6,10 @@ from .elements import Dropout, Conv
 
 
 class Readout(Module):
+    @property
+    def streams(self):
+        raise NotImplementedError()
+
     def init(self, cores, units):
         """
         Parameters
@@ -35,7 +39,7 @@ class Readout(Module):
 
 
 class PositionFeatures(Readout):
-    def __init__(self, channels, position, features):
+    def __init__(self, channels, position, bound, features):
         """
         Parameters
         ----------
@@ -43,10 +47,14 @@ class PositionFeatures(Readout):
             readout channels
         position : .positions.Position
             spatial position
+        bounds : .bounds.Bound
+            spatial bound
         features : .features.Features
             feature weights
         """
+        assert bound.vmin == -1 and bound.vmax == 1
         super().__init__()
+
         self.channels = int(channels)
         self.drop = Dropout(
             drop_dim=[2, 3],
@@ -56,6 +64,7 @@ class PositionFeatures(Readout):
             out_channels=self.channels,
         )
         self.position = position
+        self.bound = bound
         self.features = features
 
     def init(self, cores, units):

@@ -6,18 +6,6 @@ from .elements import Conv, nonlinearity
 
 
 class Feedforward(Module):
-    @property
-    def channels(self):
-        raise NotImplementedError()
-
-    @property
-    def streams(self):
-        raise NotImplementedError()
-
-    @property
-    def scale(self):
-        raise NotImplementedError()
-
     def add_input(self, channels):
         """
         Parameters
@@ -45,6 +33,18 @@ class Feedforward(Module):
                 or
             shape = [n, c' // s, h // scale, w // scale] -- stream is int
         """
+        raise NotImplementedError()
+
+    @property
+    def channels(self):
+        raise NotImplementedError()
+
+    @property
+    def streams(self):
+        raise NotImplementedError()
+
+    @property
+    def scale(self):
         raise NotImplementedError()
 
 
@@ -102,18 +102,6 @@ class Res3d(Feedforward):
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
 
-    @property
-    def channels(self):
-        return self._channels[-1]
-
-    @property
-    def streams(self):
-        return self._streams
-
-    @property
-    def scale(self):
-        return math.prod(self.strides)
-
     def add_input(self, channels):
         """
         Parameters
@@ -159,3 +147,15 @@ class Res3d(Feedforward):
             inputs = [self.nonlinear(c) * self.gamma + r]
 
         return inputs[0]
+
+    @property
+    def channels(self):
+        return self._channels[-1]
+
+    @property
+    def streams(self):
+        return self._streams
+
+    @property
+    def scale(self):
+        return math.prod(self.strides)

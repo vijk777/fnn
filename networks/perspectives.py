@@ -18,10 +18,6 @@ class Perspective(Module):
         """
         raise NotImplementedError()
 
-    @property
-    def channels(self):
-        raise NotImplementedError()
-
     def forward(self, stimulus, eye_position, height=144, width=256, pad_mode="constant", pad_value=0):
         """
         Parameters
@@ -70,6 +66,10 @@ class Perspective(Module):
         """
         raise NotImplementedError()
 
+    @property
+    def channels(self):
+        raise NotImplementedError()
+
 
 class MonitorRetina(Perspective):
     def __init__(self, monitor, retina, features, nonlinear=None):
@@ -110,10 +110,6 @@ class MonitorRetina(Perspective):
         """
         self._channels = int(channels)
         self.layers[0].add(in_features=eye_positions)
-
-    @property
-    def channels(self):
-        return self._channels
 
     def rmat(self, eye_position):
         """
@@ -194,3 +190,7 @@ class MonitorRetina(Perspective):
             pad_mode=pad_mode,
             pad_value=pad_value,
         )
+
+    @property
+    def channels(self):
+        return self._channels

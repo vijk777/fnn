@@ -18,18 +18,6 @@ class Core(Module):
         """
         raise NotImplementedError()
 
-    @property
-    def channels(self):
-        raise NotImplementedError()
-
-    @property
-    def streams(self):
-        raise NotImplementedError()
-
-    @property
-    def grid_scale(self):
-        raise NotImplementedError
-
     def forward(self, perspective, grid, modulation, dropout=0):
         """
         Parameters
@@ -59,6 +47,18 @@ class Core(Module):
             shape = [n, c' // s, h', w'] -- stream is None
         """
         raise NotImplementedError()
+
+    @property
+    def channels(self):
+        raise NotImplementedError()
+
+    @property
+    def streams(self):
+        raise NotImplementedError()
+
+    @property
+    def grid_scale(self):
+        raise NotImplementedError
 
 
 class FeedforwardRecurrent(Core):
@@ -100,18 +100,6 @@ class FeedforwardRecurrent(Core):
             channels=modulations,
         )
 
-    @property
-    def channels(self):
-        return self.recurrent.channels
-
-    @property
-    def streams(self):
-        return self.recurrent.streams
-
-    @property
-    def grid_scale(self):
-        return self.feedforward.scale
-
     def forward(self, perspective, grid, modulation, stream=None, dropout=0):
         """
         Parameters
@@ -146,3 +134,15 @@ class FeedforwardRecurrent(Core):
             modulation[:, :, None, None],
         ]
         return self.recurrent(inputs, stream=stream, dropout=dropout)
+
+    @property
+    def channels(self):
+        return self.recurrent.channels
+
+    @property
+    def streams(self):
+        return self.recurrent.streams
+
+    @property
+    def grid_scale(self):
+        return self.feedforward.scale

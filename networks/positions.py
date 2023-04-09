@@ -13,16 +13,6 @@ class Position(Module):
         """
         raise NotImplementedError()
 
-    @property
-    def mean(self):
-        """
-        Returns
-        -------
-        Tensor
-            shape = [u, 2]
-        """
-        raise NotImplementedError()
-
     def sample(self, batch_size=1):
         """
         Parameters
@@ -34,6 +24,16 @@ class Position(Module):
         -------
         Tensor
             shape = [n, u, 2]
+        """
+        raise NotImplementedError()
+
+    @property
+    def mean(self):
+        """
+        Returns
+        -------
+        Tensor
+            shape = [u, 2]
         """
         raise NotImplementedError()
 
@@ -73,16 +73,6 @@ class Gaussian(Position):
             kwargs.update(weight_decay=0)
             yield dict(params=[self.mu, self.sigma], **kwargs)
 
-    @property
-    def mean(self):
-        """
-        Returns
-        -------
-        Tensor
-            shape = [u, 2]
-        """
-        return self.mu
-
     def sample(self, batch_size=1):
         """
         Parameters
@@ -107,3 +97,13 @@ class Gaussian(Position):
             assert batch_size == self._position.size(0)
 
         return self._position
+
+    @property
+    def mean(self):
+        """
+        Returns
+        -------
+        Tensor
+            shape = [u, 2]
+        """
+        return self.mu
