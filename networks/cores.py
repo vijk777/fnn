@@ -23,7 +23,7 @@ class Core(Module):
         int
             grid downscale factor, d
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def init(self, perspectives, grids, modulations, streams):
         """
