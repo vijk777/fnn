@@ -497,18 +497,18 @@ class Linear(Conv):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, f] -- stream is None
+            shapes = [n, f * s] -- stream is None
                 or
-            shapes = [n, f // s] -- stream is int
+            shapes = [n, f] -- stream is int
         stream : int | None
             specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            shape = [n, f'] -- stream is None
+            shape = [n, f' * s] -- stream is None
                 or
-            shape = [n, f' // s] -- stream is int
+            shape = [n, f'] -- stream is int
         """
         inputs = [x[:, :, None, None] for x in inputs]
         return super().forward(inputs, stream=stream)[:, :, 0, 0]
