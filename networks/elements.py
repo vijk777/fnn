@@ -127,8 +127,8 @@ class Input(Module):
             spatial stride
         pad : bool
             whether to pad to maintain spatial dimensions
-        mask : Tensor (bool)
-            masks the kernel, shape must be broadcastable with the kernel
+        mask : Tensor | None
+            dtype=torch.bool, shape must be broadcastable with the kernel
         """
         if in_channels % groups != 0:
             raise ValueError("in_channels must be divisible by groups")
