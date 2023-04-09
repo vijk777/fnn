@@ -22,7 +22,7 @@ class Feedforward(Module):
         Returns
         -------
         int
-            scale of spatial downsampling, d
+            downscale factor, d
         """
         raise NotImplementedError()
 
@@ -69,8 +69,6 @@ class Res3d(Feedforward):
             layer kernel sizes
         strides : Sequence[int]
             layer strides
-        streams : int
-            number of streams
         nonlinear : str | None
             nonlinearity
         """
@@ -98,7 +96,7 @@ class Res3d(Feedforward):
         Returns
         -------
         int
-            scale of spatial downsampling, d
+            downscale factor, d
         """
         return math.prod(self.strides)
 

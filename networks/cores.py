@@ -5,7 +5,27 @@ from .containers import Module
 
 
 class Core(Module):
-    def init(self, perspectives, grids, modulations):
+    @property
+    def channels(self):
+        """
+        Returns
+        -------
+        int
+            output channels per stream, c'
+        """
+        raise NotImplementedError()
+
+    @property
+    def grid_scale(self):
+        """
+        Returns
+        -------
+        int
+            grid downscale factor, d
+        """
+        raise NotImplementedError
+
+    def init(self, perspectives, grids, modulations, streams):
         """
         Parameters
         ----------
@@ -14,51 +34,35 @@ class Core(Module):
         grids : int
             grid channels, g
         modulations : int
-            modulation features, m
+            modulation features per stream, m
+        streams : int
+            number of streams, s
         """
         raise NotImplementedError()
 
-    def forward(self, perspective, grid, modulation, dropout=0):
+    def forward(self, perspective, grid, modulation, stream=None):
         """
         Parameters
         ----------
         perspective : Tensor
-            shape = [n, c, h, w] -- stream is None
-                or
-            shape = [n, c // s, h, w] -- stream is int
+            shape = [n, c, h, w]
         grid : Tensor
-            shape = [g, h, w] -- stream is None
-                or
-            shape = [g // s, h, w] -- stream is int
+            shape = [g, h, w]
         modulation : Tensor
-            shape = [n, m] -- stream is None
+            shape = [n, m * s] -- stream is None
                 or
-            shape = [n, m // s] -- stream is int
+            shape = [n, m] -- stream is int
         stream : int | None
-            specific stream (int) or all streams (None)
-        dropout : float
-            dropout probability
+            specific stream | all streams
 
         Returns
         -------
         Tensor
-            shape = [n, c', h', w'] -- stream is None
+            shape = [n, c' * s, h', w'] -- stream is None
                 or
-            shape = [n, c' // s, h', w'] -- stream is None
+            shape = [n, c', h', w'] -- stream is None
         """
         raise NotImplementedError()
-
-    @property
-    def channels(self):
-        raise NotImplementedError()
-
-    @property
-    def streams(self):
-        raise NotImplementedError()
-
-    @property
-    def grid_scale(self):
-        raise NotImplementedError
 
 
 class FeedforwardRecurrent(Core):
@@ -71,15 +75,31 @@ class FeedforwardRecurrent(Core):
         recurrent : .recurrents.Feedforward
             recurrent network
         """
-        assert feedforward.streams == recurrent.streams
         super().__init__()
-
         self.feedforward = feedforward
         self.recurrent = recurrent
 
-        self.recurrent.add_input(channels=self.feedforward.channels)
+    @property
+    def channels(self):
+        """
+        Returns
+        -------
+        int
+            output channels per stream, c'
+        """
+        return self.recurrent.channels
 
-    def init(self, perspectives, grids, modulations):
+    @property
+    def grid_scale(self):
+        """
+        Returns
+        -------
+        int
+            grid downscale factor, d
+        """
+        return self.feedforward.scale
+
+    def init(self, perspectives, grids, modulations, streams):
         """
         Parameters
         ----------
@@ -88,61 +108,50 @@ class FeedforwardRecurrent(Core):
         grids : int
             grid channels, g
         modulations : int
-            modulation features, m
+            modulation features per stream, m
+        streams : int
+            number of streams, s
         """
-        self.feedforward.add_input(
-            channels=perspectives,
+        self.streams = int(streams)
+        self.feedforward.init(
+            channels=[perspectives],
+            streams=streams,
         )
-        self.recurrent.add_input(
-            channels=grids,
-        )
-        self.recurrent.add_input(
-            channels=modulations,
+        self.recurrent.init(
+            channels=[self.feedforward.channels, grids, modulations],
+            streams=streams,
         )
 
-    def forward(self, perspective, grid, modulation, stream=None, dropout=0):
+    def forward(self, perspective, grid, modulation, stream=None):
         """
         Parameters
         ----------
         perspective : Tensor
-            shape = [n, c, h, w] -- stream is None
-                or
-            shape = [n, c // s, h, w] -- stream is int
+            shape = [n, c, h, w]
         grid : Tensor
-            shape = [g, h, w] -- stream is None
-                or
-            shape = [g // s, h, w] -- stream is int
+            shape = [g, h, w]
         modulation : Tensor
-            shape = [n, m] -- stream is None
+            shape = [n, m * s] -- stream is None
                 or
-            shape = [n, m // s] -- stream is int
+            shape = [n, m] -- stream is int
         stream : int | None
-            specific stream (int) or all streams (None)
-        dropout : float
-            dropout probability
+            specific stream | all streams
 
         Returns
         -------
         Tensor
-            shape = [n, c', h', w'] -- stream is None
+            shape = [n, c' * s, h', w'] -- stream is None
                 or
-            shape = [n, c' // s, h', w'] -- stream is None
+            shape = [n, c', h', w'] -- stream is None
         """
+        if stream is None:
+            perspective = perspective.repeat(1, self.streams, 1, 1)
+            grid = grid.repeat(self.streams, 1, 1)
+
         inputs = [
             self.feedforward([perspective], stream=stream),
             grid[None, :, :, :],
             modulation[:, :, None, None],
         ]
-        return self.recurrent(inputs, stream=stream, dropout=dropout)
 
-    @property
-    def channels(self):
-        return self.recurrent.channels
-
-    @property
-    def streams(self):
-        return self.recurrent.streams
-
-    @property
-    def grid_scale(self):
-        return self.feedforward.scale
+        return self.recurrent(inputs, stream=stream)

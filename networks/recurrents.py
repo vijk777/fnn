@@ -23,7 +23,7 @@ class Recurrent(Module):
         Returns
         -------
         int
-            scale of spatial downsampling, d
+            downscale factor, d
         """
         raise NotImplementedError()
 
@@ -101,7 +101,7 @@ class RvT(Recurrent):
         Returns
         -------
         int
-            scale of spatial downsampling, d
+            downscale factor, d
         """
         return 1
 
