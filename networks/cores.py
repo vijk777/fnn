@@ -60,7 +60,7 @@ class Core(Module):
         Tensor
             shape = [n, c' * s, h', w'] -- stream is None
                 or
-            shape = [n, c', h', w'] -- stream is None
+            shape = [n, c', h', w'] -- stream is int
         """
         raise NotImplementedError()
 
@@ -142,7 +142,7 @@ class FeedforwardRecurrent(Core):
         Tensor
             shape = [n, c' * s, h', w'] -- stream is None
                 or
-            shape = [n, c', h', w'] -- stream is None
+            shape = [n, c', h', w'] -- stream is int
         """
         if stream is None:
             perspective = perspective.repeat(1, self.streams, 1, 1)
