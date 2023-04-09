@@ -5,12 +5,24 @@ from .elements import Linear
 
 
 class Modulation(Module):
-    def init(self, behaviors):
+    @property
+    def features(self):
+        """
+        Returns
+        -------
+        int
+            output features, f'
+        """
+        raise NotImplementedError()
+
+    def init(self, behaviors, streams):
         """
         Parameters
         ----------
         behaviors : int
-            behavior features
+            behavior features, f
+        streams : int
+            number of streams, s
         """
         raise NotImplementedError()
 
@@ -19,84 +31,94 @@ class Modulation(Module):
         Parameters
         ----------
         behavior : Tensor
-            shape = [n, f] -- stream is None
+            shape = [n, f * s] -- stream is None
                 or
-            shape = [n, f // s] -- stream is int
+            shape = [n, f] -- stream is int
         stream : int | None
             specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            shape = [n, f'] -- stream is None
+            shape = [n, f' * s] -- stream is None
                 or
-            shape = [n, f' // s] -- stream is int
+            shape = [n, f'] -- stream is int
         """
-        raise NotImplementedError()
-
-    @property
-    def features(self):
-        raise NotImplementedError()
-
-    @property
-    def streams(self):
         raise NotImplementedError()
 
 
 class LSTM(Modulation):
-    def __init__(self, features, streams):
+    def __init__(self, features):
         """
         Parameters
         ----------
         features : int
-            number of features
-        streams : int
-            number of streams
+            output features, f'
         """
         super().__init__()
 
-        self.proj_i = Linear(features=features, streams=streams).add_input(features=features)
-        self.proj_f = Linear(features=features, streams=streams).add_input(features=features)
-        self.proj_g = Linear(features=features, streams=streams).add_input(features=features)
-        self.proj_o = Linear(features=features, streams=streams).add_input(features=features)
-
         self._features = int(features)
-        self._streams = int(streams)
-
         self._past = dict()
 
     def _reset(self):
         self._past.clear()
 
-    def init(self, behaviors):
+    @property
+    def features(self):
+        """
+        Returns
+        -------
+        int
+            output features, f'
+        """
+        return self._features
+
+    def init(self, behaviors, streams):
         """
         Parameters
         ----------
         behaviors : int
-            behavior features
+            behavior features, f
+        streams : int
+            number of streams, s
         """
-        self.proj_i.add_input(features=behaviors)
-        self.proj_f.add_input(features=behaviors)
-        self.proj_g.add_input(features=behaviors)
-        self.proj_o.add_input(features=behaviors)
+        self.proj_i = (
+            Linear(features=self.features, streams=streams)
+            .add_input(features=behaviors)
+            .add_input(features=self.features)
+        )
+        self.proj_f = (
+            Linear(features=self.features, streams=streams)
+            .add_input(features=behaviors)
+            .add_input(features=self.features)
+        )
+        self.proj_g = (
+            Linear(features=self.features, streams=streams)
+            .add_input(features=behaviors)
+            .add_input(features=self.features)
+        )
+        self.proj_o = (
+            Linear(features=self.features, streams=streams)
+            .add_input(features=behaviors)
+            .add_input(features=self.features)
+        )
+        self.streams = int(streams)
 
     def forward(self, behavior, stream=None):
         """
         Parameters
         ----------
         behavior : Tensor
-            shape = [n, f] -- stream is None
-                or
-            shape = [n, f // s] -- stream is int
+            shape = [n, f]
         stream : int | None
             specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            shape = [n, f'] -- stream is None
+            shape = [n, f' * s] -- stream is None
                 or
-            shape = [n, f' // s] -- stream is int
+            shape = [n, f'] -- stream is int
         """
         if self._past:
             assert self._past["stream"] == stream
@@ -106,10 +128,13 @@ class LSTM(Modulation):
         else:
             self._past["stream"] = stream
 
-            features = self.features if stream is None else self.features // self.streams
+            features = self.features * self.streams if stream is None else self.features
             h = c = torch.zeros(behavior.size(0), features, device=self.device)
 
-        inputs = [h, behavior]
+        if stream is None:
+            behavior = behavior.repeat(1, self.streams)
+
+        inputs = [behavior, h]
 
         i = torch.sigmoid(self.proj_i(inputs, stream=stream))
         f = torch.sigmoid(self.proj_f(inputs, stream=stream))
@@ -124,11 +149,3 @@ class LSTM(Modulation):
         self._past["stream"] = stream
 
         return h
-
-    @property
-    def features(self):
-        return self._features
-
-    @property
-    def streams(self):
-        return self._streams
