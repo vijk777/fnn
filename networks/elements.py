@@ -99,17 +99,26 @@ class Dropout(Module):
 
 class Input(Module):
     def __init__(
-        self, in_channels, out_channels, groups=1, kernel_size=1, dynamic_size=1, stride=1, pad=True, mask=None
+        self,
+        in_channels,
+        out_channels,
+        groups=1,
+        streams=1,
+        kernel_size=1,
+        dynamic_size=1,
+        stride=1,
+        pad=True,
+        mask=None,
     ):
         """
         Parameters
         ----------
         in_channels : int
-            input channels, must be divisible by groups
+            input channels per stream, must be divisible by groups
         out_channels : int
-            output channels, must be divisible by groups
+            output channels per stream, must be divisible by groups
         groups : int
-            number of groups
+            groups per stream
         kernel_size : int
             spatial kernel size
         dynamic_size : int
@@ -125,7 +134,7 @@ class Input(Module):
             raise ValueError("in_channels must be divisible by groups")
 
         if out_channels % groups != 0:
-            raise ValueError("out_channels must be divisible by groups")
+            raise ValueError("in_channels must be divisible by groups")
 
         if (kernel_size - stride) % 2 != 0:
             raise ValueError("incompatible kernel_size and stride")
@@ -135,8 +144,10 @@ class Input(Module):
         self.in_channels = int(in_channels)
         self.out_channels = int(out_channels)
         self.groups = int(groups)
+        self.streams = int(streams)
         self.kernel_size = int(kernel_size)
         self.dynamic_size = int(dynamic_size)
+        self.past_size = self.dynamic_size - 1
         self.stride = int(stride)
         self.pad = (self.kernel_size - self.stride) // 2 if pad else 0
 
@@ -147,40 +158,49 @@ class Input(Module):
             self.kernel_size,
             self.kernel_size,
         ]
-        self.weight = nn.Parameter(torch.empty(shape))
 
         if mask is None:
             self.fan_in = math.prod(shape[1:])
             self.register_buffer("mask", None)
         else:
             assert mask.dtype == torch.bool
-            mask = mask.expand_as(self.weight)
+            mask = mask.expand(shape)
 
-            self.fan_in = mask[0].sum().item()
+            self.fan_in = mask.sum().item() // self.out_channels
             self.register_buffer("mask", mask)
 
         assert self.fan_in > 0
         bound = 1 / math.sqrt(self.fan_in)
-        nn.init.uniform_(self.weight, -bound, bound)
 
-        if self.mask is not None:
-            with torch.no_grad():
-                self.weight.mul_(mask)
+        def param():
+            weight = torch.zeros(shape)
+            nn.init.uniform_(weight, -bound, bound)
 
-        self._past = deque(maxlen=self.dynamic_size)
+            if self.mask is not None:
+                weight.mul_(self.mask)
+
+            return nn.Parameter(weight)
+
+        self.weights = nn.ParameterList([param() for _ in range(self.streams)])
+
+        self._past = [deque(maxlen=self.past_size) for _ in range(self.streams)]
 
     def _reset(self):
-        self._past.clear()
+        for past in self._past:
+            past.clear()
 
     def _param_norm_dims(self):
-        yield self.weight, [1, 2, 3, 4]
+        for weight in self.weights:
+            yield weight, [1, 2, 3, 4]
 
-    def forward(self, x):
+    def forward(self, x, stream):
         """
         Parameters
         ----------
         x : Tensor
             shape = [n, c, h, w]
+        stream : int
+            stream index
 
         Returns
         -------
@@ -190,27 +210,32 @@ class Input(Module):
         if self.pad:
             x = F.pad(x, pad=[self.pad] * 4)
 
-        x = x.unsqueeze(dim=2)
+        if self.past_size:
+            past = self._past[stream]
+            if past:
+                assert len(past) == self.past_size
+            else:
+                for _ in range(self.past_size):
+                    past.insert(0, torch.zeros_like(x))
 
-        if self.dynamic_size > 1:
+            out = torch.stack([x, *past], dim=2)
+            past.pop()
+            past.insert(0, x)
+        else:
+            out = x.unsqueeze(dim=2)
 
-            if not self._past:
-                for _ in range(self.dynamic_size):
-                    self._past.insert(0, torch.zeros_like(x))
-
-            self._past.pop()
-            self._past.insert(0, x)
-
-            x = torch.cat([*self._past], dim=2)
-
-        return x
+        return out
 
     def extra_repr(self):
-        s = (
-            "{in_channels}, kernel_size=[{dynamic_size},{kernel_size},{kernel_size}]"
-            ", groups={groups}, stride={stride}, pad={pad}"
+        s = "({inp}->{out})x{streams}: groups={groups}, stride={stride}, pad={pad}"
+        return s.format(
+            inp=self.in_channels,
+            out=self.out_channels,
+            streams=self.streams,
+            groups=self.groups,
+            stride=self.stride,
+            pad=self.pad,
         )
-        return s.format(**self.__dict__)
 
 
 class Conv(Module):
@@ -219,9 +244,9 @@ class Conv(Module):
         Parameters
         ----------
         channels : int
-            output channels, must be divisible by (groups * streams)
+            output channels per stream, must be divisible by groups
         groups : int
-            number of output groups per stream
+            groups per stream
         streams : int
             number of streams
         gain : bool
@@ -247,8 +272,7 @@ class Conv(Module):
         self.gains = nn.ParameterList()
         self.biases = nn.ParameterList()
 
-        self.stream_channels = self.channels // self.streams
-        self.fan_out = self.stream_channels // self.groups
+        self.fan_out = self.channels // self.groups
         assert self.fan_out > 1
 
         if self.use_gain:
@@ -280,11 +304,17 @@ class Conv(Module):
         ----------
         stream : int
             stream index
-        
+
         Returns
         -------
         List[Tensor]
-            shapes = [o, i, d, k, k]
+            shapes = [
+                self.channels,
+                input channels // input groups,
+                dynamic size,
+                kernel size,
+                kernel size
+            ]
         """
         weight = self._weights.get(stream)
 
@@ -294,7 +324,7 @@ class Conv(Module):
         weights, masks = zip(*((i[stream].weight, i[stream].mask) for i in self.inputs))
 
         _weights = (w if m is None else w[m] for w, m in zip(weights, masks))
-        _weights = (w.view(self.stream_channels, -1) for w in _weights)
+        _weights = (w.view(self.channels, -1) for w in _weights)
         _weights = torch.cat(list(_weights), dim=1)[:, :, None, None, None]
 
         var, mean = torch.var_mean(_weights, dim=1, unbiased=False, keepdim=True)
@@ -331,8 +361,8 @@ class Conv(Module):
             raise ValueError("in_channels must be divisible by (in_groups * streams)")
 
         module = lambda: Input(
-            in_channels=channels // self.streams,
-            out_channels=self.stream_channels,
+            in_channels=channels,
+            out_channels=self.channels,
             groups=groups,
             kernel_size=kernel_size,
             dynamic_size=dynamic_size,
@@ -348,7 +378,7 @@ class Conv(Module):
             raise ValueError("there must be > 1 groups to add intergroup")
 
         g = self.groups
-        c = self.stream_channels
+        c = self.channels
         d = c // g
 
         m = ~torch.eye(g, device=self.device, dtype=torch.bool)
@@ -370,22 +400,22 @@ class Conv(Module):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, c, h, w] or broadcastable -- stream is None
+            shapes = [n, c * s, h, w] or broadcastable -- stream is None
                 or
-            shapes = [n, c // s, h, w] or broadcastable -- stream is int
+            shapes = [n, c, h, w] or broadcastable -- stream is int
         stream : int | None
             specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            shape = [n, c', h, w] -- stream is None and pad==True
+            shape = [n, c' * s, h, w] -- stream is None and pad==True
                 or
-            shape = [n, c', h', w'] -- stream is None and pad==False
+            shape = [n, c' * s, h', w'] -- stream is None and pad==False
                 or
-            shape = [n, c' // s, h, w] -- stream is int and pad==True
+            shape = [n, c', h, w] -- stream is int and pad==True
                 or
-            shape = [n, c' // s, h', w'] -- stream is int and pad==False
+            shape = [n, c', h', w'] -- stream is int and pad==False
         """
         assert len(inputs) == len(self.inputs)
 
