@@ -35,7 +35,7 @@ class Modulation(Module):
                 or
             shape = [n, f] -- stream is int
         stream : int | None
-            specific stream (int) or all streams (None)
+            specific stream | all streams
 
         Returns
         -------
@@ -111,7 +111,7 @@ class LSTM(Modulation):
         behavior : Tensor
             shape = [n, f]
         stream : int | None
-            specific stream (int) or all streams (None)
+            specific stream | all streams
 
         Returns
         -------

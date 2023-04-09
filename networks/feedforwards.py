@@ -6,12 +6,34 @@ from .elements import Conv, nonlinearity
 
 
 class Feedforward(Module):
-    def add_input(self, channels):
+    @property
+    def channels(self):
+        """
+        Returns
+        -------
+        int
+            output channels, c'
+        """
+        raise NotImplementedError()
+
+    @property
+    def scale(self):
+        """
+        Returns
+        -------
+        int
+            scale of spatial downsampling, d
+        """
+        raise NotImplementedError()
+
+    def init(self, channels, streams):
         """
         Parameters
         ----------
-        channels : int
-            input channels
+        channels : Sequence[int]
+            input channels, c
+        streams : int
+            number of streams, s
         """
         raise NotImplementedError()
 
@@ -20,36 +42,24 @@ class Feedforward(Module):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, c, h, w] or broadcastable -- stream is None
+            shapes = [n, c * s, h, w] -- stream is None
                 or
-            shapes = [n, c // s, h, w] or broadcastable -- stream is int
+            shapes = [n, c, h, w] -- stream is int
         stream : int | None
-            specific stream (int) or all streams (None)
+            specific stream | all streams
 
         Returns
         -------
         Tensor
-            shape = [n, c', h // scale, w // scale] -- stream is None
+            shape = [n, c', h // d, w // d] -- stream is None
                 or
-            shape = [n, c' // s, h // scale, w // scale] -- stream is int
+            shape = [n, c' * s, h // d, w // d] -- stream is int
         """
-        raise NotImplementedError()
-
-    @property
-    def channels(self):
-        raise NotImplementedError()
-
-    @property
-    def streams(self):
-        raise NotImplementedError()
-
-    @property
-    def scale(self):
         raise NotImplementedError()
 
 
 class Res3d(Feedforward):
-    def __init__(self, channels, kernel_sizes, strides, streams, nonlinear=None):
+    def __init__(self, channels, kernel_sizes, strides, nonlinear=None):
         """
         Parameters
         ----------
@@ -70,16 +80,62 @@ class Res3d(Feedforward):
         self._channels = list(map(int, channels))
         self.kernel_sizes = list(map(int, kernel_sizes))
         self.strides = list(map(int, strides))
-        self._streams = int(streams)
+        self.nonlinear, self.gamma = nonlinearity(nonlinear)
 
-        self.conv = ModuleList([Conv(channels=channels[0], streams=streams)])
-        self.res = ModuleList([Conv(channels=channels[0], streams=streams)])
+    @property
+    def channels(self):
+        """
+        Returns
+        -------
+        int
+            output channels, c'
+        """
+        return self._channels[-1]
 
-        _channels = channels[0]
+    @property
+    def scale(self):
+        """
+        Returns
+        -------
+        int
+            scale of spatial downsampling, d
+        """
+        return math.prod(self.strides)
+
+    def init(self, channels, streams):
+        """
+        Parameters
+        ----------
+        channels : Sequence[int]
+            input channels, c
+        streams : int
+            number of streams, s
+        """
+
+        conv = Conv(channels=self._channels[0], streams=streams)
+        res = Conv(channels=self._channels[0], streams=streams)
+
+        for _channels in channels:
+            conv.add_input(
+                channels=_channels,
+                kernel_size=self.kernel_sizes[0],
+                dynamic_size=self.kernel_sizes[0],
+                stride=self.strides[0],
+            )
+            res.add_input(
+                channels=_channels,
+                kernel_size=self.strides[0],
+                stride=self.strides[0],
+            )
+
+        self.conv = ModuleList([conv])
+        self.res = ModuleList([res])
+
+        _channels = self._channels[0]
         for channels, size, stride in zip(
-            channels[1:],
-            kernel_sizes[1:],
-            strides[1:],
+            self._channels[1:],
+            self.kernel_sizes[1:],
+            self.strides[1:],
         ):
             conv = Conv(channels=channels, streams=streams).add_input(
                 channels=_channels,
@@ -100,44 +156,23 @@ class Res3d(Feedforward):
             for gain in res.gains:
                 torch.nn.init.constant_(gain, 0)
 
-        self.nonlinear, self.gamma = nonlinearity(nonlinear)
-
-    def add_input(self, channels):
-        """
-        Parameters
-        ----------
-        channels : int
-            input channels
-        """
-        self.conv[0].add_input(
-            channels=channels,
-            kernel_size=self.kernel_sizes[0],
-            dynamic_size=self.kernel_sizes[0],
-            stride=self.strides[0],
-        )
-        self.res[0].add_input(
-            channels=channels,
-            kernel_size=self.strides[0],
-            stride=self.strides[0],
-        )
-
     def forward(self, inputs, stream=None):
         """
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, c, h, w] or broadcastable -- stream is None
+            shapes = [n, c * s, h, w] -- stream is None
                 or
-            shapes = [n, c // s, h, w] or broadcastable -- stream is int
+            shapes = [n, c, h, w] -- stream is int
         stream : int | None
-            specific stream (int) or all streams (None)
+            specific stream | all streams
 
         Returns
         -------
         Tensor
-            shape = [n, c', h // scale, w // scale] -- stream is None
+            shape = [n, c', h // d, w // d] -- stream is None
                 or
-            shape = [n, c' // s, h // scale, w // scale] -- stream is int
+            shape = [n, c' * s, h // d, w // d] -- stream is int
         """
         for conv, res in zip(self.conv, self.res):
 
@@ -147,15 +182,3 @@ class Res3d(Feedforward):
             inputs = [self.nonlinear(c) * self.gamma + r]
 
         return inputs[0]
-
-    @property
-    def channels(self):
-        return self._channels[-1]
-
-    @property
-    def streams(self):
-        return self._streams
-
-    @property
-    def scale(self):
-        return math.prod(self.strides)
