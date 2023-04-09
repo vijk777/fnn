@@ -7,155 +7,216 @@ from .utils import to_groups_2d
 
 
 class Recurrent(Module):
-    def add_input(self, channels):
-        """
-        Parameters
-        ----------
-        channels : int
-            input channels
-        """
-        raise NotImplementedError()
-
-    def forward(self, inputs, stream=None, dropout=0):
-        """
-        Parameters
-        ----------
-        inputs : Sequence[Tensor]
-            shapes = [n, c, h, w] -- stream is None
-                or
-            shapes = [n, c // s, h, w] -- stream is int
-        stream : int | None
-            specific stream (int) or all streams (None)
-        dropout : float
-            dropout probability
-
-        Returns
-        -------
-        Tensor
-            shape = [n, c', h // scale, w // scale] -- stream is None
-                or
-            shape = [n, c' // s, h // scale, w // scale] -- stream is int
-        """
-        raise NotImplementedError()
-
     @property
     def channels(self):
-        raise NotImplementedError()
-
-    @property
-    def streams(self):
+        """
+        Returns
+        -------
+        int
+            output channels per stream, c'
+        """
         raise NotImplementedError()
 
     @property
     def scale(self):
+        """
+        Returns
+        -------
+        int
+            scale of spatial downsampling, d
+        """
+        raise NotImplementedError()
+
+    def init(self, channels, streams):
+        """
+        Parameters
+        ----------
+        channels : Sequence[int]
+            input channels per stream, c
+        streams : int
+            number of streams, s
+        """
+        raise NotImplementedError()
+
+    def forward(self, inputs, stream=None):
+        """
+        Parameters
+        ----------
+        inputs : Sequence[Tensor]
+            shapes = [n, c * s, h, w] -- stream is None
+                or
+            shapes = [n, c, h, w] -- stream is int
+        stream : int | None
+            specific stream | all streams
+
+        Returns
+        -------
+        Tensor
+            shape = [n, c' * s, h // d, w // d] -- stream is None
+                or
+            shape = [n, c', h // d, w // d] -- stream is int
+        """
         raise NotImplementedError()
 
 
 class RvT(Recurrent):
-    def __init__(self, channels, kernel_size, groups=1, streams=1):
+    def __init__(self, channels, groups, kernel_size):
         """
         Parameters
         ----------
         channels : int
-            recurrent channels
-        kernel_size : int
-            spatial kernel size
+            recurrent channels per stream
         groups : int
-            recurrent channel groups
-        streams : int
-            number of streams
+            groups per stream
+        kernel_size : int
+            kernel size
         """
+        if channels % groups != 0:
+            raise ValueError("channels must be divisible by groups")
+
         super().__init__()
 
         self._channels = int(channels)
-        self.kernel_size = int(kernel_size)
         self.groups = int(groups)
-        self._streams = int(streams)
-
-        init = (channels / groups / streams) ** -0.5
-        param = lambda: nn.Parameter(torch.full([groups], init))
-        self.tau = nn.ParameterList([param() for _ in range(streams)])
-
-        self.drop = Dropout(
-            drop_dim=[4, 5],
-            reduce_dim=[3],
-        )
-
-        self.proj_x = Conv(channels=channels, groups=groups, streams=streams, gain=False, bias=False)
-        if self.groups > 1:
-            self.proj_x.add_intergroup()
-
-        self.proj_q = Conv(channels=channels, groups=groups, streams=streams, gain=False, bias=False).add_input(
-            channels=channels * 2, groups=groups, kernel_size=kernel_size
-        )
-        self.proj_k = Conv(channels=channels, groups=groups, streams=streams, gain=False, bias=False).add_input(
-            channels=channels * 2, groups=groups, kernel_size=kernel_size, pad=False
-        )
-        self.proj_v = Conv(channels=channels, groups=groups, streams=streams, gain=False, bias=False).add_input(
-            channels=channels * 2, groups=groups, kernel_size=kernel_size, pad=False
-        )
-
-        self.proj_i = (
-            Conv(channels=channels, groups=groups, streams=streams)
-            .add_input(channels=channels, groups=groups)
-            .add_input(channels=channels * 2, groups=groups, kernel_size=kernel_size)
-        )
-        self.proj_f = (
-            Conv(channels=channels, groups=groups, streams=streams)
-            .add_input(channels=channels, groups=groups)
-            .add_input(channels=channels * 2, groups=groups, kernel_size=kernel_size)
-        )
-        self.proj_g = (
-            Conv(channels=channels, groups=groups, streams=streams)
-            .add_input(channels=channels, groups=groups)
-            .add_input(channels=channels * 2, groups=groups, kernel_size=kernel_size)
-        )
-        self.proj_o = (
-            Conv(channels=channels, groups=groups, streams=streams)
-            .add_input(channels=channels, groups=groups)
-            .add_input(channels=channels * 2, groups=groups, kernel_size=kernel_size)
-        )
-
+        self.kernel_size = int(kernel_size)
+        self.drop = Dropout()
         self._past = dict()
 
     def _reset(self):
         self._past.clear()
 
-    def add_input(self, channels):
+    @property
+    def channels(self):
+        """
+        Returns
+        -------
+        int
+            output channels per stream, c'
+        """
+        return self._channels
+
+    @property
+    def scale(self):
+        """
+        Returns
+        -------
+        int
+            scale of spatial downsampling, d
+        """
+        return 1
+
+    def init(self, channels, streams):
         """
         Parameters
         ----------
-        channels : int
-            input channels
+        channels : Sequence[int]
+            input channels per stream, c
+        streams : int
+            number of streams, s
         """
-        self.proj_x.add_input(channels=channels)
+        self.streams = int(streams)
 
-    def forward(self, inputs, stream=None, dropout=0):
+        self.proj_x = Conv(channels=self.channels, groups=self.groups, streams=streams, gain=False, bias=False)
+        for c in channels:
+            self.proj_x.add_input(channels=c)
+        if self.groups > 1:
+            self.proj_x.add_intergroup()
+
+        init = (self.channels / self.groups) ** -0.5
+        tau = lambda: nn.Parameter(torch.full([self.groups], init))
+        self.tau = nn.ParameterList([tau() for _ in range(streams)])
+
+        self.proj_q = Conv(channels=self.channels, groups=self.groups, streams=streams, gain=False, bias=False)
+        self.proj_q.add_input(
+            channels=self.channels * 2,
+            groups=self.groups,
+            kernel_size=self.kernel_size,
+        )
+
+        self.proj_k = Conv(channels=self.channels, groups=self.groups, streams=streams, gain=False, bias=False)
+        self.proj_k.add_input(
+            channels=self.channels * 2,
+            groups=self.groups,
+            kernel_size=self.kernel_size,
+            pad=False,
+        )
+
+        self.proj_v = Conv(channels=self.channels, groups=self.groups, streams=streams, gain=False, bias=False)
+        self.proj_v.add_input(
+            channels=self.channels * 2,
+            groups=self.groups,
+            kernel_size=self.kernel_size,
+            pad=False,
+        )
+
+        self.proj_i = Conv(channels=self.channels, groups=self.groups, streams=streams)
+        self.proj_i.add_input(
+            channels=self.channels,
+            groups=self.groups,
+        )
+        self.proj_i.add_input(
+            channels=self.channels * 2,
+            groups=self.groups,
+            kernel_size=self.kernel_size,
+        )
+
+        self.proj_f = Conv(channels=self.channels, groups=self.groups, streams=streams)
+        self.proj_f.add_input(
+            channels=self.channels,
+            groups=self.groups,
+        )
+        self.proj_f.add_input(
+            channels=self.channels * 2,
+            groups=self.groups,
+            kernel_size=self.kernel_size,
+        )
+
+        self.proj_g = Conv(channels=self.channels, groups=self.groups, streams=streams)
+        self.proj_g.add_input(
+            channels=self.channels,
+            groups=self.groups,
+        )
+        self.proj_g.add_input(
+            channels=self.channels * 2,
+            groups=self.groups,
+            kernel_size=self.kernel_size,
+        )
+
+        self.proj_o = Conv(channels=self.channels, groups=self.groups, streams=streams)
+        self.proj_o.add_input(
+            channels=self.channels,
+            groups=self.groups,
+        )
+        self.proj_o.add_input(
+            channels=self.channels * 2,
+            groups=self.groups,
+            kernel_size=self.kernel_size,
+        )
+
+    def forward(self, inputs, stream=None):
         """
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, c, h, w] -- stream is None
+            shapes = [n, c * s, h, w] -- stream is None
                 or
-            shapes = [n, c // s, h, w] -- stream is int
+            shapes = [n, c, h, w] -- stream is int
         stream : int | None
-            specific stream (int) or all streams (None)
-        dropout : float
-            dropout probability
+            specific stream | all streams
 
         Returns
         -------
         Tensor
-            shape = [n, c', h // scale, w // scale] -- stream is None
+            shape = [n, c' * s, h // d, w // d] -- stream is None
                 or
-            shape = [n, c' // s, h // scale, w // scale] -- stream is int
+            shape = [n, c', h // d, w // d] -- stream is int
         """
         if stream is None:
-            channels = self.channels
+            channels = self.channels * self.streams
             groups = self.groups * self.streams
             tau = torch.cat(list(self.tau))
         else:
-            channels = self.channels // self.streams
+            channels = self.channels
             groups = self.groups
             tau = self.tau[stream]
 
@@ -169,7 +230,7 @@ class RvT(Recurrent):
             h = c = torch.zeros(N, channels, H, W, device=self.device)
 
         if self.groups > 1:
-            x = self.proj_x([h, *inputs], stream=stream)
+            x = self.proj_x([*inputs, h], stream=stream)
         else:
             x = self.proj_x(inputs, stream=stream)
 
@@ -177,8 +238,8 @@ class RvT(Recurrent):
             to_groups_2d(x, groups),
             to_groups_2d(h, groups),
         ]
-        xh = torch.stack(xh, 2)
-        xh = self.drop(xh, p=dropout).flatten(1, 3)
+        xh = torch.stack(xh, 2).flatten(1, 3)
+        xh = self.drop(xh)
 
         q = to_groups_2d(self.proj_q([xh], stream=stream), groups).flatten(3, 4)
         k = to_groups_2d(self.proj_k([xh], stream=stream), groups).flatten(3, 4)
@@ -199,15 +260,3 @@ class RvT(Recurrent):
         self._past["h"] = h
 
         return h
-
-    @property
-    def channels(self):
-        return self._channels
-
-    @property
-    def streams(self):
-        return self._streams
-
-    @property
-    def scale(self):
-        return 1

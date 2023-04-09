@@ -89,6 +89,16 @@ class Module(nn.Module):
         all(self._iterate(fn))
         return self
 
+    def dropout(self, p: float = 0):
+        from .elements import Dropout
+
+        def fn(module):
+            if isinstance(module, Dropout):
+                module.p = p
+
+        all(self._iterate(fn))
+        return self
+
     def freeze(self, mode: bool = True):
         def fn(module):
             module._frozen = bool(mode)

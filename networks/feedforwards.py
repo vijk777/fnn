@@ -12,7 +12,7 @@ class Feedforward(Module):
         Returns
         -------
         int
-            output channels, c'
+            output channels per stream, c'
         """
         raise NotImplementedError()
 
@@ -31,7 +31,7 @@ class Feedforward(Module):
         Parameters
         ----------
         channels : Sequence[int]
-            input channels, c
+            input channels per stream, c
         streams : int
             number of streams, s
         """
@@ -88,7 +88,7 @@ class Res3d(Feedforward):
         Returns
         -------
         int
-            output channels, c'
+            output channels per stream, c'
         """
         return self._channels[-1]
 
@@ -107,7 +107,7 @@ class Res3d(Feedforward):
         Parameters
         ----------
         channels : Sequence[int]
-            input channels, c
+            input channels per stream, c
         streams : int
             number of streams, s
         """
@@ -170,9 +170,9 @@ class Res3d(Feedforward):
         Returns
         -------
         Tensor
-            shape = [n, c', h // d, w // d] -- stream is None
+            shape = [n, c' * s, h // d, w // d] -- stream is None
                 or
-            shape = [n, c' * s, h // d, w // d] -- stream is int
+            shape = [n, c', h // d, w // d] -- stream is int
         """
         for conv, res in zip(self.conv, self.res):
 

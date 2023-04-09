@@ -39,62 +39,57 @@ def nonlinearity(nonlinear=None):
 
 
 class Dropout(Module):
-    def __init__(self, drop_dim, reduce_dim):
+    def __init__(self, p=0):
         """
         Parameters
         ----------
-        drop_dim : Sequence[int]
-            dimensions to drop entirely
-        reduce_dim : Sequence[int]
-            dimensions to reduce across
+        p : float
+            dropout probability between 0 and 1
         """
         super().__init__()
-        self.drop_dim = list(map(int, sorted(drop_dim)))
-        self.reduce_dim = list(map(int, sorted(reduce_dim)))
-        self._past = dict()
+        self.p = p
 
     def _reset(self):
-        self._past.clear()
+        self.mask = None
 
-    def forward(self, x, p=0):
+    @property
+    def p(self):
+        if self.training:
+            return self._p
+        else:
+            return 0
+
+    @p.setter
+    def p(self, p):
+        assert 0 <= p < 1
+        self._p = float(p)
+        self.scale = 1 / (1 - self._p)
+        self.mask = None
+
+    def forward(self, x):
         """
         Parameters
         ----------
         x : Tensor
             input
-        p : float
-            dropout probability
 
         Returns
         -------
         Tensor
             dropped input
         """
-        if not self.training:
+        if not self.p:
             return x
 
-        if self._past:
-            assert p == self._past.get("p")
-            mask = self._past.get("mask")
-        else:
-            assert 0 <= p < 1
-            if p:
-                size = np.array(x.shape)
-                size[self.drop_dim] = 1
-                n = size[self.reduce_dim].prod().item()
-                mask = torch.rand(size.tolist(), device=x.device) > p
-                mask = n * mask / mask.sum(self.reduce_dim, keepdim=True).clip(1)
-            else:
-                mask = None
-            self._past.update(p=p, mask=mask)
+        if self.mask is None:
+            N, C, _, _ = x.shape
+            rand = torch.rand([N, C], device=x.device)
+            self.mask = (rand > self.p) * self.scale
 
-        if mask is None:
-            return x
-        else:
-            return x.mul(mask)
+        return torch.einsum("N C H W , N C -> N C H W", x, self.mask)
 
     def extra_repr(self):
-        return f"drop_dim={self.drop_dim}, reduce_dim={self.reduce_dim}"
+        return f"p={self.p:.3g}"
 
 
 class Input(Module):
