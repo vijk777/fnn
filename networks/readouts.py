@@ -6,16 +6,16 @@ from .elements import Dropout, Conv
 
 
 class Readout(Module):
-    def init(self, units, cores, outputs, streams):
+    def init(self, cores, outputs, units, streams):
         """
         Parameters
         ----------
-        units : int
-            number of units, u
         cores : int
             core channels per stream, c
         outputs : int
-            unit outputs per stream, o
+            outputs per unit and stream, o
+        units : int
+            number of units, u
         streams : int
             number of streams, s
         """
@@ -35,7 +35,9 @@ class Readout(Module):
         Returns
         -------
         Tensor
-            shape = [n, u]
+            shape = [n, s, u, o] -- stream is None
+                or
+            shape = [n, u, o] -- stream is int
         """
         raise NotImplementedError()
 
@@ -63,28 +65,40 @@ class PositionFeatures(Readout):
         self.features = features
         self.drop = Dropout()
 
-    def init(self, cores, units):
+    def init(self, cores, outputs, units, streams):
         """
         Parameters
         ----------
         cores : int
-            core channels, c
+            core channels per stream, c
+        outputs : int
+            outputs per unit and stream, o
         units : int
-            response units, u
+            number of units, u
+        streams : int
+            number of streams, s
         """
-        self.proj.add_input(
-            in_channels=cores,
+        self.cores = int(cores)
+        self.outputs = int(outputs)
+        self.units = int(units)
+        self.streams = int(streams)
+
+        self.proj = Conv(channels=self.channels, streams=self.streams).add_input(
+            channels=self.cores,
         )
         self.position.init(
-            units=units,
+            units=self.units,
         )
         self.features.init(
-            units=units,
-            features=self.channels,
+            inputs=self.channels,
+            outputs=self.outputs,
+            units=self.units,
+            streams=self.streams,
         )
-        self.bias = nn.Parameter(
-            torch.zeros(units),
-        )
+
+        # self.bias = nn.Parameter(
+        #     torch.zeros(units),
+        # )
 
     def _param_groups(self, **kwargs):
         if kwargs.get("weight_decay"):

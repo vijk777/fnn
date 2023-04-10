@@ -17,7 +17,7 @@ class Retina(Module):
         Returns
         -------
         Tensor
-            shape = [h, w, 3]
+            shape = [h, w, 3], grid of 3D (x, y, z) rays
         """
         raise NotImplementedError()
 
@@ -26,7 +26,7 @@ class Retina(Module):
         Parameters
         ----------
         rays : Tensor
-            shape = [n, h, w, 3]
+            shape = [n, h, w, 3], grid of 3D (x, y, z) rays
         rmat : Tensor
             shape = [n, 3, 3], orthonormal 3D rotation matrix
 
@@ -51,7 +51,7 @@ class Retina(Module):
         Returns
         -------
         Tensor
-            shape = [n, h, w, 3]
+            shape = [n, h, w, 3], grid of 3D (x, y, z) rays
         """
         grid = self.grid(
             height=height,
@@ -87,7 +87,7 @@ class Angular(Retina):
         Returns
         -------
         Tensor
-            shape = [h, w, 3]
+            shape = [h, w, 3], grid of 3D (x, y, z) rays
         """
         x, y = isotropic_grid_2d(
             height=height,
@@ -115,7 +115,7 @@ class Angular(Retina):
         Parameters
         ----------
         rays : Tensor
-            shape = [n, h, w, 3]
+            shape = [n, h, w, 3], grid of 3D (x, y, z) rays
         rmat : Tensor
             shape = [n, 3, 3], orthonormal 3D rotation matrix
 

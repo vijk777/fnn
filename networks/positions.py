@@ -23,7 +23,7 @@ class Position(Module):
         Returns
         -------
         Tensor
-            shape = [n, u, 2]
+            shape = [n, u, 2], 2D (x, y) spatial positions
         """
         raise NotImplementedError()
 
@@ -33,7 +33,7 @@ class Position(Module):
         Returns
         -------
         Tensor
-            shape = [u, 2]
+            shape = [u, 2], 2D (x, y) spatial positions
         """
         raise NotImplementedError()
 
@@ -83,7 +83,7 @@ class Gaussian(Position):
         Returns
         -------
         Tensor
-            shape = [n, u, 2]
+            shape = [n, u, 2], 2D (x, y) spatial positions
         """
         if self._position is None:
             x = self.mu.repeat(batch_size, 1, 1)
@@ -104,6 +104,6 @@ class Gaussian(Position):
         Returns
         -------
         Tensor
-            shape = [u, 2]
+            shape = [u, 2], 2D (x, y) spatial positions
         """
         return self.mu
