@@ -26,7 +26,6 @@ class Bound(Module):
         raise NotImplementedError()
 
 
-
 class Tanh(Bound):
     @property
     def vmin(self):
