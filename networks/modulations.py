@@ -82,27 +82,28 @@ class LSTM(Modulation):
         streams : int
             number of streams, s
         """
+        self.behaviors = int(behaviors)
+        self.streams = int(streams)
         self.proj_i = (
             Linear(features=self.features, streams=streams)
-            .add_input(features=behaviors)
+            .add_input(features=self.behaviors)
             .add_input(features=self.features)
         )
         self.proj_f = (
             Linear(features=self.features, streams=streams)
-            .add_input(features=behaviors)
+            .add_input(features=self.behaviors)
             .add_input(features=self.features)
         )
         self.proj_g = (
             Linear(features=self.features, streams=streams)
-            .add_input(features=behaviors)
+            .add_input(features=self.behaviors)
             .add_input(features=self.features)
         )
         self.proj_o = (
             Linear(features=self.features, streams=streams)
-            .add_input(features=behaviors)
+            .add_input(features=self.behaviors)
             .add_input(features=self.features)
         )
-        self.streams = int(streams)
 
     def forward(self, behavior, stream=None):
         """

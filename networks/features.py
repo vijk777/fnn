@@ -5,16 +5,16 @@ from .containers import Module
 
 
 class Features(Module):
-    def init(self, units, inputs, outputs, streams):
+    def init(self, inputs, outputs, units, streams):
         """
         Parameters
         ----------
+        inputs : int
+            inputs per stream, i
+        outputs : int
+            outputs per unit and stream, o
         units : int
             number of units, u
-        inputs : int
-            number of inputs per stream, i
-        outputs : int
-            number of outputs per stream, o
         streams : int
             number of streams, s
         """
@@ -61,30 +61,31 @@ class Standard(Features):
             kwargs.update(weight_decay=0)
             yield dict(params=list(self.gains), **kwargs)
 
-    def init(self, units, inputs, outputs, streams):
+    def init(self, inputs, outputs, units, streams):
         """
         Parameters
         ----------
+        inputs : int
+            inputs per stream, i
+        outputs : int
+            outputs per unit and stream, o
         units : int
             number of units, u
-        inputs : int
-            number of inputs per stream, i
-        outputs : int
-            number of outputs per stream, o
         streams : int
             number of streams, s
         """
         self.inputs = int(inputs)
         self.outputs = int(outputs)
+        self.units = int(units)
         self.streams = int(streams)
 
-        weight = lambda: nn.Parameter(torch.ones(units, outputs, inputs))
-        gain = lambda: nn.Parameter(torch.ones(units, outputs))
+        weight = lambda: nn.Parameter(torch.ones(self.units, self.outputs, self.inputs))
+        gain = lambda: nn.Parameter(torch.ones(self.units, self.outputs))
 
-        self.weights = nn.ParameterList([weight() for _ in range(streams)])
-        self.gains = nn.ParameterList([gain() for _ in range(streams)])
+        self.weights = nn.ParameterList([weight() for _ in range(self.streams)])
+        self.gains = nn.ParameterList([gain() for _ in range(self.streams)])
 
-        bound = inputs**-0.5
+        bound = self.inputs**-0.5
         for weight in self.weights:
             nn.init.uniform_(weight, -bound, bound)
 

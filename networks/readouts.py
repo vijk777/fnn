@@ -6,7 +6,7 @@ from .elements import Dropout, Conv
 
 
 class Readout(Module):
-    def init(self, units, cores, streams):
+    def init(self, units, cores, outputs, streams):
         """
         Parameters
         ----------
@@ -14,6 +14,8 @@ class Readout(Module):
             number of units, u
         cores : int
             core channels per stream, c
+        outputs : int
+            unit outputs per stream, o
         streams : int
             number of streams, s
         """
@@ -24,7 +26,7 @@ class Readout(Module):
         Parameters
         ----------
         core : Tensor
-            shape = [n, s * c, h, w] -- stream is None
+            shape = [n, s*c, h, w] -- stream is None
                 or
             shape = [n, c, h, w] -- stream is int
         stream : int | None

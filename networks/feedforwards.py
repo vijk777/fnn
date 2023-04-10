@@ -109,11 +109,13 @@ class Res3d(Feedforward):
         streams : int
             number of streams, s
         """
+        self.input_channels = list(map(int, channels))
+        self.streams = int(streams)
 
         conv = Conv(channels=self._channels[0], streams=streams)
         res = Conv(channels=self._channels[0], streams=streams)
 
-        for _channels in channels:
+        for _channels in self.input_channels:
             conv.add_input(
                 channels=_channels,
                 kernel_size=self.kernel_sizes[0],

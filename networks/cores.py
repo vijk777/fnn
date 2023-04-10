@@ -112,6 +112,9 @@ class FeedforwardRecurrent(Core):
         streams : int
             number of streams, s
         """
+        self.perspectives = int(perspectives)
+        self.grids = int(grids)
+        self.modulations = int(modulations)
         self.streams = int(streams)
         self.feedforward.init(
             channels=[perspectives],
@@ -131,7 +134,7 @@ class FeedforwardRecurrent(Core):
         grid : Tensor
             shape = [g, h, w]
         modulation : Tensor
-            shape = [n, m * s] -- stream is None
+            shape = [n, s*m] -- stream is None
                 or
             shape = [n, m] -- stream is int
         stream : int | None
