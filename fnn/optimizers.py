@@ -1,7 +1,7 @@
 import math
 import torch
 
-from networks.containers import Module
+from .containers import Module
 
 
 class SGD:
