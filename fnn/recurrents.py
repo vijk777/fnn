@@ -27,7 +27,7 @@ class Recurrent(Module):
         """
         raise NotImplementedError()
 
-    def init(self, channels, streams):
+    def init(self, inputs, streams):
         """
         Parameters
         ----------
