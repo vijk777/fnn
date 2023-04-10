@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 
 from .containers import Module
 from .utils import isotropic_grid_2d, rmat_3d
@@ -89,11 +90,11 @@ class Plane(Monitor):
         self.init_angle_std = float(init_angle_std)
         self.eps = float(eps)
 
-        self.center = torch.nn.Parameter(torch.tensor(self.init_center))
-        self.angle = torch.nn.Parameter(torch.tensor(self.init_angle))
+        self.center = nn.Parameter(torch.tensor(self.init_center))
+        self.angle = nn.Parameter(torch.tensor(self.init_angle))
 
-        self.center_std = torch.nn.Parameter(torch.zeros(3))
-        self.angle_std = torch.nn.Parameter(torch.zeros(3))
+        self.center_std = nn.Parameter(torch.zeros(3))
+        self.angle_std = nn.Parameter(torch.zeros(3))
         self._restart()
 
         self._position = dict()

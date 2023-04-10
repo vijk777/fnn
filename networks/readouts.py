@@ -1,34 +1,34 @@
 import torch
-from torch.nn.functional import grid_sample
+from torch import nn
 
 from .containers import Module
 from .elements import Dropout, Conv
 
 
 class Readout(Module):
-    @property
-    def streams(self):
-        raise NotImplementedError()
-
-    def init(self, cores, units):
+    def init(self, units, cores, streams):
         """
         Parameters
         ----------
-        cores : int
-            core channels, c
         units : int
-            response units, u
+            number of units, u
+        cores : int
+            core channels per stream, c
+        streams : int
+            number of streams, s
         """
         raise NotImplementedError()
 
-    def forward(self, core, dropout=0):
+    def forward(self, core, stream=None):
         """
         Parameters
         ----------
         core : Tensor
-            shape = [n, c, h, w]
-        dropout : float
-            dropout probability
+            shape = [n, c * s, h, w] -- stream is None
+                or
+            shape = [n, c, h, w] -- stream is int
+        stream : int | None
+            specific stream | all streams
 
         Returns
         -------
@@ -56,16 +56,10 @@ class PositionFeatures(Readout):
         super().__init__()
 
         self.channels = int(channels)
-        self.drop = Dropout(
-            drop_dim=[2, 3],
-            reduce_dim=[1],
-        )
-        self.proj = Conv(
-            out_channels=self.channels,
-        )
         self.position = position
         self.bound = bound
         self.features = features
+        self.drop = Dropout()
 
     def init(self, cores, units):
         """
@@ -86,7 +80,7 @@ class PositionFeatures(Readout):
             units=units,
             features=self.channels,
         )
-        self.bias = torch.nn.Parameter(
+        self.bias = nn.Parameter(
             torch.zeros(units),
         )
 
