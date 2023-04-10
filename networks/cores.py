@@ -49,7 +49,7 @@ class Core(Module):
         grid : Tensor
             shape = [g, h, w]
         modulation : Tensor
-            shape = [n, m * s] -- stream is None
+            shape = [n, s*m] -- stream is None
                 or
             shape = [n, m] -- stream is int
         stream : int | None
@@ -58,7 +58,7 @@ class Core(Module):
         Returns
         -------
         Tensor
-            shape = [n, c' * s, h', w'] -- stream is None
+            shape = [n, s*c', h', w'] -- stream is None
                 or
             shape = [n, c', h', w'] -- stream is int
         """
@@ -140,7 +140,7 @@ class FeedforwardRecurrent(Core):
         Returns
         -------
         Tensor
-            shape = [n, c' * s, h', w'] -- stream is None
+            shape = [n, s*c', h', w'] -- stream is None
                 or
             shape = [n, c', h', w'] -- stream is int
         """

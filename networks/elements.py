@@ -304,7 +304,7 @@ class Conv(Module):
         -------
         List[Tensor]
             shapes = [
-                self.channels,
+                output channels,
                 input channels // input groups,
                 dynamic size,
                 kernel size,
@@ -393,18 +393,18 @@ class Conv(Module):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, c * s, h, w] or broadcastable -- stream is None
+            shapes = [n, s*c, h, w] -- stream is None
                 or
-            shapes = [n, c, h, w] or broadcastable -- stream is int
+            shapes = [n, c, h, w] -- stream is int
         stream : int | None
             specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            shape = [n, c' * s, h, w] -- stream is None and pad==True
+            shape = [n, s*c', h, w] -- stream is None and pad==True
                 or
-            shape = [n, c' * s, h', w'] -- stream is None and pad==False
+            shape = [n, s*c', h', w'] -- stream is None and pad==False
                 or
             shape = [n, c', h, w] -- stream is int and pad==True
                 or
@@ -481,7 +481,7 @@ class Linear(Conv):
         Parameters
         ----------
         channels : int
-            input features, must be divisible by (groups * streams)
+            input features, must be divisible by groups
         groups : int
             number of input groups per stream
         """
@@ -492,7 +492,7 @@ class Linear(Conv):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, f * s] -- stream is None
+            shapes = [n, s*f] -- stream is None
                 or
             shapes = [n, f] -- stream is int
         stream : int | None
@@ -501,7 +501,7 @@ class Linear(Conv):
         Returns
         -------
         Tensor
-            shape = [n, f' * s] -- stream is None
+            shape = [n, s*f'] -- stream is None
                 or
             shape = [n, f'] -- stream is int
         """

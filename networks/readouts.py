@@ -24,7 +24,7 @@ class Readout(Module):
         Parameters
         ----------
         core : Tensor
-            shape = [n, c * s, h, w] -- stream is None
+            shape = [n, s * c, h, w] -- stream is None
                 or
             shape = [n, c, h, w] -- stream is int
         stream : int | None

@@ -42,7 +42,7 @@ class Feedforward(Module):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, c * s, h, w] -- stream is None
+            shapes = [n, s*c, h, w] -- stream is None
                 or
             shapes = [n, c, h, w] -- stream is int
         stream : int | None
@@ -51,9 +51,9 @@ class Feedforward(Module):
         Returns
         -------
         Tensor
-            shape = [n, c', h // d, w // d] -- stream is None
+            shape = [n, c', h/d, w/d] -- stream is None
                 or
-            shape = [n, c' * s, h // d, w // d] -- stream is int
+            shape = [n, s*c', h/d, w/d] -- stream is int
         """
         raise NotImplementedError()
 
@@ -159,7 +159,7 @@ class Res3d(Feedforward):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, c * s, h, w] -- stream is None
+            shapes = [n, s*c, h, w] -- stream is None
                 or
             shapes = [n, c, h, w] -- stream is int
         stream : int | None
@@ -168,9 +168,9 @@ class Res3d(Feedforward):
         Returns
         -------
         Tensor
-            shape = [n, c' * s, h // d, w // d] -- stream is None
+            shape = [n, s*c', h/d, w/d] -- stream is None
                 or
-            shape = [n, c', h // d, w // d] -- stream is int
+            shape = [n, c', h/d, w/d] -- stream is int
         """
         for conv, res in zip(self.conv, self.res):
 

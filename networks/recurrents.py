@@ -43,7 +43,7 @@ class Recurrent(Module):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, c * s, h, w] -- stream is None
+            shapes = [n, s*c, h, w] -- stream is None
                 or
             shapes = [n, c, h, w] -- stream is int
         stream : int | None
@@ -52,9 +52,9 @@ class Recurrent(Module):
         Returns
         -------
         Tensor
-            shape = [n, c' * s, h // d, w // d] -- stream is None
+            shape = [n, s*c', h/d, w/d] -- stream is None
                 or
-            shape = [n, c', h // d, w // d] -- stream is int
+            shape = [n, c', h/d, w/d] -- stream is int
         """
         raise NotImplementedError()
 
@@ -198,7 +198,7 @@ class RvT(Recurrent):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, c * s, h, w] -- stream is None
+            shapes = [n, s*c, h, w] -- stream is None
                 or
             shapes = [n, c, h, w] -- stream is int
         stream : int | None
@@ -207,9 +207,9 @@ class RvT(Recurrent):
         Returns
         -------
         Tensor
-            shape = [n, c' * s, h // d, w // d] -- stream is None
+            shape = [n, s*c', h/d, w/d] -- stream is None
                 or
-            shape = [n, c', h // d, w // d] -- stream is int
+            shape = [n, c', h/d, w/d] -- stream is int
         """
         if stream is None:
             channels = self.channels * self.streams
