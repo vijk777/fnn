@@ -1,1 +1,1 @@
-# foundation-cortex
+# Foundation Nerual Networks of the Visual Cortex
