@@ -23,6 +23,7 @@ class Bound(Module):
         Tensor
             x bounded between vmin and vmax
         """
+        raise NotImplementedError()
 
 
 class Tanh(Bound):
