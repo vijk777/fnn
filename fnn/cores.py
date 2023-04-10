@@ -116,12 +116,13 @@ class FeedforwardRecurrent(Core):
         self.grids = int(grids)
         self.modulations = int(modulations)
         self.streams = int(streams)
+
         self.feedforward.init(
-            channels=[perspectives],
+            inputs=[perspectives],
             streams=streams,
         )
         self.recurrent.init(
-            channels=[self.feedforward.channels, grids, modulations],
+            inputs=[self.feedforward.channels, grids, modulations],
             streams=streams,
         )
 

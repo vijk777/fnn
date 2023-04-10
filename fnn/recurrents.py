@@ -105,7 +105,7 @@ class RvT(Recurrent):
         """
         return 1
 
-    def init(self, channels, streams):
+    def init(self, inputs, streams):
         """
         Parameters
         ----------
@@ -114,11 +114,11 @@ class RvT(Recurrent):
         streams : int
             number of streams, s
         """
-        self.input_channels = list(map(int, channels))
+        self.inputs = list(map(int, inputs))
         self.streams = int(streams)
 
         self.proj_x = Conv(channels=self.channels, groups=self.groups, streams=self.streams, gain=False, bias=False)
-        for _channels in self.input_channels:
+        for _channels in self.inputs:
             self.proj_x.add_input(channels=_channels)
 
         if self.groups > 1:
