@@ -10,13 +10,13 @@ class Features(Module):
         Parameters
         ----------
         inputs : int
-            inputs per stream, i
+            inputs per stream, I
         outputs : int
-            outputs per unit and stream, o
+            outputs per unit and stream, O
         units : int
-            number of units, u
+            number of units, U
         streams : int
-            number of streams, s
+            number of streams, S
         """
         raise NotImplementedError()
 
@@ -30,9 +30,9 @@ class Features(Module):
         Returns
         -------
         Tensor
-            shape = [s, u, o, i] -- stream is None
+            [S, U, O, I] -- stream is None
                 or
-            shape = [u, o, i] -- stream is int
+            [U, O, I] -- stream is int
         """
         raise NotImplementedError()
 
@@ -66,13 +66,13 @@ class Standard(Features):
         Parameters
         ----------
         inputs : int
-            inputs per stream, i
+            inputs per stream, I
         outputs : int
-            outputs per unit and stream, o
+            outputs per unit and stream, O
         units : int
-            number of units, u
+            number of units, U
         streams : int
-            number of streams, s
+            number of streams, S
         """
         self.inputs = int(inputs)
         self.outputs = int(outputs)
@@ -99,7 +99,7 @@ class Standard(Features):
         Returns
         -------
         Tensor
-            shape = [u, o, i]
+            [U, O, I]
         """
         features = self._features.get(stream)
 
@@ -125,9 +125,9 @@ class Standard(Features):
         Returns
         -------
         Tensor
-            shape = [s, u, o, i] -- stream is None
+            [S, U, O, I] -- stream is None
                 or
-            shape = [u, o, i] -- stream is int
+            [U, O, I] -- stream is int
         """
         if stream is None:
             features = [self.features(stream=s) for s in range(self.streams)]
