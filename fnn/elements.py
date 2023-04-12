@@ -390,9 +390,9 @@ class Conv(Module):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            [N, S*C, H, W] -- stream is None
+            [[N, S*C, H, W] ...] -- stream is None
                 or
-            [N, C, H, W] -- stream is int
+            [[N, C, H, W] ...] -- stream is int
         stream : int | None
             specific stream (int) or all streams (None)
 
@@ -489,9 +489,9 @@ class Linear(Conv):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            [N, S*F] -- stream is None
+            [[N, S*F] ...] -- stream is None
                 or
-            [N, F] -- stream is int
+            [[N, F] ...] -- stream is int
         stream : int | None
             specific stream (int) or all streams (None)
 
