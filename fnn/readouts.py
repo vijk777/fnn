@@ -43,8 +43,8 @@ class Readout(Module):
         raise NotImplementedError()
 
 
-class PositionFeatures(Readout):
-    def __init__(self, channels, position, bound, features):
+class PositionFeature(Readout):
+    def __init__(self, channels, position, bound, feature):
         """
         Parameters
         ----------
@@ -54,16 +54,15 @@ class PositionFeatures(Readout):
             spatial position
         bounds : .bounds.Bound
             spatial bound
-        features : .features.Features
+        feature : .features.Feature
             feature weights
         """
         assert bound.vmin == -1 and bound.vmax == 1
         super().__init__()
-
         self.channels = int(channels)
         self.position = position
         self.bound = bound
-        self.features = features
+        self.feature = feature
 
     def _param_groups(self, lr=0.1, decay=0, **kwargs):
         yield dict(params=list(self.biases), lr=lr * self.units, decay=0, **kwargs)
@@ -93,7 +92,7 @@ class PositionFeatures(Readout):
         self.position.init(
             units=self.units,
         )
-        self.features.init(
+        self.feature.init(
             inputs=self.channels,
             outputs=self.readouts,
             units=self.units,
@@ -132,16 +131,16 @@ class PositionFeatures(Readout):
             padding_mode="border",
             align_corners=False,
         )
-        features = self.features(stream=stream)
+        feature = self.feature(stream=stream)
 
         if stream is None:
             out = to_groups_2d(out, self.streams).squeeze(dim=4)
-            out = torch.einsum("S U R C , N S C U -> N S U R", features, out)
+            out = torch.einsum("S U R C , N S C U -> N S U R", feature, out)
             out = out + torch.stack(list(self.biases), dim=0)
 
         else:
             out = out.squeeze(dim=3)
-            out = torch.einsum("U R C , N C U -> N U R", features, out)
+            out = torch.einsum("U R C , N C U -> N U R", feature, out)
             out = out + self.biases[stream]
 
         return out

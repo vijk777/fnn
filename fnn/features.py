@@ -4,7 +4,7 @@ from torch import nn
 from .containers import Module
 
 
-class Features(Module):
+class Feature(Module):
     def init(self, inputs, outputs, units, streams):
         """
         Parameters
@@ -37,7 +37,7 @@ class Features(Module):
         raise NotImplementedError()
 
 
-class Standard(Features):
+class Standard(Feature):
     def __init__(self, eps=1e-5):
         """
         Parameters
