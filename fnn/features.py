@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from .containers import Module
+from .modules import Module
 
 
 class Feature(Module):

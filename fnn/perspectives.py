@@ -1,7 +1,7 @@
 import torch
 from functools import reduce
 
-from .containers import Module, ModuleList
+from .modules import Module, ModuleList
 from .elements import Linear, nonlinearity
 from .utils import isotropic_grid_sample_2d, rmat_3d
 

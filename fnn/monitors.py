@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from .containers import Module
+from .modules import Module
 from .utils import isotropic_grid_2d, rmat_3d
 
 

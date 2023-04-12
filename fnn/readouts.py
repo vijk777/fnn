@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from .containers import Module
+from .modules import Module
 from .elements import Conv
 from .utils import to_groups_2d
 

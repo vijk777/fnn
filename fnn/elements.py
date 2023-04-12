@@ -7,7 +7,7 @@ from itertools import chain
 from functools import reduce
 from collections import deque
 
-from .containers import Module, ModuleList
+from .modules import Module, ModuleList
 
 
 def nonlinearity(nonlinear=None):

@@ -2,7 +2,7 @@ import torch
 from numpy.typing import ArrayLike
 from typing import Optional
 
-from .containers import Module
+from .modules import Module
 
 
 def default_stimulus(channels: int = 1):

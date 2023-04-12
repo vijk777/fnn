@@ -1,6 +1,6 @@
 import torch
 
-from .containers import Module, ModuleList
+from .modules import Module, ModuleList
 from .utils import isotropic_grid_2d
 
 

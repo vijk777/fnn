@@ -1,7 +1,7 @@
 import torch
 from itertools import chain
 
-from .containers import Module
+from .modules import Module
 
 
 class Core(Module):

@@ -1,6 +1,6 @@
 import torch
 
-from .containers import Module
+from .modules import Module
 from .elements import Linear
 
 

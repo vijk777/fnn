@@ -1,7 +1,7 @@
 import torch
 import math
 
-from .containers import Module, ModuleList
+from .modules import Module, ModuleList
 from .elements import Conv, nonlinearity
 
 
