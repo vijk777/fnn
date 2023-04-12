@@ -10,14 +10,14 @@ def to_groups_2d(tensor, groups):
     Parameters
     ----------
     tensor : Tensor
-        shape = [n, c, h, w]
+        [N, C, H, W]
     groups : int
-        channel groups
+        channel groups (G)
 
     Returns
     -------
     Tensor
-        shape = [n, groups, c // groups, h, w]
+        [N, G, C//G, H, W]
     """
     N, _, H, W = tensor.shape
     return tensor.view(N, groups, -1, H, W)
@@ -29,16 +29,16 @@ def rmat_3d(x, y, z):
     Parameters
     ----------
     x : Tensor
-        shape = [n], angle (radians) of rotation around x axis
+        [N], angle (radians) of rotation around x axis
     y : Tensor
-        shape = [n], angle (radians) of rotation around y axis
+        [N], angle (radians) of rotation around y axis
     z : Tensor
-        shape = [n], angle (radians) of rotation around z axis
+        [N], angle (radians) of rotation around z axis
 
     Returns
     -------
     Tensor
-        shape = [n, 3, 3]
+        [N, 3, 3]
     """
     N = len(x)
     assert N == len(y) == len(z)
@@ -80,9 +80,9 @@ def isotropic_grid_2d(height, width, major="x", dtype=None, device=None):
     Parameters
     ----------
     height : int
-        grid height, h
+        grid height (H)
     width : int
-        grid width, w
+        grid width (W)
     major : str
         "x" | "y" , axis by which grid is scaled
     dtype : torch.dtype | None
@@ -93,7 +93,7 @@ def isotropic_grid_2d(height, width, major="x", dtype=None, device=None):
     Returns
     -------
     Tensor
-        shape = [h, w, 2]
+        [H, W, 2]
     """
     grid_x = torch.linspace(-1, 1, width, dtype=dtype, device=device)
     grid_y = torch.linspace(-1, 1, height, dtype=dtype, device=device)
@@ -123,9 +123,9 @@ def isotropic_grid_sample_2d(x, grid, major="x", pad_mode="constant", pad_value=
     Parameters
     ----------
     x : Tensor
-        shape = [n, c, h, w]
+        [N, C, H, W]
     grid : Tensor
-        shape = [n, h', w', 2]
+        [N, H', W', 2]
     major : str
         "x" | "y" , axis by which sampling is scaled
     pad_mode : str
@@ -136,7 +136,7 @@ def isotropic_grid_sample_2d(x, grid, major="x", pad_mode="constant", pad_value=
     Returns
     -------
     Tensor
-        shape = [n, c, h', w']
+        [N, C, H', W']
     """
     if pad_mode == "constant":
         x = x - pad_value

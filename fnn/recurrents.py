@@ -13,7 +13,7 @@ class Recurrent(Module):
         Returns
         -------
         int
-            recurrent channels per stream, R
+            recurrent channels per stream (R)
         """
         raise NotImplementedError()
 
@@ -23,7 +23,7 @@ class Recurrent(Module):
         Returns
         -------
         int
-            downscale factor, D
+            downscale factor (D)
         """
         raise NotImplementedError()
 
@@ -32,7 +32,7 @@ class Recurrent(Module):
         Parameters
         ----------
         channels : Sequence[int]
-            [input channels per stream, I] * N
+            [input channels per stream (I) ...]
         streams : int
             number of streams, S
         """
@@ -43,9 +43,9 @@ class Recurrent(Module):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            [[N, S*I, H, W]] * N -- stream is None
+            [[N, S*I, H, W] ...] -- stream is None
                 or
-            [[N, I, H, W]] * N -- stream is int
+            [[N, I, H, W] ...] -- stream is int
         stream : int | None
             specific stream | all streams
 
@@ -91,7 +91,7 @@ class RvT(Recurrent):
         Returns
         -------
         int
-            output channels per stream, C'
+            recurrent channels per stream (R)
         """
         return self._channels
 
@@ -101,7 +101,7 @@ class RvT(Recurrent):
         Returns
         -------
         int
-            downscale factor, D
+            downscale factor (D)
         """
         return 1
 
@@ -110,7 +110,7 @@ class RvT(Recurrent):
         Parameters
         ----------
         channels : Sequence[int]
-            [input channels per stream, I ...]
+            [input channels per stream (I) ...]
         streams : int
             number of streams, S
         """

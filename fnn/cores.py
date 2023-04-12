@@ -11,7 +11,7 @@ class Core(Module):
         Returns
         -------
         int
-            output channels per stream, C'
+            core channels per stream (C)
         """
         raise NotImplementedError()
 
@@ -21,7 +21,7 @@ class Core(Module):
         Returns
         -------
         int
-            grid downscale factor, D
+            grid downscale factor (D)
         """
         raise NotImplementedError()
 
@@ -30,13 +30,13 @@ class Core(Module):
         Parameters
         ----------
         perspectives : int
-            perspective channels, C
+            perspective channels (P)
         grids : int
-            grid channels, G
+            grid channels (G)
         modulations : int
-            modulation features per stream, M
+            modulation features per stream (M)
         streams : int
-            number of streams, S
+            number of streams (S)
         """
         raise NotImplementedError()
 
@@ -45,7 +45,7 @@ class Core(Module):
         Parameters
         ----------
         perspective : Tensor
-            [N, C, H, W]
+            [N, P, H, W]
         grid : Tensor
             [G, H, W]
         modulation : Tensor
@@ -58,9 +58,9 @@ class Core(Module):
         Returns
         -------
         Tensor
-            [N, S*C', H', W'] -- stream is None
+            [N, S*C, H', W'] -- stream is None
                 or
-            [N, C', H', W'] -- stream is int
+            [N, C, H', W'] -- stream is int
         """
         raise NotImplementedError()
 
@@ -85,7 +85,7 @@ class FeedforwardRecurrent(Core):
         Returns
         -------
         int
-            output channels per stream, C'
+            core channels per stream (C)
         """
         return self.recurrent.channels
 
@@ -95,7 +95,7 @@ class FeedforwardRecurrent(Core):
         Returns
         -------
         int
-            grid downscale factor, D
+            grid downscale factor (D)
         """
         return self.feedforward.scale
 
@@ -104,13 +104,13 @@ class FeedforwardRecurrent(Core):
         Parameters
         ----------
         perspectives : int
-            perspective channels, C
+            perspective channels (P)
         grids : int
-            grid channels, G
+            grid channels (G)
         modulations : int
-            modulation features per stream, M
+            modulation features per stream (M)
         streams : int
-            number of streams, S
+            number of streams (S)
         """
         self.perspectives = int(perspectives)
         self.grids = int(grids)
@@ -131,7 +131,7 @@ class FeedforwardRecurrent(Core):
         Parameters
         ----------
         perspective : Tensor
-            [N, C, H, W]
+            [N, P, H, W]
         grid : Tensor
             [G, H, W]
         modulation : Tensor
@@ -144,9 +144,9 @@ class FeedforwardRecurrent(Core):
         Returns
         -------
         Tensor
-            [N, S*C', H', W'] -- stream is None
+            [N, S*C, H', W'] -- stream is None
                 or
-            [N, C', H', W'] -- stream is int
+            [N, C, H', W'] -- stream is int
         """
         if stream is None:
             perspective = perspective.repeat(1, self.streams, 1, 1)

@@ -10,7 +10,7 @@ class Grid(Module):
         Returns
         -------
         int
-            grid channels, G
+            grid channels (G)
         """
         raise NotImplementedError()
 
@@ -36,7 +36,7 @@ class Vanilla(Grid):
         Returns
         -------
         int
-            grid channels, G
+            grid channels (G)
         """
         return 3
 

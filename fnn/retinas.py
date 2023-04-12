@@ -10,14 +10,14 @@ class Retina(Module):
         Parameters
         ----------
         height : int
-            output height, h
+            output height (H)
         width : int
-            output width, w
+            output width (W)
 
         Returns
         -------
         Tensor
-            shape = [h, w, 3], grid of 3D (x, y, z) rays
+            [H, W, 3], grid of 3D rays
         """
         raise NotImplementedError()
 
@@ -26,14 +26,14 @@ class Retina(Module):
         Parameters
         ----------
         rays : Tensor
-            shape = [n, h, w, 3], grid of 3D (x, y, z) rays
+            [N, H, W, 3], grid of 3D rays
         rmat : Tensor
-            shape = [n, 3, 3], orthonormal 3D rotation matrix
+            [N, 3, 3], 3D rotation matrix
 
         Returns
         -------
         Tensor
-            shape = [n, h, w, 2]
+            [N, H, W, 2], 2D projection
         """
         raise NotImplementedError()
 
@@ -42,16 +42,16 @@ class Retina(Module):
         Parameters
         ----------
         rmat : Tensor
-            shape = [n, 3, 3], orthonormal 3D rotation matrix
+            [N, 3, 3], 3D rotation matrix
         height : int
-            output height, h
+            output height (H)
         width : int
-            output width, w
+            output width (W)
 
         Returns
         -------
         Tensor
-            shape = [n, h, w, 3], grid of 3D (x, y, z) rays
+            [N, H, W, 3], grid of 3D rays
         """
         grid = self.grid(
             height=height,
@@ -80,14 +80,14 @@ class Angular(Retina):
         Parameters
         ----------
         height : int
-            output height, h
+            output height (H)
         width : int
-            output width, w
+            output width (W)
 
         Returns
         -------
         Tensor
-            shape = [h, w, 3], grid of 3D (x, y, z) rays
+            [H, W, 3], grid of 3D rays
         """
         x, y = isotropic_grid_2d(
             height=height,
@@ -115,14 +115,14 @@ class Angular(Retina):
         Parameters
         ----------
         rays : Tensor
-            shape = [n, h, w, 3], grid of 3D (x, y, z) rays
+            [N, H, W, 3], grid of 3D rays
         rmat : Tensor
-            shape = [n, 3, 3], orthonormal 3D rotation matrix
+            [N, 3, 3], 3D rotation matrix
 
         Returns
         -------
         Tensor
-            shape = [n, h, w, 2]
+            [N, H, W, 2], 2D projection
         """
         norm = rays.norm(p=2, dim=3, keepdim=True)
         rays = rays / norm

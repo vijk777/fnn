@@ -11,7 +11,7 @@ class Modulation(Module):
         Returns
         -------
         int
-            output features, f'
+            modulation features (M)
         """
         raise NotImplementedError()
 
@@ -20,9 +20,9 @@ class Modulation(Module):
         Parameters
         ----------
         behaviors : int
-            behavior features, f
+            behavior features (B)
         streams : int
-            number of streams, s
+            number of streams (S)
         """
         raise NotImplementedError()
 
@@ -31,18 +31,18 @@ class Modulation(Module):
         Parameters
         ----------
         behavior : Tensor
-            shape = [n, f * s] -- stream is None
+            [N, S*B] -- stream is None
                 or
-            shape = [n, f] -- stream is int
+            [N, B] -- stream is int
         stream : int | None
             specific stream | all streams
 
         Returns
         -------
         Tensor
-            shape = [n, f' * s] -- stream is None
+            [N, S*M] -- stream is None
                 or
-            shape = [n, f'] -- stream is int
+            [N, M] -- stream is int
         """
         raise NotImplementedError()
 
@@ -69,7 +69,7 @@ class LSTM(Modulation):
         Returns
         -------
         int
-            output features, f'
+            modulation features (M)
         """
         return self._features
 
@@ -78,9 +78,9 @@ class LSTM(Modulation):
         Parameters
         ----------
         behaviors : int
-            behavior features, f
+            behavior features (B)
         streams : int
-            number of streams, s
+            number of streams (S)
         """
         self.behaviors = int(behaviors)
         self.streams = int(streams)
@@ -110,16 +110,18 @@ class LSTM(Modulation):
         Parameters
         ----------
         behavior : Tensor
-            shape = [n, f]
+            [N, S*B] -- stream is None
+                or
+            [N, B] -- stream is int
         stream : int | None
             specific stream | all streams
 
         Returns
         -------
         Tensor
-            shape = [n, f' * s] -- stream is None
+            [N, S*M] -- stream is None
                 or
-            shape = [n, f'] -- stream is int
+            [N, M] -- stream is int
         """
         if self._past:
             assert self._past["stream"] == stream

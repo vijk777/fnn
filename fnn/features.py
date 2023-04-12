@@ -10,13 +10,13 @@ class Features(Module):
         Parameters
         ----------
         inputs : int
-            inputs per stream, I
+            inputs per stream (I)
         outputs : int
-            outputs per unit and stream, O
+            outputs per unit and stream (O)
         units : int
-            number of units, U
+            number of units (U)
         streams : int
-            number of streams, S
+            number of streams (S)
         """
         raise NotImplementedError()
 
@@ -65,13 +65,13 @@ class Standard(Features):
         Parameters
         ----------
         inputs : int
-            inputs per stream, I
+            inputs per stream (I)
         outputs : int
-            outputs per unit and stream, O
+            outputs per unit and stream (O)
         units : int
-            number of units, U
+            number of units (U)
         streams : int
-            number of streams, S
+            number of streams (S)
         """
         self.inputs = int(inputs)
         self.outputs = int(outputs)

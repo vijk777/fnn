@@ -12,7 +12,7 @@ class Feedforward(Module):
         Returns
         -------
         int
-            feedforward channels per stream, F
+            feedforward channels per stream (F)
         """
         raise NotImplementedError()
 
@@ -22,7 +22,7 @@ class Feedforward(Module):
         Returns
         -------
         int
-            downscale factor, D
+            downscale factor (D)
         """
         raise NotImplementedError()
 
@@ -31,9 +31,9 @@ class Feedforward(Module):
         Parameters
         ----------
         channels : Sequence[int]
-            [input channels per stream, I ...]
+            [input channels per stream (I) ...]
         streams : int
-            number of streams, S
+            number of streams (S)
         """
         raise NotImplementedError()
 
@@ -86,7 +86,7 @@ class Res3d(Feedforward):
         Returns
         -------
         int
-            feedforward channels per stream, F
+            feedforward channels per stream (F)
         """
         return self._channels[-1]
 
@@ -96,7 +96,7 @@ class Res3d(Feedforward):
         Returns
         -------
         int
-            downscale factor, D
+            downscale factor (D)
         """
         return math.prod(self.strides)
 
@@ -105,9 +105,9 @@ class Res3d(Feedforward):
         Parameters
         ----------
         channels : Sequence[int]
-            [input channels per stream, I ...]
+            [input channels per stream (I) ...]
         streams : int
-            number of streams, S
+            number of streams (S)
         """
         self.inputs = list(map(int, inputs))
         self.streams = int(streams)

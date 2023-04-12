@@ -11,13 +11,13 @@ class Readout(Module):
         Parameters
         ----------
         cores : int
-            core channels per stream, c
+            core channels per stream (C)
         outputs : int
-            outputs per unit and stream, o
+            outputs per unit and stream (O)
         units : int
-            number of units, u
+            number of units (U)
         streams : int
-            number of streams, s
+            number of streams (S)
         """
         raise NotImplementedError()
 
@@ -26,18 +26,18 @@ class Readout(Module):
         Parameters
         ----------
         core : Tensor
-            shape = [n, s*c, h, w] -- stream is None
+            [N, S*C, H, W] -- stream is None
                 or
-            shape = [n, c, h, w] -- stream is int
+            [N, C, H, W] -- stream is int
         stream : int | None
             specific stream | all streams
 
         Returns
         -------
         Tensor
-            shape = [n, s, u, o] -- stream is None
+            [N, S, U, O] -- stream is None
                 or
-            shape = [n, u, o] -- stream is int
+            [N, S, O] -- stream is int
         """
         raise NotImplementedError()
 
@@ -70,13 +70,13 @@ class PositionFeatures(Readout):
         Parameters
         ----------
         cores : int
-            core channels per stream, c
+            core channels per stream (C)
         outputs : int
-            outputs per unit and stream, o
+            outputs per unit and stream (O)
         units : int
-            number of units, u
+            number of units (U)
         streams : int
-            number of streams, s
+            number of streams (S)
         """
         self.cores = int(cores)
         self.outputs = int(outputs)

@@ -11,12 +11,12 @@ class Monitor(Module):
         Parameters
         ----------
         rays : Tensor
-            shape = [n, h, w, 3]
+            [N, H, W, 3], grid of 3D rays
 
         Returns
         -------
         Tensor
-            shape = [n, h, w, 2]
+            [N, H, W, 2], 2D projection
         """
         raise NotImplementedError()
 
@@ -25,16 +25,16 @@ class Monitor(Module):
         Parameters
         ----------
         batch_size : int
-            batch size, n
+            batch size (N)
         height : int
-            output height, h
+            output height (H)
         width : int
-            output width, w
+            output width (W)
 
         Returns
         -------
         Tensor
-            shape = [n, h, w, 2]
+            [N, H, W, 3], grid of 3D rays
         """
         raise NotImplementedError()
 
@@ -115,18 +115,18 @@ class Plane(Monitor):
         Parameters
         ----------
         batch_size : int
-            batch size, n
+            batch size (N)
 
         Returns
         -------
         Tensor
-            center, shape = [n, 1, 1, 3]
+            [N, 1, 1, 3], center
         Tensor
-            X, shape = [n, 1, 1, 3]
+            [N, 1, 1, 3], X unit vector
         Tensor
-            Y, shape = [n, 1, 1, 3]
+            [N, 1, 1, 3], Y unit vector
         Tensor
-            Z, shape = [n, 1, 1, 3]
+            [N, 1, 1, 3], Z unit vector
         """
         if self._position:
             assert batch_size == self._position["center"].size(0)
@@ -153,12 +153,12 @@ class Plane(Monitor):
         Parameters
         ----------
         rays : Tensor
-            shape = [n, h, w, 3]
+            [N, H, W, 3], grid of 3D rays
 
         Returns
         -------
         Tensor
-            shape = [n, h, w, 2]
+            [N, H, W, 2], 2D projection
         """
         center, X, Y, Z = self.position(batch_size=rays.size(0))
 
@@ -179,16 +179,16 @@ class Plane(Monitor):
         Parameters
         ----------
         batch_size : int
-            batch size, n
+            batch size (N)
         height : int
-            output height, h
+            output height (H)
         width : int
-            output width, w
+            output width (W)
 
         Returns
         -------
         Tensor
-            shape = [n, h, w, 2]
+            [N, H, W, 3], grid of 3D rays
         """
         x, y = isotropic_grid_2d(
             height=height,

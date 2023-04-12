@@ -7,14 +7,24 @@ from .utils import isotropic_grid_sample_2d, rmat_3d
 
 
 class Perspective(Module):
+    @property
+    def channels(self):
+        """
+        Returns
+        -------
+        int
+            perspective channels (P)
+        """
+        raise NotImplementedError()
+
     def init(self, channels, eye_positions):
         """
         Parameters
         ----------
         channels : int
-            stimulus channels
+            stimulus channels (S)
         eye_positions : int
-            eye position features
+            eye position features (E)
         """
         raise NotImplementedError()
 
@@ -23,13 +33,13 @@ class Perspective(Module):
         Parameters
         ----------
         stimulus : Tensor
-            shape = [n, c, h, w]
+            [N, S, H, W]
         eye_position : Tensor
-            shape = [n, f]
+            [N, E]
         height : int
-            output height, h'
+            output height (H')
         width : int
-            output width, w'
+            output width (W')
         pad_mode : str
             "constant" | "replicate"
         pad_value : float
@@ -38,7 +48,7 @@ class Perspective(Module):
         Returns
         -------
         Tensor
-            shape = [n, c', h', w']
+            [N, P, H', W']
         """
         raise NotImplementedError()
 
@@ -47,13 +57,13 @@ class Perspective(Module):
         Parameters
         ----------
         stimulus : Tensor
-            shape = [n, c, h, w]
+            [N, S, H, W]
         eye_position : Tensor
-            shape = [n, f]
+            [N, E]
         height : int
-            output height, h'
+            output height (H')
         width : int
-            output width, w'
+            output width (W')
         pad_mode : str
             "constant" | "replicate"
         pad_value : float
@@ -62,12 +72,8 @@ class Perspective(Module):
         Returns
         -------
         Tensor
-            shape = [n, c', h', w']
+            [N, P, H', W']
         """
-        raise NotImplementedError()
-
-    @property
-    def channels(self):
         raise NotImplementedError()
 
 
@@ -99,14 +105,24 @@ class MonitorRetina(Perspective):
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear=nonlinear)
 
+    @property
+    def channels(self):
+        """
+        Returns
+        -------
+        int
+            perspective channels (P)
+        """
+        return self._channels
+
     def init(self, channels, eye_positions):
         """
         Parameters
         ----------
         channels : int
-            stimulus channels
+            stimulus channels (S)
         eye_positions : int
-            eye position features
+            eye position features (E)
         """
         self._channels = int(channels)
         self.layers[0].add(in_features=eye_positions)
@@ -116,12 +132,12 @@ class MonitorRetina(Perspective):
         Parameters
         ----------
         eye_position : Tensor
-            shape = [n, f]
+            [N, E]
 
         Returns
         -------
         Tensor
-            shape = [n, 3, 3]
+            [N, 3, 3], 3D rotation matrix
         """
         x = reduce(lambda x, layer: self.nonlinear(layer([x])) * self.gamma, self.layers, eye_position)
         x = self.proj([x])
@@ -132,13 +148,13 @@ class MonitorRetina(Perspective):
         Parameters
         ----------
         stimulus : Tensor
-            shape = [n, c, h, w]
+            [N, S, H, W]
         eye_position : Tensor
-            shape = [n, f]
+            [N, E]
         height : int
-            output height, h'
+            output height (H')
         width : int
-            output width, w'
+            output width (W')
         pad_mode : str
             "constant" | "replicate"
         pad_value : float
@@ -147,7 +163,7 @@ class MonitorRetina(Perspective):
         Returns
         -------
         Tensor
-            shape = [n, c', h', w']
+            [N, P, H', W']
         """
         rmat = self.rmat(eye_position)
         rays = self.retina.rays(rmat, height, width)
@@ -164,13 +180,13 @@ class MonitorRetina(Perspective):
         Parameters
         ----------
         stimulus : Tensor
-            shape = [n, c, h, w]
+            [N, S, H, W]
         eye_position : Tensor
-            shape = [n, f]
+            [N, E]
         height : int
-            output height, h'
+            output height (H')
         width : int
-            output width, w'
+            output width (W')
         pad_mode : str
             "constant" | "replicate"
         pad_value : float
@@ -179,7 +195,7 @@ class MonitorRetina(Perspective):
         Returns
         -------
         Tensor
-            shape = [n, c', h', w']
+            [N, P, H', W']
         """
         rays = self.monitor.rays(stimulus.size(0), height, width)
         rmat = self.rmat(eye_position)
@@ -190,7 +206,3 @@ class MonitorRetina(Perspective):
             pad_mode=pad_mode,
             pad_value=pad_value,
         )
-
-    @property
-    def channels(self):
-        return self._channels
