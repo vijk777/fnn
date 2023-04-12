@@ -10,7 +10,7 @@ class Response(Module):
         Returns
         -------
         int
-            readouts (R) per unit (U)
+            readouts per unit (R)
         """
         raise NotImplementedError()
 
