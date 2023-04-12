@@ -4,7 +4,7 @@ from torch import nn
 from .containers import Module
 
 
-class Streams(Module):
+class Reduce(Module):
     def init(self, streams):
         """
         Parameters
@@ -29,7 +29,7 @@ class Streams(Module):
         raise NotImplementedError()
 
 
-class Mean(Streams):
+class Mean(Reduce):
     def init(self, streams):
         """
         Parameters
