@@ -6,6 +6,12 @@ from .containers import Module
 class Grid(Module):
     @property
     def grids(self):
+        """
+        Returns
+        -------
+        int
+            grid channels, G
+        """
         raise NotImplementedError()
 
     def forward(self, grid):
@@ -13,12 +19,12 @@ class Grid(Module):
         Parameters
         ----------
         grid : Tensor
-            shape = [h, w, 3]
+            [H, W, 3], grid of 3D points
 
         Returns
         -------
         Tensor
-            shape = [g, h, w] or [g, h, w]
+            [G, H, W]
         """
         raise NotImplementedError()
 
@@ -26,6 +32,12 @@ class Grid(Module):
 class Vanilla(Grid):
     @property
     def grids(self):
+        """
+        Returns
+        -------
+        int
+            grid channels, G
+        """
         return 3
 
     def forward(self, grid):
@@ -33,11 +45,11 @@ class Vanilla(Grid):
         Parameters
         ----------
         grid : Tensor
-            shape = [h, w, 3]
+            [H, W, 3], grid of 3D points
 
         Returns
         -------
         Tensor
-            shape = [g, h, w] or [g, h, w]
+            [G, H, W]
         """
         return torch.einsum("H W G -> G H W", grid)
