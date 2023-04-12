@@ -13,7 +13,7 @@ class Recurrent(Module):
         Returns
         -------
         int
-            output channels per stream, C'
+            recurrent channels per stream, R
         """
         raise NotImplementedError()
 
@@ -32,7 +32,7 @@ class Recurrent(Module):
         Parameters
         ----------
         channels : Sequence[int]
-            input channels per stream, C
+            [input channels per stream, I] * N
         streams : int
             number of streams, S
         """
@@ -43,18 +43,18 @@ class Recurrent(Module):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            [N, S*C, H, W] -- stream is None
+            [[N, S*I, H, W]] * N -- stream is None
                 or
-            [N, C, H, W] -- stream is int
+            [[N, I, H, W]] * N -- stream is int
         stream : int | None
             specific stream | all streams
 
         Returns
         -------
         Tensor
-            [N, S*C', H//D, W//D] -- stream is None
+            [N, S*R, H//D, W//D] -- stream is None
                 or
-            [N, C', H//D, W//D] -- stream is int
+            [N, R, H//D, W//D] -- stream is int
         """
         raise NotImplementedError()
 
@@ -110,7 +110,7 @@ class RvT(Recurrent):
         Parameters
         ----------
         channels : Sequence[int]
-            input channels per stream, C
+            [input channels per stream, I] * N
         streams : int
             number of streams, S
         """
@@ -200,18 +200,18 @@ class RvT(Recurrent):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            [N, S*C, H, W] -- stream is None
+            [[N, S*I, H, W]] * N -- stream is None
                 or
-            [N, C, H, W] -- stream is int
+            [[N, I, H, W]] * N -- stream is int
         stream : int | None
             specific stream | all streams
 
         Returns
         -------
         Tensor
-            [N, S*C', H//D, W//D] -- stream is None
+            [N, S*R, H//D, W//D] -- stream is None
                 or
-            [N, C', H//D, W//D] -- stream is int
+            [N, R, H//D, W//D] -- stream is int
         """
         if stream is None:
             channels = self.channels * self.streams

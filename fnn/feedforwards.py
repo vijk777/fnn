@@ -31,7 +31,7 @@ class Feedforward(Module):
         Parameters
         ----------
         channels : Sequence[int]
-            input channels per stream, C
+            [input channels per stream, I] * N
         streams : int
             number of streams, S
         """
@@ -42,9 +42,9 @@ class Feedforward(Module):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            [N, S*I, H, W] -- stream is None
+            [[N, S*I, H, W]] * N -- stream is None
                 or
-            [N, I, H, W] -- stream is int
+            [[N, I, H, W]] * N -- stream is int
         stream : int | None
             specific stream | all streams
 
@@ -105,7 +105,7 @@ class Res3d(Feedforward):
         Parameters
         ----------
         channels : Sequence[int]
-            input channels per stream, C
+            [input channels per stream, I] * N
         streams : int
             number of streams, S
         """
@@ -161,9 +161,9 @@ class Res3d(Feedforward):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            [N, S*I, H, W] -- stream is None
+            [[N, S*I, H, W]] * N -- stream is None
                 or
-            [N, I, H, W] -- stream is int
+            [[N, I, H, W]] * N -- stream is int
         stream : int | None
             specific stream | all streams
 
