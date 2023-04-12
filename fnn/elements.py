@@ -193,14 +193,14 @@ class Input(Module):
         Parameters
         ----------
         x : Tensor
-            shape = [n, c, h, w]
+            [N, C, H, W]
         stream : int
             stream index
 
         Returns
         -------
         Tensor
-            shape = [n, c, t, h, w]
+            [N, C, T, H, W]
         """
         if self.pad:
             x = F.pad(x, pad=[self.pad] * 4)
@@ -303,7 +303,7 @@ class Conv(Module):
         Returns
         -------
         List[Tensor]
-            shapes = [
+            [
                 output channels,
                 input channels // input groups,
                 dynamic size,
@@ -393,22 +393,22 @@ class Conv(Module):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, s*c, h, w] -- stream is None
+            [N, S*C, H, W] -- stream is None
                 or
-            shapes = [n, c, h, w] -- stream is int
+            [N, C, H, W] -- stream is int
         stream : int | None
             specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            shape = [n, s*c', h, w] -- stream is None and pad==True
+            [N, S*C', H, W] -- stream is None and pad==True
                 or
-            shape = [n, s*c', h', w'] -- stream is None and pad==False
+            [N, S*C', H', W'] -- stream is None and pad==False
                 or
-            shape = [n, c', h, w] -- stream is int and pad==True
+            [N, C', H, W] -- stream is int and pad==True
                 or
-            shape = [n, c', h', w'] -- stream is int and pad==False
+            [N, C', H', W'] -- stream is int and pad==False
         """
         assert len(inputs) == len(self.inputs)
 
@@ -492,18 +492,18 @@ class Linear(Conv):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, s*f] -- stream is None
+            [N, S*F] -- stream is None
                 or
-            shapes = [n, f] -- stream is int
+            [N, F] -- stream is int
         stream : int | None
             specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            shape = [n, s*f'] -- stream is None
+            [N, S*F'] -- stream is None
                 or
-            shape = [n, f'] -- stream is int
+            [N, F'] -- stream is int
         """
         inputs = [x[:, :, None, None] for x in inputs]
         return super().forward(inputs, stream=stream)[:, :, 0, 0]
