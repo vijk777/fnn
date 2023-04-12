@@ -4,50 +4,33 @@ from .containers import Module
 
 
 class Reduce(Module):
-    def init(self, dim):
+    def init(self, dim, keepdim=False):
         """
         Parameters
         ----------
         dim : Sequence[int]
             dimensions to reduce
+        keepdim : bool
+            whether the output tensor has dim retained or not
         """
         raise NotImplementedError()
 
     def forward(self, x):
-        """
-        Parameters
-        ----------
-        x : Tensor
-            [N, S, U, R]
-
-        Returns
-        -------
-        Tensor
-            [N, U, R]
-        """
         raise NotImplementedError()
 
 
 class Mean(Reduce):
-    def init(self, dim):
+    def init(self, dim, keepdim=False):
         """
         Parameters
         ----------
         dim : Sequence[int]
             dimensions to reduce
+        keepdim : bool
+            whether the output tensor has dim retained or not
         """
         self.dim = list(map(int, dim))
+        self.keepdim = bool(keepdim)
 
     def forward(self, x):
-        """
-        Parameters
-        ----------
-        x : Tensor
-            [N, S, U, R]
-
-        Returns
-        -------
-        Tensor
-            [N, U, R]
-        """
-        return x.mean(dim=self.dim)
+        return x.mean(dim=self.dim, keepdim=self.keepdim)
