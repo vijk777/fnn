@@ -13,7 +13,7 @@ class Recurrent(Module):
         Returns
         -------
         int
-            output channels per stream, c'
+            output channels per stream, C'
         """
         raise NotImplementedError()
 
@@ -23,7 +23,7 @@ class Recurrent(Module):
         Returns
         -------
         int
-            downscale factor, d
+            downscale factor, D
         """
         raise NotImplementedError()
 
@@ -32,9 +32,9 @@ class Recurrent(Module):
         Parameters
         ----------
         channels : Sequence[int]
-            input channels per stream, c
+            input channels per stream, C
         streams : int
-            number of streams, s
+            number of streams, S
         """
         raise NotImplementedError()
 
@@ -43,18 +43,18 @@ class Recurrent(Module):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, s*c, h, w] -- stream is None
+            [N, S*C, H, W] -- stream is None
                 or
-            shapes = [n, c, h, w] -- stream is int
+            [N, C, H, W] -- stream is int
         stream : int | None
             specific stream | all streams
 
         Returns
         -------
         Tensor
-            shape = [n, s*c', h/d, w/d] -- stream is None
+            [N, S*C', H//D, W//D] -- stream is None
                 or
-            shape = [n, c', h/d, w/d] -- stream is int
+            [N, C', H//D, W//D] -- stream is int
         """
         raise NotImplementedError()
 
@@ -91,7 +91,7 @@ class RvT(Recurrent):
         Returns
         -------
         int
-            output channels per stream, c'
+            output channels per stream, C'
         """
         return self._channels
 
@@ -101,7 +101,7 @@ class RvT(Recurrent):
         Returns
         -------
         int
-            downscale factor, d
+            downscale factor, D
         """
         return 1
 
@@ -110,9 +110,9 @@ class RvT(Recurrent):
         Parameters
         ----------
         channels : Sequence[int]
-            input channels per stream, c
+            input channels per stream, C
         streams : int
-            number of streams, s
+            number of streams, S
         """
         self.inputs = list(map(int, inputs))
         self.streams = int(streams)
@@ -200,18 +200,18 @@ class RvT(Recurrent):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, s*c, h, w] -- stream is None
+            [N, S*C, H, W] -- stream is None
                 or
-            shapes = [n, c, h, w] -- stream is int
+            [N, C, H, W] -- stream is int
         stream : int | None
             specific stream | all streams
 
         Returns
         -------
         Tensor
-            shape = [n, s*c', h/d, w/d] -- stream is None
+            [N, S*C', H//D, W//D] -- stream is None
                 or
-            shape = [n, c', h/d, w/d] -- stream is int
+            [N, C', H//D, W//D] -- stream is int
         """
         if stream is None:
             channels = self.channels * self.streams
