@@ -51,9 +51,9 @@ class Feedforward(Module):
         Returns
         -------
         Tensor
-            [N, C', D/D, W/D] -- stream is None
+            [N, C', H/D, W/D] -- stream is None
                 or
-            [N, S*C', D/D, W/D] -- stream is int
+            [N, S*C', H/D, W/D] -- stream is int
         """
         raise NotImplementedError()
 
@@ -170,9 +170,9 @@ class Res3d(Feedforward):
         Returns
         -------
         Tensor
-            [N, C', D/D, W/D] -- stream is None
+            [N, C', H/D, W/D] -- stream is None
                 or
-            [N, S*C', D/D, W/D] -- stream is int
+            [N, S*C', H/D, W/D] -- stream is int
         """
         for conv, res in zip(self.conv, self.res):
 
