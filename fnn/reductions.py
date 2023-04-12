@@ -1,16 +1,15 @@
 import torch
-from torch import nn
 
 from .containers import Module
 
 
 class Reduce(Module):
-    def init(self, streams):
+    def init(self, dim):
         """
         Parameters
         ----------
-        streams : int
-            number of streams (S)
+        dim : Sequence[int]
+            dimensions to reduce
         """
         raise NotImplementedError()
 
@@ -30,14 +29,14 @@ class Reduce(Module):
 
 
 class Mean(Reduce):
-    def init(self, streams):
+    def init(self, dim):
         """
         Parameters
         ----------
-        streams : int
-            number of streams (S)
+        dim : Sequence[int]
+            dimensions to reduce
         """
-        self.streams = int(streams)
+        self.dim = list(map(int, dim))
 
     def forward(self, x):
         """
@@ -51,4 +50,4 @@ class Mean(Reduce):
         Tensor
             [N, U, R]
         """
-        return x.mean(dim=1)
+        return x.mean(dim=self.dim)
