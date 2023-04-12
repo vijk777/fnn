@@ -120,4 +120,23 @@ class PositionFeatures(Readout):
                 or
             [N, U, R] -- stream is int
         """
-        pass
+        if self.training:
+            position = self.position.sample(core.size(0))
+        else:
+            position = self.position.mean.expand(core.size(0), -1, -1)
+
+        out = nn.functional.grid_sample(
+            self.proj([core], stream=stream),
+            grid=self.bound(position)[:, :, None, :],
+            mode="bilinear",
+            padding_mode="border",
+            align_corners=False,
+        )
+        features = self.features(stream=stream)
+
+        if stream is None:
+            out = to_groups_2d(out, self.streams).squeeze(4)
+            out = torch.einsum("S U R C , N S C U -> N S U R", features, out)
+        else:
+            out = out.squeeze(3)
+            out = torch.einsum("U R C , N C U -> N U R", features, out)
