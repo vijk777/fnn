@@ -45,22 +45,22 @@ class Core(Module):
         Parameters
         ----------
         perspective : Tensor
-            shape = [N, C, H, W]
+            [N, C, H, W]
         grid : Tensor
-            shape = [G, H, W]
+            [G, H, W]
         modulation : Tensor
-            shape = [N, S*M] -- stream is None
+            [N, S*M] -- stream is None
                 or
-            shape = [N, M] -- stream is int
+            [N, M] -- stream is int
         stream : int | None
             specific stream | all streams
 
         Returns
         -------
         Tensor
-            shape = [N, S*C', H', W'] -- stream is None
+            [N, S*C', H', W'] -- stream is None
                 or
-            shape = [N, C', H', W'] -- stream is int
+            [N, C', H', W'] -- stream is int
         """
         raise NotImplementedError()
 
@@ -131,22 +131,22 @@ class FeedforwardRecurrent(Core):
         Parameters
         ----------
         perspective : Tensor
-            shape = [N, C, H, W]
+            [N, C, H, W]
         grid : Tensor
-            shape = [G, H, W]
+            [G, H, W]
         modulation : Tensor
-            shape = [N, S*M] -- stream is None
+            [N, S*M] -- stream is None
                 or
-            shape = [N, M] -- stream is int
+            [N, M] -- stream is int
         stream : int | None
             specific stream | all streams
 
         Returns
         -------
         Tensor
-            shape = [N, S*C', H', W'] -- stream is None
+            [N, S*C', H', W'] -- stream is None
                 or
-            shape = [N, C', H', W'] -- stream is int
+            [N, C', H', W'] -- stream is int
         """
         if stream is None:
             perspective = perspective.repeat(1, self.streams, 1, 1)
