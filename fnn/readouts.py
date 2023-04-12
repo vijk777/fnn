@@ -125,20 +125,23 @@ class PositionFeatures(Readout):
         else:
             position = self.position.mean.expand(core.size(0), -1, -1)
 
-        grid = self.bound(position).unsqueeze(2)
-        out = self.proj([core], stream=stream)
-        out = nn.functional.grid_sample(out, grid, mode="bilinear", padding_mode="border", align_corners=False)
-
-        feats = self.features(stream=stream)
+        out = nn.functional.grid_sample(
+            self.proj([core], stream=stream),
+            grid=self.bound(position).unsqueeze(dim=2),
+            mode="bilinear",
+            padding_mode="border",
+            align_corners=False,
+        )
+        features = self.features(stream=stream)
 
         if stream is None:
-            out = to_groups_2d(out, self.streams).squeeze(4)
-            out = torch.einsum("S U R C , N S C U -> N S U R", feats, out)
-            out = out + torch.stack(list(self.biases))
+            out = to_groups_2d(out, self.streams).squeeze(dim=4)
+            out = torch.einsum("S U R C , N S C U -> N S U R", features, out)
+            out = out + torch.stack(list(self.biases), dim=0)
 
         else:
             out = out.squeeze(3)
-            out = torch.einsum("U R C , N C U -> N U R", feats, out)
+            out = torch.einsum("U R C , N C U -> N U R", features, out)
             out = out + self.biases[stream]
 
         return out
