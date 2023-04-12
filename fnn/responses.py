@@ -5,12 +5,12 @@ from .modules import Module
 
 class Response(Module):
     @property
-    def parameters(self):
+    def readouts(self):
         """
         Returns
         -------
         int
-            response parameters (R)
+            readouts (R) per unit (U)
         """
         raise NotImplementedError()
 
