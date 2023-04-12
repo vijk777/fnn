@@ -110,7 +110,7 @@ class RvT(Recurrent):
         Parameters
         ----------
         channels : Sequence[int]
-            [input channels per stream, I] * N
+            [input channels per stream, I ...]
         streams : int
             number of streams, S
         """
@@ -200,9 +200,9 @@ class RvT(Recurrent):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            [[N, S*I, H, W]] * N -- stream is None
+            [[N, S*I, H, W] ...] -- stream is None
                 or
-            [[N, I, H, W]] * N -- stream is int
+            [[N, I, H, W] ...] -- stream is int
         stream : int | None
             specific stream | all streams
 
