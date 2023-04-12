@@ -140,7 +140,7 @@ class PositionFeatures(Readout):
             out = out + torch.stack(list(self.biases), dim=0)
 
         else:
-            out = out.squeeze(3)
+            out = out.squeeze(dim=3)
             out = torch.einsum("U R C , N C U -> N U R", features, out)
             out = out + self.biases[stream]
 
