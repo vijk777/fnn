@@ -30,10 +30,10 @@ class Feedforward(Module):
         """
         Parameters
         ----------
-        channels : Sequence[int]
-            [input channels per stream (I) ...]
+        channels : Sequence[[int, bool]]
+            [[input channels per stream (I), whether to drop input] ...]
         streams : int
-            number of streams (S)
+            number of streams, S
         """
         raise NotImplementedError()
 
@@ -104,10 +104,10 @@ class Res3d(Feedforward):
         """
         Parameters
         ----------
-        channels : Sequence[int]
-            [input channels per stream (I) ...]
+        channels : Sequence[[int, bool]]
+            [[input channels per stream (I), whether to drop input] ...]
         streams : int
-            number of streams (S)
+            number of streams, S
         """
         self.inputs = list([int(inp), bool(drop)] for inp, drop in inputs)
         self.streams = int(streams)

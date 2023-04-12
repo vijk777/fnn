@@ -31,8 +31,8 @@ class Recurrent(Module):
         """
         Parameters
         ----------
-        channels : Sequence[int]
-            [input channels per stream (I) ...]
+        channels : Sequence[[int, bool]]
+            [[input channels per stream (I), whether to drop input] ...]
         streams : int
             number of streams, S
         """
@@ -108,8 +108,8 @@ class RvT(Recurrent):
         """
         Parameters
         ----------
-        channels : Sequence[(int, bool)]
-            [(input channels per stream (I), whether to drop input) ...]
+        channels : Sequence[[int, bool]]
+            [[input channels per stream (I), whether to drop input] ...]
         streams : int
             number of streams, S
         """
