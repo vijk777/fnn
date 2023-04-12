@@ -287,11 +287,8 @@ class Conv(Module):
         for param in chain(self.gains, self.biases):
             yield param, 1
 
-    def _param_groups(self, **kwargs):
-        params = list(chain(self.gains, self.biases))
-        if params and kwargs.get("weight_decay"):
-            kwargs.update(weight_decay=0)
-            yield dict(params=params, **kwargs)
+    def _param_groups(self, lr=0.1, decay=0, **kwargs):
+        yield dict(params=list(chain(self.gains, self.biases)), lr=lr, decay=0, **kwargs)
 
     def weights(self, stream):
         """

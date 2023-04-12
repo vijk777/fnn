@@ -100,7 +100,5 @@ class PositionFeatures(Readout):
         #     torch.zeros(units),
         # )
 
-    def _param_groups(self, **kwargs):
-        if kwargs.get("weight_decay"):
-            kwargs.update(weight_decay=0)
-            yield dict(params=[self.bias], **kwargs)
+    # def _param_groups(self, lr=0.1, decay=0, **kwargs):
+    #     yield dict(params=[self.bias], lr=lr * self.units, decay=0, **kwargs)

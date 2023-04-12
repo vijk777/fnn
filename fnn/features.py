@@ -56,10 +56,9 @@ class Standard(Features):
         for weight in self.weights:
             yield weight, 2
 
-    def _param_groups(self, **kwargs):
-        if kwargs.get("weight_decay"):
-            kwargs.update(weight_decay=0)
-            yield dict(params=list(self.gains), **kwargs)
+    def _param_groups(self, lr=0.1, decay=0, **kwargs):
+        yield dict(params=list(self.weights), lr=lr * self.units, decay=decay, **kwargs)
+        yield dict(params=list(self.gains), lr=lr * self.units, decay=0, **kwargs)
 
     def init(self, inputs, outputs, units, streams):
         """

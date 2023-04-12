@@ -60,18 +60,19 @@ class Gaussian(Position):
         units : int
             number of units, u
         """
+        self.units = int(units)
+
         self.mu = torch.nn.Parameter(torch.zeros(units, 2))
         self.sigma = torch.nn.Parameter(torch.eye(2).repeat(units, 1, 1))
+
         self._restart()
 
     def _restart(self):
         with torch.no_grad():
             self.sigma.copy_(torch.eye(2).mul(self.init_std))
 
-    def _param_groups(self, **kwargs):
-        if kwargs.get("weight_decay"):
-            kwargs.update(weight_decay=0)
-            yield dict(params=[self.mu, self.sigma], **kwargs)
+    def _param_groups(self, lr=0.1, decay=0, **kwargs):
+        yield dict(params=[self.mu, self.sigma], lr=lr * self.units, decay=0, **kwargs)
 
     def sample(self, batch_size=1):
         """

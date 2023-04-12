@@ -9,17 +9,17 @@ class SGD:
         self,
         model: Module,
         lr: float = 0.1,
+        decay: float = 0,
         momentum: float = 0.9,
-        weight_decay: float = 0,
         clip: float = math.inf,
         eps: float = 0.001,
     ):
         if lr < 0:
             raise ValueError("Invalid learning rate: {}".format(lr))
+        if decay < 0:
+            raise ValueError("Invalid decay value: {}".format(decay))
         if momentum < 0:
             raise ValueError("Invalid momentum value: {}".format(momentum))
-        if weight_decay < 0:
-            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
         if clip < 0:
             raise ValueError("Invalid clip value: {}".format(clip))
         if eps <= 0:
@@ -28,7 +28,7 @@ class SGD:
         self.defaults = dict(
             lr=lr,
             momentum=momentum,
-            weight_decay=weight_decay,
+            decay=decay,
             clip=clip,
             eps=eps,
         )
@@ -50,7 +50,7 @@ class SGD:
 
             lr = group["lr"] * lr_scale
             momentum = group["momentum"]
-            weight_decay = group["weight_decay"]
+            decay = group["decay"]
             clip = group["clip"]
             eps = group["eps"]
 
@@ -69,8 +69,8 @@ class SGD:
                     clip_coef = max_norm / torch.maximum(d_p_norm, max_norm)
                     d_p = d_p.mul(clip_coef)
 
-                if weight_decay > 0:
-                    d_p = d_p.add(p, alpha=weight_decay)
+                if decay > 0:
+                    d_p = d_p.add(p, alpha=decay)
 
                 if momentum > 0:
                     param_state = self.state[p]

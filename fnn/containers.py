@@ -36,7 +36,7 @@ class Module(nn.Module):
     def _restart(self):
         return
 
-    def param_groups(self, **kwargs):
+    def param_groups(self, lr=0.1, decay=0, **kwargs):
         collected = set()
 
         def add_group(group):
@@ -48,13 +48,13 @@ class Module(nn.Module):
             collected.update(params)
 
         def fn(module):
-            for group in module._param_groups(**kwargs):
+            for group in module._param_groups(lr=lr, decay=decay, **kwargs):
                 add_group(group)
                 yield group
 
             params = set(module.parameters()) - collected
             if params:
-                group = {"params": list(params), **kwargs}
+                group = dict(params=list(params), lr=lr, decay=decay, **kwargs)
                 add_group(group)
                 yield group
 
