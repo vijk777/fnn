@@ -12,7 +12,7 @@ class Feedforward(Module):
         Returns
         -------
         int
-            output channels per stream, C'
+            feedforward channels per stream, F
         """
         raise NotImplementedError()
 
@@ -42,18 +42,18 @@ class Feedforward(Module):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            [N, S*C, H, W] -- stream is None
+            [N, S*I, H, W] -- stream is None
                 or
-            [N, C, H, W] -- stream is int
+            [N, I, H, W] -- stream is int
         stream : int | None
             specific stream | all streams
 
         Returns
         -------
         Tensor
-            [N, S*C', H//D, W//D] -- stream is None
+            [N, S*F, H//D, W//D] -- stream is None
                 or
-            [N, C', H//D, W//D] -- stream is int
+            [N, F, H//D, W//D] -- stream is int
         """
         raise NotImplementedError()
 
@@ -86,7 +86,7 @@ class Res3d(Feedforward):
         Returns
         -------
         int
-            output channels per stream, C'
+            feedforward channels per stream, F
         """
         return self._channels[-1]
 
@@ -161,18 +161,18 @@ class Res3d(Feedforward):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            [N, S*C, H, W] -- stream is None
+            [N, S*I, H, W] -- stream is None
                 or
-            [N, C, H, W] -- stream is int
+            [N, I, H, W] -- stream is int
         stream : int | None
             specific stream | all streams
 
         Returns
         -------
         Tensor
-            [N, S*C', H//D, W//D] -- stream is None
+            [N, S*F, H//D, W//D] -- stream is None
                 or
-            [N, C', H//D, W//D] -- stream is int
+            [N, F, H//D, W//D] -- stream is int
         """
         for conv, res in zip(self.conv, self.res):
 
