@@ -1,4 +1,5 @@
 import torch
+from torch.nn import Parameter
 
 from .modules import Module
 
@@ -62,8 +63,8 @@ class Gaussian(Position):
         """
         self.units = int(units)
 
-        self.mu = torch.nn.Parameter(torch.zeros(units, 2))
-        self.sigma = torch.nn.Parameter(torch.eye(2).repeat(units, 1, 1))
+        self.mu = Parameter(torch.zeros(units, 2))
+        self.sigma = Parameter(torch.eye(2).repeat(units, 1, 1))
 
         self._restart()
 

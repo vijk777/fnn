@@ -1,5 +1,5 @@
 import torch
-from torch import nn
+from torch.nn import Parameter, ParameterList
 
 from .modules import Module
 from .elements import Conv
@@ -124,8 +124,8 @@ class RvT(Recurrent):
             self.proj_x.add_intergroup(drop=True)
 
         init = (self.channels / self.groups) ** -0.5
-        tau = lambda: nn.Parameter(torch.full([self.groups], init))
-        self.tau = nn.ParameterList([tau() for _ in range(streams)])
+        tau = lambda: Parameter(torch.full([self.groups], init))
+        self.tau = ParameterList([tau() for _ in range(streams)])
 
         self.proj_q = Conv(channels=self.channels, groups=self.groups, streams=self.streams, gain=False, bias=False)
         self.proj_q.add_input(

@@ -1,5 +1,5 @@
 import torch
-from torch import nn
+from torch.nn import Parameter, ParameterList, functional
 
 from .modules import Module
 from .elements import Conv
@@ -98,8 +98,8 @@ class PositionFeature(Readout):
             units=self.units,
             streams=self.streams,
         )
-        bias = lambda: nn.Parameter(torch.zeros(self.units, self.readouts))
-        self.biases = nn.ParameterList([bias() for _ in range(self.streams)])
+        bias = lambda: Parameter(torch.zeros(self.units, self.readouts))
+        self.biases = ParameterList([bias() for _ in range(self.streams)])
 
     def forward(self, core, stream=None):
         """
@@ -124,7 +124,7 @@ class PositionFeature(Readout):
         else:
             position = self.position.mean.expand(core.size(0), -1, -1)
 
-        out = nn.functional.grid_sample(
+        out = functional.grid_sample(
             self.proj([core], stream=stream),
             grid=self.bound(position).unsqueeze(dim=2),
             mode="bilinear",

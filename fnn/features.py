@@ -1,5 +1,5 @@
 import torch
-from torch import nn
+from torch.nn import Parameter, ParameterList
 
 from .modules import Module
 
@@ -78,11 +78,11 @@ class Standard(Feature):
         self.units = int(units)
         self.streams = int(streams)
 
-        weight = lambda: nn.Parameter(torch.ones(self.units, self.outputs, self.inputs))
-        gain = lambda: nn.Parameter(torch.ones(self.units, self.outputs))
+        weight = lambda: Parameter(torch.ones(self.units, self.outputs, self.inputs))
+        gain = lambda: Parameter(torch.ones(self.units, self.outputs))
 
-        self.weights = nn.ParameterList([weight() for _ in range(self.streams)])
-        self.gains = nn.ParameterList([gain() for _ in range(self.streams)])
+        self.weights = ParameterList([weight() for _ in range(self.streams)])
+        self.gains = ParameterList([gain() for _ in range(self.streams)])
 
         bound = self.inputs**-0.5
         for weight in self.weights:

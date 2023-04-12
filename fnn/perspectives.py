@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 from functools import reduce
 
 from .modules import Module, ModuleList
@@ -101,7 +102,7 @@ class MonitorRetina(Perspective):
             layer.add(in_features=f)
 
         self.proj = Linear(out_features=3).add(in_features=self.features[-1])
-        torch.nn.init.constant_(self.proj.gains, 0)
+        nn.init.constant_(self.proj.gains, 0)
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear=nonlinear)
 
