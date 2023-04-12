@@ -12,7 +12,7 @@ class Feedforward(Module):
         Returns
         -------
         int
-            output channels per stream, c'
+            output channels per stream, C'
         """
         raise NotImplementedError()
 
@@ -22,7 +22,7 @@ class Feedforward(Module):
         Returns
         -------
         int
-            downscale factor, d
+            downscale factor, D
         """
         raise NotImplementedError()
 
@@ -31,9 +31,9 @@ class Feedforward(Module):
         Parameters
         ----------
         channels : Sequence[int]
-            input channels per stream, c
+            input channels per stream, C
         streams : int
-            number of streams, s
+            number of streams, S
         """
         raise NotImplementedError()
 
@@ -42,18 +42,18 @@ class Feedforward(Module):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, s*c, h, w] -- stream is None
+            [N, S*C, H, W] -- stream is None
                 or
-            shapes = [n, c, h, w] -- stream is int
+            [N, C, H, W] -- stream is int
         stream : int | None
             specific stream | all streams
 
         Returns
         -------
         Tensor
-            shape = [n, c', h/d, w/d] -- stream is None
+            [N, C', D/D, W/D] -- stream is None
                 or
-            shape = [n, s*c', h/d, w/d] -- stream is int
+            [N, S*C', D/D, W/D] -- stream is int
         """
         raise NotImplementedError()
 
@@ -86,7 +86,7 @@ class Res3d(Feedforward):
         Returns
         -------
         int
-            output channels per stream, c'
+            output channels per stream, C'
         """
         return self._channels[-1]
 
@@ -96,7 +96,7 @@ class Res3d(Feedforward):
         Returns
         -------
         int
-            downscale factor, d
+            downscale factor, D
         """
         return math.prod(self.strides)
 
@@ -105,9 +105,9 @@ class Res3d(Feedforward):
         Parameters
         ----------
         channels : Sequence[int]
-            input channels per stream, c
+            input channels per stream, C
         streams : int
-            number of streams, s
+            number of streams, S
         """
         self.inputs = list(map(int, inputs))
         self.streams = int(streams)
@@ -161,18 +161,18 @@ class Res3d(Feedforward):
         Parameters
         ----------
         inputs : Sequence[Tensor]
-            shapes = [n, s*c, h, w] -- stream is None
+            [N, S*C, H, W] -- stream is None
                 or
-            shapes = [n, c, h, w] -- stream is int
+            [N, C, H, W] -- stream is int
         stream : int | None
             specific stream | all streams
 
         Returns
         -------
         Tensor
-            shape = [n, s*c', h/d, w/d] -- stream is None
+            [N, C', D/D, W/D] -- stream is None
                 or
-            shape = [n, c', h/d, w/d] -- stream is int
+            [N, S*C', D/D, W/D] -- stream is int
         """
         for conv, res in zip(self.conv, self.res):
 
