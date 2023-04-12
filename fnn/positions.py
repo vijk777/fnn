@@ -9,7 +9,7 @@ class Position(Module):
         Parameters
         ----------
         units : int
-            number of units, u
+            number of units (U)
         """
         raise NotImplementedError()
 
@@ -18,12 +18,12 @@ class Position(Module):
         Parameters
         ----------
         batch_size : int
-            batch size, n
+            batch size (N)
 
         Returns
         -------
         Tensor
-            shape = [n, u, 2], 2D (x, y) spatial positions
+            [N, U, 2], 2D spatial positions
         """
         raise NotImplementedError()
 
@@ -33,7 +33,7 @@ class Position(Module):
         Returns
         -------
         Tensor
-            shape = [u, 2], 2D (x, y) spatial positions
+            [U, 2], 2D spatial positions
         """
         raise NotImplementedError()
 
@@ -58,7 +58,7 @@ class Gaussian(Position):
         Parameters
         ----------
         units : int
-            number of units, u
+            number of units (U)
         """
         self.units = int(units)
 
@@ -79,19 +79,16 @@ class Gaussian(Position):
         Parameters
         ----------
         batch_size : int
-            batch size, n
+            batch size (N)
 
         Returns
         -------
         Tensor
-            shape = [n, u, 2], 2D (x, y) spatial positions
+            [N, U, 2], 2D spatial positions
         """
         if self._position is None:
             x = self.mu.repeat(batch_size, 1, 1)
-
-            if self.training:
-                x = x + torch.einsum("U C D , N U D -> N U C", self.sigma, torch.randn_like(x))
-
+            x = x + torch.einsum("U C D , N U D -> N U C", self.sigma, torch.randn_like(x))
             self._position = x
 
         else:
@@ -105,6 +102,6 @@ class Gaussian(Position):
         Returns
         -------
         Tensor
-            shape = [u, 2], 2D (x, y) spatial positions
+            [U, 2], 2D spatial positions
         """
         return self.mu

@@ -2,7 +2,7 @@ import torch
 from torch import nn
 
 from .containers import Module
-from .elements import Dropout, Conv
+from .elements import Conv
 from .utils import to_groups_2d
 
 
@@ -79,7 +79,6 @@ class RvT(Recurrent):
         self._channels = int(channels)
         self.groups = int(groups)
         self.kernel_size = int(kernel_size)
-        self.drop = Dropout()
         self._past = dict()
 
     def _reset(self):
@@ -109,20 +108,20 @@ class RvT(Recurrent):
         """
         Parameters
         ----------
-        channels : Sequence[int]
-            [input channels per stream (I) ...]
+        channels : Sequence[(int, bool)]
+            [(input channels per stream (I), whether to drop input) ...]
         streams : int
             number of streams, S
         """
-        self.inputs = list(map(int, inputs))
+        self.inputs = list([int(inp), bool(drop)] for inp, drop in inputs)
         self.streams = int(streams)
 
         self.proj_x = Conv(channels=self.channels, groups=self.groups, streams=self.streams, gain=False, bias=False)
-        for _channels in self.inputs:
-            self.proj_x.add_input(channels=_channels)
+        for _channels, drop in inputs:
+            self.proj_x.add_input(channels=_channels, drop=drop)
 
         if self.groups > 1:
-            self.proj_x.add_intergroup()
+            self.proj_x.add_intergroup(drop=True)
 
         init = (self.channels / self.groups) ** -0.5
         tau = lambda: nn.Parameter(torch.full([self.groups], init))
@@ -241,7 +240,6 @@ class RvT(Recurrent):
             to_groups_2d(h, groups),
         ]
         xh = torch.stack(xh, 2).flatten(1, 3)
-        xh = self.drop(xh)
 
         q = to_groups_2d(self.proj_q([xh], stream=stream), groups).flatten(3, 4)
         k = to_groups_2d(self.proj_k([xh], stream=stream), groups).flatten(3, 4)

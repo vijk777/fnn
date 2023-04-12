@@ -103,6 +103,7 @@ class Input(Module):
         dynamic_size=1,
         stride=1,
         pad=True,
+        drop=False,
         mask=None,
     ):
         """
@@ -121,9 +122,11 @@ class Input(Module):
         stride : int
             spatial stride
         pad : bool
-            whether to pad to maintain spatial dimensions
+            spatial padding to preserve height and width
         mask : Tensor | None
             dtype=torch.bool, shape must be broadcastable with the kernel
+        drop : bool
+            channelwise dropout
         """
         if in_channels % groups != 0:
             raise ValueError("in_channels must be divisible by groups")
@@ -145,6 +148,11 @@ class Input(Module):
         self.past_size = self.dynamic_size - 1
         self.stride = int(stride)
         self.pad = (self.kernel_size - self.stride) // 2 if pad else 0
+
+        if drop:
+            self.drop = ModuleList([Dropout() for _ in range(self.streams)])
+        else:
+            self.drop = None
 
         shape = [
             self.out_channels,
@@ -202,6 +210,8 @@ class Input(Module):
         Tensor
             [N, C, T, H, W]
         """
+        x = x if self.drop is None else self.drop[stream](x)
+
         if self.pad:
             x = F.pad(x, pad=[self.pad] * 4)
 
@@ -259,8 +269,8 @@ class Conv(Module):
         self.channels = int(channels)
         self.groups = int(groups)
         self.streams = int(streams)
-        self.use_gain = bool(gain)
-        self.use_bias = bool(bias)
+        self.gain = bool(gain)
+        self.bias = bool(bias)
         self.eps = float(eps)
 
         self.inputs = ModuleList()
@@ -270,11 +280,11 @@ class Conv(Module):
         self.fan_out = self.channels // self.groups
         assert self.fan_out > 1
 
-        if self.use_gain:
+        if self.gain:
             for _ in range(self.streams):
                 self.gains.append(nn.Parameter(torch.ones(self.groups, self.fan_out)))
 
-        if self.use_bias:
+        if self.bias:
             for _ in range(self.streams):
                 self.biases.append(nn.Parameter(torch.zeros(self.groups, self.fan_out)))
 
@@ -323,7 +333,7 @@ class Conv(Module):
         fan_in = _weights.size(1)
         scale = (var * fan_in + self.eps).pow(-0.5)
 
-        if self.use_gain:
+        if self.gain:
             scale = scale * self.gains[stream].view_as(scale)
 
         weights = [(w - mean) * scale if m is None else m * (w - mean) * scale for w, m in zip(weights, masks)]
@@ -331,7 +341,7 @@ class Conv(Module):
         self._weights[stream] = weights
         return weights
 
-    def add_input(self, channels, groups=1, kernel_size=1, dynamic_size=1, stride=1, pad=True):
+    def add_input(self, channels, groups=1, kernel_size=1, dynamic_size=1, stride=1, pad=True, drop=False):
         """
         Parameters
         ----------
@@ -347,8 +357,8 @@ class Conv(Module):
             spatial stride
         pad : bool
             spatial padding to preserve height and width
-        mask : Tensor (bool)
-            masks the kernel, shape must be broadcastable with the kernel
+        drop : bool
+            channelwise dropout
         """
         module = Input(
             in_channels=channels,
@@ -359,11 +369,18 @@ class Conv(Module):
             dynamic_size=dynamic_size,
             stride=stride,
             pad=pad,
+            drop=drop,
         )
         self.inputs.append(module)
         return self
 
-    def add_intergroup(self):
+    def add_intergroup(self, drop=False):
+        """
+        Parameters
+        ----------
+        drop : bool
+            channelwise dropout
+        """
         if self.groups <= 1:
             raise ValueError("there must be > 1 groups to add intergroup")
 
@@ -381,6 +398,7 @@ class Conv(Module):
             out_channels=c,
             mask=m,
             streams=self.streams,
+            drop=drop,
         )
         self.inputs.append(module)
         return self
@@ -415,7 +433,7 @@ class Conv(Module):
         else:
             weights = self.weights(stream)
 
-        if self.use_bias:
+        if self.bias:
             if stream is None:
                 bias = torch.cat([b.flatten() for b in self.biases])
             else:
@@ -447,8 +465,8 @@ class Conv(Module):
             channels=self.channels,
             groups=self.groups,
             streams=self.streams,
-            gain=self.use_gain,
-            bias=self.use_bias,
+            gain=self.gain,
+            bias=self.bias,
         )
 
 
@@ -473,7 +491,7 @@ class Linear(Conv):
         super().__init__(channels=features, groups=groups, streams=streams, gain=gain, bias=bias, eps=eps)
         self.features = self.channels
 
-    def add_input(self, features, groups=1):
+    def add_input(self, features, groups=1, drop=False):
         """
         Parameters
         ----------
@@ -481,8 +499,10 @@ class Linear(Conv):
             input features, must be divisible by groups
         groups : int
             number of input groups per stream
+        drop : bool
+            channelwise dropout
         """
-        return super().add_input(channels=features, groups=groups)
+        return super().add_input(channels=features, groups=groups, drop=drop)
 
     def forward(self, inputs, stream=None):
         """

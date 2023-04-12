@@ -2,18 +2,19 @@ import torch
 from torch import nn
 
 from .containers import Module
-from .elements import Dropout, Conv
+from .elements import Conv
+from .utils import to_groups_2d
 
 
 class Readout(Module):
-    def init(self, cores, outputs, units, streams):
+    def init(self, cores, readouts, units, streams):
         """
         Parameters
         ----------
         cores : int
             core channels per stream (C)
-        outputs : int
-            outputs per unit and stream (O)
+        readouts : int
+            readouts per unit and stream (R)
         units : int
             number of units (U)
         streams : int
@@ -35,9 +36,9 @@ class Readout(Module):
         Returns
         -------
         Tensor
-            [N, S, U, O] -- stream is None
+            [N, S, U, R] -- stream is None
                 or
-            [N, S, O] -- stream is int
+            [N, U, R] -- stream is int
         """
         raise NotImplementedError()
 
@@ -63,42 +64,60 @@ class PositionFeatures(Readout):
         self.position = position
         self.bound = bound
         self.features = features
-        self.drop = Dropout()
 
-    def init(self, cores, outputs, units, streams):
+    def _param_groups(self, lr=0.1, decay=0, **kwargs):
+        yield dict(params=list(self.biases), lr=lr * self.units, decay=0, **kwargs)
+
+    def init(self, cores, readouts, units, streams):
         """
         Parameters
         ----------
         cores : int
             core channels per stream (C)
-        outputs : int
-            outputs per unit and stream (O)
+        readouts : int
+            readouts per unit and stream (O)
         units : int
             number of units (U)
         streams : int
             number of streams (S)
         """
         self.cores = int(cores)
-        self.outputs = int(outputs)
+        self.readouts = int(readouts)
         self.units = int(units)
         self.streams = int(streams)
 
         self.proj = Conv(channels=self.channels, streams=self.streams).add_input(
             channels=self.cores,
+            drop=True,
         )
         self.position.init(
             units=self.units,
         )
         self.features.init(
             inputs=self.channels,
-            outputs=self.outputs,
+            outputs=self.readouts,
             units=self.units,
             streams=self.streams,
         )
+        bias = lambda: nn.Parameter(torch.zeros(self.units, self.readouts))
+        self.biases = nn.ParameterList([bias() for _ in range(self.streams)])
 
-        # self.bias = nn.Parameter(
-        #     torch.zeros(units),
-        # )
+    def forward(self, core, stream=None):
+        """
+        Parameters
+        ----------
+        core : Tensor
+            [N, S*C, H, W] -- stream is None
+                or
+            [N, C, H, W] -- stream is int
+        stream : int | None
+            specific stream | all streams
 
-    # def _param_groups(self, lr=0.1, decay=0, **kwargs):
-    #     yield dict(params=[self.bias], lr=lr * self.units, decay=0, **kwargs)
+        Returns
+        -------
+        Tensor
+            [N, S, U, R] -- stream is None
+                or
+            [N, U, R] -- stream is int
+        """
+        pass
