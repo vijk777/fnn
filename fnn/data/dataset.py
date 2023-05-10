@@ -164,7 +164,6 @@ class Data(pd.DataFrame):
         indexes = [index(samples, rng) for samples in self.loc[keys].samples]
 
         d = {item: [] for item in self.dataitems}
-
         q = Queue(batchsize)
 
         p = Process(target=self._load, args=(q, keys, indexes))
