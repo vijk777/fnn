@@ -16,11 +16,11 @@ class Perspective(Module):
         """
         raise NotImplementedError()
 
-    def init(self, channels, eye_positions):
+    def init(self, stimuli, eye_positions):
         """
         Parameters
         ----------
-        channels : int
+        stimuli : int
             stimulus channels (S)
         eye_positions : int
             eye position features (E)
@@ -115,16 +115,16 @@ class MonitorRetina(Perspective):
         """
         return self._channels
 
-    def init(self, channels, eye_positions):
+    def init(self, stimuli, eye_positions):
         """
         Parameters
         ----------
-        channels : int
+        stimuli : int
             stimulus channels (S)
         eye_positions : int
             eye position features (E)
         """
-        self._channels = int(channels)
+        self._channels = int(stimuli)
         self.layers[0].add_input(features=eye_positions)
 
     def rmat(self, eye_position):
