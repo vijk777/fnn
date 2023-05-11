@@ -1,12 +1,9 @@
 import math
-import numpy as np
 import torch
-from torch import nn
-from torch.nn import functional as F
+from torch.nn import functional, init, Parameter, ParameterList
 from itertools import chain
 from functools import reduce
 from collections import deque
-
 from .modules import Module, ModuleList
 
 
@@ -19,20 +16,22 @@ def nonlinearity(nonlinear=None):
 
     Adapted from: https://github.com/deepmind/deepmind-research/blob/cb555c241b20c661a3e46e5d1eb722a0a8b0e8f4/nfnets/base.py#L101
     """
+    from torch.nn import Identity, ELU, SiLU, GELU, Tanh
+
     if nonlinear is None:
-        return nn.Identity(), 1.0
+        return Identity(), 1.0
 
     elif nonlinear == "elu":
-        return nn.ELU(alpha=1.0), 1.2716004848480225
+        return ELU(alpha=1.0), 1.2716004848480225
 
     elif nonlinear == "silu":
-        return nn.SiLU(), 1.7881293296813965
+        return SiLU(), 1.7881293296813965
 
     elif nonlinear == "gelu":
-        return nn.GELU(), 1.7015043497085571
+        return GELU(), 1.7015043497085571
 
     elif nonlinear == "tanh":
-        return nn.Tanh(), 1.5939117670059204
+        return Tanh(), 1.5939117670059204
 
     else:
         raise NotImplementedError('"{}" not implemented'.format(nonlinear))
@@ -177,14 +176,14 @@ class Input(Module):
 
         def param():
             weight = torch.zeros(shape)
-            nn.init.uniform_(weight, -bound, bound)
+            init.uniform_(weight, -bound, bound)
 
             if self.mask is not None:
                 weight.mul_(self.mask)
 
-            return nn.Parameter(weight)
+            return Parameter(weight)
 
-        self.weights = nn.ParameterList([param() for _ in range(self.streams)])
+        self.weights = ParameterList([param() for _ in range(self.streams)])
 
         self._past = [deque(maxlen=self.past_size) for _ in range(self.streams)]
 
@@ -213,7 +212,7 @@ class Input(Module):
         x = x if self.drop is None else self.drop[stream](x)
 
         if self.pad:
-            x = F.pad(x, pad=[self.pad] * 4)
+            x = functional.pad(x, pad=[self.pad] * 4)
 
         if self.past_size:
             past = self._past[stream]
@@ -274,19 +273,19 @@ class Conv(Module):
         self.eps = float(eps)
 
         self.inputs = ModuleList()
-        self.gains = nn.ParameterList()
-        self.biases = nn.ParameterList()
+        self.gains = ParameterList()
+        self.biases = ParameterList()
 
         self.fan_out = self.channels // self.groups
         assert self.fan_out > 1
 
         if self.gain:
             for _ in range(self.streams):
-                self.gains.append(nn.Parameter(torch.ones(self.groups, self.fan_out)))
+                self.gains.append(Parameter(torch.ones(self.groups, self.fan_out)))
 
         if self.bias:
             for _ in range(self.streams):
-                self.biases.append(nn.Parameter(torch.zeros(self.groups, self.fan_out)))
+                self.biases.append(Parameter(torch.zeros(self.groups, self.fan_out)))
 
         self._weights = dict()
 
@@ -453,7 +452,7 @@ class Conv(Module):
                 x = i(x, stream=stream)
                 g = i.groups
 
-            out = F.conv3d(x, weight=w, groups=g, bias=bias, stride=i.stride).squeeze(dim=2)
+            out = functional.conv3d(x, weight=w, groups=g, bias=bias, stride=i.stride).squeeze(dim=2)
             outs.append(out)
             bias = None
 

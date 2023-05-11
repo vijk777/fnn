@@ -1,7 +1,5 @@
 import torch
-import torch.nn.functional as F
-
-from typing import Optional
+from torch.nn import functional
 
 
 def to_groups_2d(tensor, groups):
@@ -172,7 +170,7 @@ def isotropic_grid_sample_2d(x, grid, major="x", pad_mode="constant", pad_value=
         grid_y * scale * (height - 1) / height,
     ]
 
-    x = F.grid_sample(
+    x = functional.grid_sample(
         x,
         grid=torch.stack(grid, dim=3),
         mode="bilinear",

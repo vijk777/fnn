@@ -1,7 +1,5 @@
 import math
-import torch
-from torch import nn
-
+from torch.nn import init
 from .modules import Module, ModuleList
 from .elements import Conv, nonlinearity
 
@@ -156,7 +154,7 @@ class Res3d(Feedforward):
 
         for res in self.res:
             for gain in res.gains:
-                nn.init.constant_(gain, 0)
+                init.constant_(gain, 0)
 
     def forward(self, inputs, stream=None):
         """

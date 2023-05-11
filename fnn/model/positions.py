@@ -1,6 +1,5 @@
 import torch
 from torch.nn import Parameter
-
 from .modules import Module
 
 

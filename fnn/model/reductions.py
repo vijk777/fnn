@@ -1,5 +1,3 @@
-import torch
-
 from .modules import Module
 
 

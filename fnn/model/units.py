@@ -1,9 +1,8 @@
 import torch
-
 from .modules import Module
 
 
-class Response(Module):
+class Unit(Module):
     @property
     def readouts(self):
         """
@@ -43,3 +42,12 @@ class Response(Module):
             [N, U]
         """
         raise NotImplementedError()
+
+
+class Poisson(Unit):
+    @property
+    def readouts(self):
+        return 1
+
+    def forward(self, readout):
+        return readout.squeeze(2).exp()

@@ -1,6 +1,5 @@
 import torch
-from torch.nn import Parameter, ParameterList
-
+from torch.nn import init, Parameter, ParameterList
 from .modules import Module
 
 
@@ -86,7 +85,7 @@ class Standard(Feature):
 
         bound = self.inputs**-0.5
         for weight in self.weights:
-            nn.init.uniform_(weight, -bound, bound)
+            init.uniform_(weight, -bound, bound)
 
     def features(self, stream):
         """

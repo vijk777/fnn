@@ -1,7 +1,5 @@
-import torch
-from torch import nn
+from torch.nn import init
 from functools import reduce
-
 from .modules import Module, ModuleList
 from .elements import Linear, nonlinearity
 from .utils import isotropic_grid_sample_2d, rmat_3d
@@ -102,7 +100,7 @@ class MonitorRetina(Perspective):
             layer.add(in_features=f)
 
         self.proj = Linear(out_features=3).add(in_features=self.features[-1])
-        nn.init.constant_(self.proj.gains, 0)
+        init.constant_(self.proj.gains, 0)
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear=nonlinear)
 

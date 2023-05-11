@@ -1,6 +1,3 @@
-import torch
-from itertools import chain
-
 from .modules import Module
 
 
