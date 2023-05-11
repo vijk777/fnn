@@ -54,21 +54,17 @@ class PositionFeature(Readout):
         """
         Parameters
         ----------
-        position : .positions.Position
+        position : fnn.model.positions.Position
             spatial position
-        bounds : .bounds.Bound
+        bounds : fnn.model.bounds.Bound
             spatial bound
-        feature : .features.Feature
+        feature : fnn.model.features.Feature
             feature weights
         """
-        assert bound.vmin == -1 and bound.vmax == 1
         super().__init__()
         self.position = position
         self.bound = bound
         self.feature = feature
-
-    def _param_groups(self, lr=0.1, decay=0, **kwargs):
-        yield dict(params=list(self.biases), lr=lr * self.units, decay=0, **kwargs)
 
     def _init(self, cores, readouts, units, streams):
         """
@@ -99,6 +95,9 @@ class PositionFeature(Readout):
         )
         bias = lambda: Parameter(torch.zeros(self.units, self.readouts))
         self.biases = ParameterList([bias() for _ in range(self.streams)])
+
+    def _param_groups(self, lr=0.1, decay=0, **kwargs):
+        yield dict(params=list(self.biases), lr=lr * self.units, decay=0, **kwargs)
 
     def forward(self, core, stream=None):
         """

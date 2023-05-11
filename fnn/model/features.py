@@ -44,7 +44,7 @@ class Feature(Module):
 # -------------- Feature Types --------------
 
 
-class Standard(Feature):
+class Norm(Feature):
     def __init__(self, eps=1e-5):
         """
         Parameters

@@ -23,7 +23,7 @@ class Grid(Module):
         Parameters
         ----------
         grid : Tensor
-            [H, W, 3], grid of 3D points
+            [H, W, 3], grid of 3D points on a unit sphere
 
         Returns
         -------
@@ -36,7 +36,7 @@ class Grid(Module):
 # -------------- Grid Types --------------
 
 
-class Vanilla(Grid):
+class Raw(Grid):
     @property
     def grids(self):
         """
@@ -52,7 +52,7 @@ class Vanilla(Grid):
         Parameters
         ----------
         grid : Tensor
-            [H, W, 3], grid of 3D points
+            [H, W, 3], grid of 3D points on a unit sphere
 
         Returns
         -------
