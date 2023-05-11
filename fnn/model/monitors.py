@@ -97,9 +97,11 @@ class Plane(Monitor):
         self._restart()
 
         self._position = dict()
+        self._rays = dict()
 
     def _reset(self):
         self._position.clear()
+        self._rays.clear()
 
     def _restart(self):
         with torch.no_grad():
@@ -119,13 +121,13 @@ class Plane(Monitor):
         Returns
         -------
         Tensor
-            [N, 1, 1, 3], center
+            [N, 3], center
         Tensor
-            [N, 1, 1, 3], X unit vector
+            [N, 3], X unit vector
         Tensor
-            [N, 1, 1, 3], Y unit vector
+            [N, 3], Y unit vector
         Tensor
-            [N, 1, 1, 3], Z unit vector
+            [N, 3], Z unit vector
         """
         if self._position:
             assert batch_size == self._position["center"].size(0)
@@ -189,18 +191,32 @@ class Plane(Monitor):
         Tensor
             [N, H, W, 3], grid of 3D rays
         """
-        x, y = isotropic_grid_2d(
-            height=height,
-            width=width,
-            device=self.device,
-        ).unbind(2)
+        if self._rays:
+            assert batch_size == self._rays["rays"].size(0)
+            assert height == self._rays["height"]
+            assert width == self._rays["width"]
 
-        center, X, Y, _ = self.position(batch_size=batch_size)
+            rays = self._rays["rays"]
 
-        X = torch.einsum("H W , N D -> N H W D", x, X)
-        Y = torch.einsum("H W , N D -> N H W D", y, Y)
+        else:
+            x, y = isotropic_grid_2d(
+                height=height,
+                width=width,
+                device=self.device,
+            ).unbind(2)
 
-        return center[:, None, None, :] + X + Y
+            center, X, Y, _ = self.position(batch_size=batch_size)
+
+            X = torch.einsum("H W , N D -> N H W D", x, X)
+            Y = torch.einsum("H W , N D -> N H W D", y, Y)
+
+            rays = center[:, None, None, :] + X + Y
+
+            self._rays["rays"] = rays
+            self._rays["height"] = height
+            self._rays["width"] = width
+
+        return rays
 
     def extra_repr(self):
         params = self.center.tolist() + self.angle.tolist()

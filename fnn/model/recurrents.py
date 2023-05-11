@@ -64,7 +64,7 @@ class Rvt(Recurrent):
         Parameters
         ----------
         channels : int
-            recurrent channels per stream
+            rvt channels per stream
         groups : int
             groups per stream
         kernel_size : int

@@ -36,27 +36,30 @@ class Retina(Module):
         """
         raise NotImplementedError()
 
-    def rays(self, rmat, height=144, width=256):
+    def init(self, height=144, width=256):
+        """
+        Parameters
+        ----------
+        height : int
+            output height (H)
+        width : int
+            output width (W)
+        """
+        self.register_buffer("_grid", self.grid(height=height, width=width))
+
+    def rays(self, rmat):
         """
         Parameters
         ----------
         rmat : Tensor
             [N, 3, 3], 3D rotation matrix
-        height : int
-            output height (H)
-        width : int
-            output width (W)
 
         Returns
         -------
         Tensor
             [N, H, W, 3], grid of 3D rays
         """
-        grid = self.grid(
-            height=height,
-            width=width,
-        )
-        return torch.einsum("N C D , H W D -> N H W C", rmat, grid)
+        return torch.einsum("N C D , H W D -> N H W C", rmat, self._grid)
 
 
 class Angular(Retina):

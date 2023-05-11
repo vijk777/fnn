@@ -27,7 +27,7 @@ class Perspective(Module):
         """
         raise NotImplementedError()
 
-    def forward(self, stimulus, eye_position, height=144, width=256, pad_mode="constant", pad_value=0):
+    def forward(self, stimulus, eye_position, pad_mode="constant", pad_value=0):
         """
         Parameters
         ----------
@@ -35,10 +35,6 @@ class Perspective(Module):
             [N, S, H, W]
         eye_position : Tensor
             [N, E]
-        height : int
-            output height (H')
-        width : int
-            output width (W')
         pad_mode : str
             "constant" | "replicate"
         pad_value : float
@@ -77,22 +73,28 @@ class Perspective(Module):
 
 
 class MonitorRetina(Perspective):
-    def __init__(self, monitor, retina, features, nonlinear=None):
+    def __init__(self, monitor, retina, height, width, features, nonlinear=None):
         """
         Parameters
         ----------
-        monitor : .monitors.Monitor
+        monitor : fnn.model.monitors.Monitor
             3D monitor model
-        retina : .retinas.Retina
+        retina : fnn.model.retinas.Retina
             3D retina model
+        height : int
+            retina height
+        width : int
+            retina width
         features : Sequence[int]
-            MLP features
+            mlp features
         nonlinear : str | None
             nonlinearity
         """
         super().__init__()
         self.monitor = monitor
         self.retina = retina
+        self.retina.init(height=height, width=width)
+
         self.features = list(map(int, features))
         self.layers = ModuleList([Linear(features=f) for f in self.features])
 
@@ -143,7 +145,7 @@ class MonitorRetina(Perspective):
         x = self.proj([x])
         return rmat_3d(*x.unbind(1))
 
-    def forward(self, stimulus, eye_position, height=144, width=256, pad_mode="constant", pad_value=0):
+    def forward(self, stimulus, eye_position, pad_mode="constant", pad_value=0):
         """
         Parameters
         ----------
@@ -151,10 +153,6 @@ class MonitorRetina(Perspective):
             [N, S, H, W]
         eye_position : Tensor
             [N, E]
-        height : int
-            output height (H')
-        width : int
-            output width (W')
         pad_mode : str
             "constant" | "replicate"
         pad_value : float
@@ -166,7 +164,7 @@ class MonitorRetina(Perspective):
             [N, P, H', W']
         """
         rmat = self.rmat(eye_position)
-        rays = self.retina.rays(rmat, height, width)
+        rays = self.retina.rays(rmat)
         grid = self.monitor.project(rays)
         return isotropic_grid_sample_2d(
             stimulus,

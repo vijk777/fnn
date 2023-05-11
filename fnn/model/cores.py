@@ -67,9 +67,9 @@ class FeedforwardRecurrent(Core):
         """
         Parameters
         ----------
-        feedforward : .feedforwards.Feedforward
+        feedforward : fnn.model.feedforwards.Feedforward
             feedforward network
-        recurrent : .recurrents.Feedforward
+        recurrent : fnn.model.recurrents.Feedforward
             recurrent network
         """
         super().__init__()
