@@ -52,7 +52,7 @@ class LSTM(Modulation):
         Parameters
         ----------
         features : int
-            output features, f'
+            lstm features, f'
         """
         super().__init__()
 
