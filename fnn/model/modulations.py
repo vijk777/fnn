@@ -14,7 +14,7 @@ class Modulation(Module):
         """
         raise NotImplementedError()
 
-    def init(self, behaviors, streams):
+    def _init(self, behaviors, streams):
         """
         Parameters
         ----------
@@ -72,7 +72,7 @@ class Lstm(Modulation):
         """
         return self._features
 
-    def init(self, behaviors, streams):
+    def _init(self, behaviors, streams):
         """
         Parameters
         ----------

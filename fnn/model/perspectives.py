@@ -5,7 +5,12 @@ from .elements import Linear, nonlinearity
 from .utils import isotropic_grid_sample_2d, rmat_3d
 
 
+# -------------- Perspective Prototype --------------
+
+
 class Perspective(Module):
+    """Perspective Module"""
+
     @property
     def channels(self):
         """
@@ -16,7 +21,7 @@ class Perspective(Module):
         """
         raise NotImplementedError()
 
-    def init(self, stimuli, eye_positions):
+    def _init(self, stimuli, eye_positions):
         """
         Parameters
         ----------
@@ -72,6 +77,9 @@ class Perspective(Module):
         raise NotImplementedError()
 
 
+# -------------- Perspective Types --------------
+
+
 class MonitorRetina(Perspective):
     def __init__(self, monitor, retina, height, width, features, nonlinear=None):
         """
@@ -93,7 +101,7 @@ class MonitorRetina(Perspective):
         super().__init__()
         self.monitor = monitor
         self.retina = retina
-        self.retina.init(height=height, width=width)
+        self.retina._init(height=height, width=width)
 
         self.features = list(map(int, features))
         self.layers = ModuleList([Linear(features=f) for f in self.features])
@@ -117,7 +125,7 @@ class MonitorRetina(Perspective):
         """
         return self._channels
 
-    def init(self, stimuli, eye_positions):
+    def _init(self, stimuli, eye_positions):
         """
         Parameters
         ----------

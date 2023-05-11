@@ -4,7 +4,12 @@ from .modules import Module
 from .utils import isotropic_grid_2d, rmat_3d
 
 
+# -------------- Monitor Prototype --------------
+
+
 class Monitor(Module):
+    """Monitor Module"""
+
     def project(self, rays):
         """
         Parameters
@@ -36,6 +41,9 @@ class Monitor(Module):
             [N, H, W, 3], grid of 3D rays
         """
         raise NotImplementedError()
+
+
+# -------------- Monitor Types --------------
 
 
 class Plane(Monitor):

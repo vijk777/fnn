@@ -3,7 +3,23 @@ from .modules import Module
 from .utils import isotropic_grid_2d
 
 
+# -------------- Retina Prototype --------------
+
+
 class Retina(Module):
+    """Retina Module"""
+
+    def _init(self, height=144, width=256):
+        """
+        Parameters
+        ----------
+        height : int
+            output height (H)
+        width : int
+            output width (W)
+        """
+        self.register_buffer("_grid", self.grid(height=height, width=width))
+
     def grid(self, height=144, width=256):
         """
         Parameters
@@ -36,17 +52,6 @@ class Retina(Module):
         """
         raise NotImplementedError()
 
-    def init(self, height=144, width=256):
-        """
-        Parameters
-        ----------
-        height : int
-            output height (H)
-        width : int
-            output width (W)
-        """
-        self.register_buffer("_grid", self.grid(height=height, width=width))
-
     def rays(self, rmat):
         """
         Parameters
@@ -62,11 +67,11 @@ class Retina(Module):
         return torch.einsum("N C D , H W D -> N H W C", rmat, self._grid)
 
 
+# -------------- Retina Types --------------
+
+
 class Angular(Retina):
-    def __init__(
-        self,
-        degrees=75,
-    ):
+    def __init__(self, degrees=75):
         """
         Parameters
         ----------

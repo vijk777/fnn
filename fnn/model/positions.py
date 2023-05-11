@@ -3,8 +3,13 @@ from torch.nn import Parameter
 from .modules import Module
 
 
+# -------------- Position Prototype --------------
+
+
 class Position(Module):
-    def init(self, units):
+    """Position Module"""
+
+    def _init(self, units):
         """
         Parameters
         ----------
@@ -38,6 +43,9 @@ class Position(Module):
         raise NotImplementedError()
 
 
+# -------------- Position Types --------------
+
+
 class Gaussian(Position):
     def __init__(self, init_std=0.4):
         """
@@ -48,12 +56,9 @@ class Gaussian(Position):
         """
         super().__init__()
         self.init_std = float(init_std)
-        self._position = None
+        self._reset()
 
-    def _reset(self):
-        self._position = None
-
-    def init(self, units):
+    def _init(self, units):
         """
         Parameters
         ----------
@@ -61,11 +66,12 @@ class Gaussian(Position):
             number of units (U)
         """
         self.units = int(units)
-
         self.mu = Parameter(torch.zeros(units, 2))
         self.sigma = Parameter(torch.eye(2).repeat(units, 1, 1))
-
         self._restart()
+
+    def _reset(self):
+        self._position = None
 
     def _restart(self):
         with torch.no_grad():

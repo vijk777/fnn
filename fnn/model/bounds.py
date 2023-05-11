@@ -1,8 +1,12 @@
 import torch
 from .modules import Module
 
+# -------------- Bound Prototype --------------
+
 
 class Bound(Module):
+    """Bound Module"""
+
     @property
     def vmin(self):
         raise NotImplementedError()
@@ -23,6 +27,9 @@ class Bound(Module):
             x bounded between vmin and vmax
         """
         raise NotImplementedError()
+
+
+# -------------- Bound Types --------------
 
 
 class Tanh(Bound):

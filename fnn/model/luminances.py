@@ -2,7 +2,12 @@ import torch
 from .modules import Module
 
 
+# -------------- Luminance Prototype --------------
+
+
 class Luminance(Module):
+    """Luminance Module"""
+
     def forward(self, frame):
         """
         Parameters
@@ -16,6 +21,9 @@ class Luminance(Module):
             [N, C, H, W]
         """
         raise NotImplementedError()
+
+
+# -------------- Luminance Types --------------
 
 
 class Linear(Luminance):

@@ -4,7 +4,23 @@ from .modules import Module, ModuleList
 from .elements import Conv, nonlinearity
 
 
+# -------------- Feedforward Prototype --------------
+
+
 class Feedforward(Module):
+    """Feature Module"""
+
+    def _init(self, inputs, streams):
+        """
+        Parameters
+        ----------
+        channels : Sequence[[int, bool]]
+            [[input channels per stream (I), whether to drop input] ...]
+        streams : int
+            number of streams, S
+        """
+        raise NotImplementedError()
+
     @property
     def channels(self):
         """
@@ -22,17 +38,6 @@ class Feedforward(Module):
         -------
         int
             downscale factor (D)
-        """
-        raise NotImplementedError()
-
-    def init(self, inputs, streams):
-        """
-        Parameters
-        ----------
-        channels : Sequence[[int, bool]]
-            [[input channels per stream (I), whether to drop input] ...]
-        streams : int
-            number of streams, S
         """
         raise NotImplementedError()
 
@@ -57,6 +62,9 @@ class Feedforward(Module):
         raise NotImplementedError()
 
 
+# -------------- Feature Prototype --------------
+
+
 class Res3d(Feedforward):
     def __init__(self, channels, kernel_sizes, strides, nonlinear=None):
         """
@@ -79,27 +87,7 @@ class Res3d(Feedforward):
         self.strides = list(map(int, strides))
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
 
-    @property
-    def channels(self):
-        """
-        Returns
-        -------
-        int
-            feedforward channels per stream (F)
-        """
-        return self._channels[-1]
-
-    @property
-    def scale(self):
-        """
-        Returns
-        -------
-        int
-            downscale factor (D)
-        """
-        return math.prod(self.strides)
-
-    def init(self, inputs, streams):
+    def _init(self, inputs, streams):
         """
         Parameters
         ----------
@@ -155,6 +143,26 @@ class Res3d(Feedforward):
         for res in self.res:
             for gain in res.gains:
                 init.constant_(gain, 0)
+
+    @property
+    def channels(self):
+        """
+        Returns
+        -------
+        int
+            feedforward channels per stream (F)
+        """
+        return self._channels[-1]
+
+    @property
+    def scale(self):
+        """
+        Returns
+        -------
+        int
+            downscale factor (D)
+        """
+        return math.prod(self.strides)
 
     def forward(self, inputs, stream=None):
         """

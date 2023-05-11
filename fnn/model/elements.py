@@ -114,6 +114,8 @@ class Input(Module):
             output channels per stream, must be divisible by groups
         groups : int
             groups per stream
+        streams : int
+            number of streams
         kernel_size : int
             spatial kernel size
         dynamic_size : int
@@ -209,7 +211,10 @@ class Input(Module):
         Tensor
             [N, C, T, H, W]
         """
-        x = x if self.drop is None else self.drop[stream](x)
+        assert x.size(1) == self.in_channels
+
+        if self.drop is not None:
+            x = self.drop[stream](x)
 
         if self.pad:
             x = functional.pad(x, pad=[self.pad] * 4)
@@ -219,12 +224,10 @@ class Input(Module):
             if past:
                 assert len(past) == self.past_size
             else:
-                for _ in range(self.past_size):
-                    past.insert(0, torch.zeros_like(x))
+                past.extend([torch.zeros_like(x)] * self.past_size)
 
-            out = torch.stack([x, *past], dim=2)
-            past.pop()
-            past.insert(0, x)
+            out = torch.stack([*past, x], dim=2)
+            past.append(x)
         else:
             out = x.unsqueeze(dim=2)
 

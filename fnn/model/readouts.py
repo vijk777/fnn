@@ -1,12 +1,16 @@
 import torch
 from torch.nn import Parameter, ParameterList, functional
 from .modules import Module
-from .elements import Conv
 from .utils import to_groups_2d
 
 
+# -------------- Readout Prototype --------------
+
+
 class Readout(Module):
-    def init(self, cores, readouts, units, streams):
+    """Readout Module"""
+
+    def _init(self, cores, readouts, units, streams):
         """
         Parameters
         ----------
@@ -42,13 +46,14 @@ class Readout(Module):
         raise NotImplementedError()
 
 
+# -------------- Readout Prototype --------------
+
+
 class PositionFeature(Readout):
-    def __init__(self, channels, position, bound, feature):
+    def __init__(self, position, bound, feature):
         """
         Parameters
         ----------
-        channels : int
-            readout channels
         position : .positions.Position
             spatial position
         bounds : .bounds.Bound
@@ -58,7 +63,6 @@ class PositionFeature(Readout):
         """
         assert bound.vmin == -1 and bound.vmax == 1
         super().__init__()
-        self.channels = int(channels)
         self.position = position
         self.bound = bound
         self.feature = feature
@@ -66,7 +70,7 @@ class PositionFeature(Readout):
     def _param_groups(self, lr=0.1, decay=0, **kwargs):
         yield dict(params=list(self.biases), lr=lr * self.units, decay=0, **kwargs)
 
-    def init(self, cores, readouts, units, streams):
+    def _init(self, cores, readouts, units, streams):
         """
         Parameters
         ----------
@@ -84,15 +88,11 @@ class PositionFeature(Readout):
         self.units = int(units)
         self.streams = int(streams)
 
-        self.proj = Conv(channels=self.channels, streams=self.streams).add_input(
-            channels=self.cores,
-            drop=True,
-        )
-        self.position.init(
+        self.position._init(
             units=self.units,
         )
-        self.feature.init(
-            inputs=self.channels,
+        self.feature._init(
+            inputs=self.cores,
             outputs=self.readouts,
             units=self.units,
             streams=self.streams,
@@ -124,7 +124,7 @@ class PositionFeature(Readout):
             position = self.position.mean.expand(core.size(0), -1, -1)
 
         out = functional.grid_sample(
-            self.proj([core], stream=stream),
+            core,
             grid=self.bound(position).unsqueeze(dim=2),
             mode="bilinear",
             padding_mode="border",

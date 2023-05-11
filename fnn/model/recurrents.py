@@ -5,7 +5,23 @@ from .elements import Conv
 from .utils import to_groups_2d
 
 
+# -------------- Recurrent Prototype --------------
+
+
 class Recurrent(Module):
+    """Recurrent Module"""
+
+    def _init(self, inputs, streams):
+        """
+        Parameters
+        ----------
+        channels : Sequence[[int, bool]]
+            [[input channels per stream (I), whether to drop input] ...]
+        streams : int
+            number of streams, S
+        """
+        raise NotImplementedError()
+
     @property
     def channels(self):
         """
@@ -23,17 +39,6 @@ class Recurrent(Module):
         -------
         int
             downscale factor (D)
-        """
-        raise NotImplementedError()
-
-    def init(self, inputs, streams):
-        """
-        Parameters
-        ----------
-        channels : Sequence[[int, bool]]
-            [[input channels per stream (I), whether to drop input] ...]
-        streams : int
-            number of streams, S
         """
         raise NotImplementedError()
 
@@ -58,6 +63,9 @@ class Recurrent(Module):
         raise NotImplementedError()
 
 
+# -------------- Recurrent Types --------------
+
+
 class Rvt(Recurrent):
     def __init__(self, channels, groups, kernel_size):
         """
@@ -80,30 +88,7 @@ class Rvt(Recurrent):
         self.kernel_size = int(kernel_size)
         self._past = dict()
 
-    def _reset(self):
-        self._past.clear()
-
-    @property
-    def channels(self):
-        """
-        Returns
-        -------
-        int
-            recurrent channels per stream (R)
-        """
-        return self._channels
-
-    @property
-    def scale(self):
-        """
-        Returns
-        -------
-        int
-            downscale factor (D)
-        """
-        return 1
-
-    def init(self, inputs, streams):
+    def _init(self, inputs, streams):
         """
         Parameters
         ----------
@@ -192,6 +177,29 @@ class Rvt(Recurrent):
             groups=self.groups,
             kernel_size=self.kernel_size,
         )
+
+    def _reset(self):
+        self._past.clear()
+
+    @property
+    def channels(self):
+        """
+        Returns
+        -------
+        int
+            recurrent channels per stream (R)
+        """
+        return self._channels
+
+    @property
+    def scale(self):
+        """
+        Returns
+        -------
+        int
+            downscale factor (D)
+        """
+        return 1
 
     def forward(self, inputs, stream=None):
         """

@@ -3,8 +3,13 @@ from torch.nn import init, Parameter, ParameterList
 from .modules import Module
 
 
+# -------------- Feature Prototype --------------
+
+
 class Feature(Module):
-    def init(self, inputs, outputs, units, streams):
+    """Feature Module"""
+
+    def _init(self, inputs, outputs, units, streams):
         """
         Parameters
         ----------
@@ -36,6 +41,9 @@ class Feature(Module):
         raise NotImplementedError()
 
 
+# -------------- Feature Types --------------
+
+
 class Standard(Feature):
     def __init__(self, eps=1e-5):
         """
@@ -48,18 +56,7 @@ class Standard(Feature):
         self.eps = float(eps)
         self._features = dict()
 
-    def _reset(self):
-        self._features.clear()
-
-    def _param_norm_dims(self):
-        for weight in self.weights:
-            yield weight, 2
-
-    def _param_groups(self, lr=0.1, decay=0, **kwargs):
-        yield dict(params=list(self.weights), lr=lr * self.units, decay=decay, **kwargs)
-        yield dict(params=list(self.gains), lr=lr * self.units, decay=0, **kwargs)
-
-    def init(self, inputs, outputs, units, streams):
+    def _init(self, inputs, outputs, units, streams):
         """
         Parameters
         ----------
@@ -86,6 +83,17 @@ class Standard(Feature):
         bound = self.inputs**-0.5
         for weight in self.weights:
             init.uniform_(weight, -bound, bound)
+
+    def _reset(self):
+        self._features.clear()
+
+    def _param_norm_dims(self):
+        for weight in self.weights:
+            yield weight, 2
+
+    def _param_groups(self, lr=0.1, decay=0, **kwargs):
+        yield dict(params=list(self.weights), lr=lr * self.units, decay=decay, **kwargs)
+        yield dict(params=list(self.gains), lr=lr * self.units, decay=0, **kwargs)
 
     def features(self, stream):
         """

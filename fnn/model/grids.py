@@ -2,7 +2,12 @@ import torch
 from .modules import Module
 
 
+# -------------- Grid Prototype --------------
+
+
 class Grid(Module):
+    """Grid Module"""
+
     @property
     def grids(self):
         """
@@ -26,6 +31,9 @@ class Grid(Module):
             [G, H, W]
         """
         raise NotImplementedError()
+
+
+# -------------- Grid Types --------------
 
 
 class Vanilla(Grid):

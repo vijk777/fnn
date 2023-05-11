@@ -1,7 +1,28 @@
 from .modules import Module
+from .elements import Conv
+
+
+# -------------- Core Prototype --------------
 
 
 class Core(Module):
+    """Core Module"""
+
+    def _init(self, perspectives, grids, modulations, streams):
+        """
+        Parameters
+        ----------
+        perspectives : int
+            perspective channels (P)
+        grids : int
+            grid channels (G)
+        modulations : int
+            modulation features per stream (M)
+        streams : int
+            number of streams (S)
+        """
+        raise NotImplementedError()
+
     @property
     def channels(self):
         """
@@ -22,21 +43,6 @@ class Core(Module):
         """
         raise NotImplementedError()
 
-    def init(self, perspectives, grids, modulations, streams):
-        """
-        Parameters
-        ----------
-        perspectives : int
-            perspective channels (P)
-        grids : int
-            grid channels (G)
-        modulations : int
-            modulation features per stream (M)
-        streams : int
-            number of streams (S)
-        """
-        raise NotImplementedError()
-
     def forward(self, perspective, grid, modulation, stream=None):
         """
         Parameters
@@ -44,7 +50,7 @@ class Core(Module):
         perspective : Tensor
             [N, P, H, W]
         grid : Tensor
-            [G, H, W]
+            [G, H/D, W/D]
         modulation : Tensor
             [N, S*M] -- stream is None
                 or
@@ -62,8 +68,11 @@ class Core(Module):
         raise NotImplementedError()
 
 
+# -------------- Core Types --------------
+
+
 class FeedforwardRecurrent(Core):
-    def __init__(self, feedforward, recurrent):
+    def __init__(self, feedforward, recurrent, channels):
         """
         Parameters
         ----------
@@ -71,10 +80,13 @@ class FeedforwardRecurrent(Core):
             feedforward network
         recurrent : fnn.model.recurrents.Feedforward
             recurrent network
+        channels : int
+            output channels per stream
         """
         super().__init__()
         self.feedforward = feedforward
         self.recurrent = recurrent
+        self._channels = int(channels)
 
     @property
     def channels(self):
@@ -84,7 +96,7 @@ class FeedforwardRecurrent(Core):
         int
             core channels per stream (C)
         """
-        return self.recurrent.channels
+        return self._channels
 
     @property
     def grid_scale(self):
@@ -96,7 +108,7 @@ class FeedforwardRecurrent(Core):
         """
         return self.feedforward.scale
 
-    def init(self, perspectives, grids, modulations, streams):
+    def _init(self, perspectives, grids, modulations, streams):
         """
         Parameters
         ----------
@@ -114,19 +126,25 @@ class FeedforwardRecurrent(Core):
         self.modulations = int(modulations)
         self.streams = int(streams)
 
-        self.feedforward.init(
+        self.feedforward._init(
             inputs=[
                 [perspectives, False],
             ],
             streams=streams,
         )
-        self.recurrent.init(
+        self.recurrent._init(
             inputs=[
                 [self.feedforward.channels, True],
                 [grids, False],
                 [modulations, True],
             ],
             streams=streams,
+        )
+
+        self.proj = Conv(channels=self.channels, streams=self.streams, gain=False, bias=False)
+        self.proj.add_input(
+            channels=self.recurrent.channels,
+            drop=True,
         )
 
     def forward(self, perspective, grid, modulation, stream=None):
@@ -136,7 +154,7 @@ class FeedforwardRecurrent(Core):
         perspective : Tensor
             [N, P, H, W]
         grid : Tensor
-            [G, H, W]
+            [G, H/D, W/D]
         modulation : Tensor
             [N, S*M] -- stream is None
                 or
@@ -160,5 +178,6 @@ class FeedforwardRecurrent(Core):
             grid[None, :, :, :],
             modulation[:, :, None, None],
         ]
+        out = self.recurrent(inputs, stream=stream)
 
-        return self.recurrent(inputs, stream=stream)
+        return self.proj([out], stream=stream)

@@ -1,8 +1,13 @@
 from .modules import Module
 
 
+# -------------- Reduce Prototype --------------
+
+
 class Reduce(Module):
-    def init(self, dim, keepdim=False):
+    """Reduce Module"""
+
+    def _init(self, dim, keepdim=False):
         """
         Parameters
         ----------
@@ -17,8 +22,11 @@ class Reduce(Module):
         raise NotImplementedError()
 
 
+# -------------- Reduce Types --------------
+
+
 class Mean(Reduce):
-    def init(self, dim, keepdim=False):
+    def _init(self, dim, keepdim=False):
         """
         Parameters
         ----------

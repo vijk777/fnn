@@ -2,7 +2,12 @@ import torch
 from .modules import Module
 
 
+# -------------- Unit Prototype --------------
+
+
 class Unit(Module):
+    """Unit Module"""
+
     @property
     def readouts(self):
         """
@@ -42,6 +47,9 @@ class Unit(Module):
             [N, U]
         """
         raise NotImplementedError()
+
+
+# -------------- Unit Types --------------
 
 
 class Poisson(Unit):
