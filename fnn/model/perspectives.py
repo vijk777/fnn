@@ -125,7 +125,7 @@ class MonitorRetina(Perspective):
             eye position features (E)
         """
         self._channels = int(channels)
-        self.layers[0].add(in_features=eye_positions)
+        self.layers[0].add_input(features=eye_positions)
 
     def rmat(self, eye_position):
         """
