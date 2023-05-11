@@ -11,16 +11,6 @@ from .utils import isotropic_grid_sample_2d, rmat_3d
 class Perspective(Module):
     """Perspective Module"""
 
-    @property
-    def channels(self):
-        """
-        Returns
-        -------
-        int
-            perspective channels (P)
-        """
-        raise NotImplementedError()
-
     def _init(self, stimuli, eye_positions):
         """
         Parameters
@@ -29,6 +19,16 @@ class Perspective(Module):
             stimulus channels (S)
         eye_positions : int
             eye position features (E)
+        """
+        raise NotImplementedError()
+
+    @property
+    def channels(self):
+        """
+        Returns
+        -------
+        int
+            perspective channels (P)
         """
         raise NotImplementedError()
 
@@ -81,12 +81,14 @@ class Perspective(Module):
 
 
 class MonitorRetina(Perspective):
-    def __init__(self, monitor, retina, height, width, features, nonlinear=None):
+    def __init__(self, monitor, luminance, retina, height, width, features, nonlinear=None):
         """
         Parameters
         ----------
         monitor : fnn.model.monitors.Monitor
             3D monitor model
+        luminane : fnn.model.luminances.Luminance
+            pixel -> luminance model
         retina : fnn.model.retinas.Retina
             3D retina model
         height : int
@@ -99,7 +101,9 @@ class MonitorRetina(Perspective):
             nonlinearity
         """
         super().__init__()
+
         self.monitor = monitor
+        self.luminance = luminance
         self.retina = retina
         self.retina._init(height=height, width=width)
 
@@ -115,16 +119,6 @@ class MonitorRetina(Perspective):
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear=nonlinear)
 
-    @property
-    def channels(self):
-        """
-        Returns
-        -------
-        int
-            perspective channels (P)
-        """
-        return self._channels
-
     def _init(self, stimuli, eye_positions):
         """
         Parameters
@@ -136,6 +130,16 @@ class MonitorRetina(Perspective):
         """
         self._channels = int(stimuli)
         self.layers[0].add_input(features=eye_positions)
+
+    @property
+    def channels(self):
+        """
+        Returns
+        -------
+        int
+            perspective channels (P)
+        """
+        return self._channels
 
     def rmat(self, eye_position):
         """
@@ -174,8 +178,9 @@ class MonitorRetina(Perspective):
         rmat = self.rmat(eye_position)
         rays = self.retina.rays(rmat)
         grid = self.monitor.project(rays)
+        stim = self.luminance(stimulus)
         return isotropic_grid_sample_2d(
-            stimulus,
+            stim,
             grid=grid,
             pad_mode=pad_mode,
             pad_value=pad_value,
@@ -206,9 +211,10 @@ class MonitorRetina(Perspective):
         rays = self.monitor.rays(stimulus.size(0), height, width)
         rmat = self.rmat(eye_position)
         grid = self.retina.project(rays, rmat)
-        return isotropic_grid_sample_2d(
+        stim = isotropic_grid_sample_2d(
             stimulus,
             grid=grid,
             pad_mode=pad_mode,
             pad_value=pad_value,
         )
+        return self.luminance.inverse(stim)

@@ -8,11 +8,11 @@ from .modules import Module
 class Luminance(Module):
     """Luminance Module"""
 
-    def forward(self, frame):
+    def forward(self, stimulus):
         """
         Parameters
         ----------
-        video : Tensor
+        stimulus : Tensor
             [N, C, H, W]
 
         Returns
@@ -40,8 +40,11 @@ class Linear(Luminance):
         self.register_buffer("scale", torch.tensor(scale, dtype=torch.float))
         self.register_buffer("offset", torch.tensor(offset, dtype=torch.float))
 
-    def forward(self, frame):
-        return frame * self.scale + self.offset
+    def forward(self, stimulus):
+        return stimulus.mul(self.scale).add(self.offset)
+
+    def inverse(self, stimulus):
+        return stimulus.sub(self.offset).div(self.scale)
 
 
 class Power(Luminance):
@@ -61,5 +64,8 @@ class Power(Luminance):
         self.register_buffer("scale", torch.tensor(scale, dtype=torch.float))
         self.register_buffer("offset", torch.tensor(offset, dtype=torch.float))
 
-    def forward(self, frame):
-        return frame.pow(self.power) * self.scale + self.offset
+    def forward(self, stimulus):
+        return stimulus.pow(self.power).mul(self.scale).add(self.offset)
+
+    def inverse(self, stimulus):
+        return stimulus.sub(self.offset).div(self.scale).pow(1 / self.power)
