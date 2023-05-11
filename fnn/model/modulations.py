@@ -46,7 +46,7 @@ class Modulation(Module):
         raise NotImplementedError()
 
 
-class LSTM(Modulation):
+class Lstm(Modulation):
     def __init__(self, features):
         """
         Parameters

@@ -58,7 +58,7 @@ class Recurrent(Module):
         raise NotImplementedError()
 
 
-class RvT(Recurrent):
+class Rvt(Recurrent):
     def __init__(self, channels, groups, kernel_size):
         """
         Parameters
