@@ -94,13 +94,14 @@ class MonitorRetina(Perspective):
         self.monitor = monitor
         self.retina = retina
         self.features = list(map(int, features))
-        self.layers = ModuleList([Linear(out_features=f) for f in self.features])
+        self.layers = ModuleList([Linear(features=f) for f in self.features])
 
         for layer, f in zip(self.layers[1:], self.features):
-            layer.add(in_features=f)
+            layer.add_input(features=f)
 
-        self.proj = Linear(out_features=3).add(in_features=self.features[-1])
-        init.constant_(self.proj.gains, 0)
+        self.proj = Linear(features=3).add_input(features=self.features[-1])
+        for gain in self.proj.gains:
+            init.constant_(gain, 0)
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear=nonlinear)
 
