@@ -55,7 +55,41 @@ class Unit(Module):
 class Poisson(Unit):
     @property
     def readouts(self):
+        """
+        Returns
+        -------
+        int
+            readouts per unit (R)
+        """
         return 1
 
     def forward(self, readout):
+        """
+        Parameters
+        ----------
+        readout : Tensor
+            [N, U, R]
+
+        Returns
+        -------
+        Tensor
+            [N, U]
+        """
         return readout.squeeze(2).exp()
+
+    def loss(self, readout, target):
+        """
+        Parameters
+        ----------
+        readout : Tensor
+            [N, U, R]
+        target : Tensor
+            [N, U]
+
+        Returns
+        -------
+        Tensor
+            [N, U]
+        """
+        r = readout.squeeze(2)
+        return r.exp() - r * target
