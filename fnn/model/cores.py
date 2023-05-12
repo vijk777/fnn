@@ -112,6 +112,11 @@ class FeedforwardRecurrent(Core):
             drop=True,
         )
 
+        self._reset()
+
+    def _reset(self):
+        self._grid = None
+
     @property
     def channels(self):
         """
@@ -147,13 +152,13 @@ class FeedforwardRecurrent(Core):
 
         f = self.feedforward([perspective], stream=stream)
         m = modulation[:, :, None, None]
-        g = getattr(self, "grid", None)
+        g = self._grid
 
         if g is None:
             _, _, H, W = f.shape
             g = isotropic_grid_2d(height=H, width=W, device=self.device)
             g = torch.einsum("H W C -> C H W", g)[None]
-            self.register_buffer("grid", g)
+            self._grid = g
 
         if stream is None:
             g = g.repeat(1, self.streams, 1, 1)

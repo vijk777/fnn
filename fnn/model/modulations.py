@@ -14,25 +14,25 @@ class Modulation(Module):
         """
         raise NotImplementedError()
 
-    def _init(self, behaviors, streams):
+    def _init(self, modulations, streams):
         """
         Parameters
         ----------
-        behaviors : int
-            behavior features (B)
+        modulations : int
+            modulation inputs (I)
         streams : int
             number of streams (S)
         """
         raise NotImplementedError()
 
-    def forward(self, behavior, stream=None):
+    def forward(self, modulation, stream=None):
         """
         Parameters
         ----------
-        behavior : Tensor
-            [N, S*B] -- stream is None
+        modulation : Tensor
+            [N, S*I] -- stream is None
                 or
-            [N, B] -- stream is int
+            [N, I] -- stream is int
         stream : int | None
             specific stream | all streams
 
@@ -72,46 +72,46 @@ class Lstm(Modulation):
         """
         return self._features
 
-    def _init(self, behaviors, streams):
+    def _init(self, modulations, streams):
         """
         Parameters
         ----------
-        behaviors : int
-            behavior features (B)
+        modulations : int
+            number of inputs (I)
         streams : int
             number of streams (S)
         """
-        self.behaviors = int(behaviors)
+        self.modulations = int(modulations)
         self.streams = int(streams)
         self.proj_i = (
             Linear(features=self.features, streams=streams)
-            .add_input(features=self.behaviors)
+            .add_input(features=self.modulations)
             .add_input(features=self.features)
         )
         self.proj_f = (
             Linear(features=self.features, streams=streams)
-            .add_input(features=self.behaviors)
+            .add_input(features=self.modulations)
             .add_input(features=self.features)
         )
         self.proj_g = (
             Linear(features=self.features, streams=streams)
-            .add_input(features=self.behaviors)
+            .add_input(features=self.modulations)
             .add_input(features=self.features)
         )
         self.proj_o = (
             Linear(features=self.features, streams=streams)
-            .add_input(features=self.behaviors)
+            .add_input(features=self.modulations)
             .add_input(features=self.features)
         )
 
-    def forward(self, behavior, stream=None):
+    def forward(self, modulation, stream=None):
         """
         Parameters
         ----------
-        behavior : Tensor
-            [N, S*B] -- stream is None
+        modulation : Tensor
+            [N, S*I] -- stream is None
                 or
-            [N, B] -- stream is int
+            [N, I] -- stream is int
         stream : int | None
             specific stream | all streams
 
@@ -131,12 +131,12 @@ class Lstm(Modulation):
             self._past["stream"] = stream
 
             features = self.features * self.streams if stream is None else self.features
-            h = c = torch.zeros(behavior.size(0), features, device=self.device)
+            h = c = torch.zeros(modulation.size(0), features, device=self.device)
 
         if stream is None:
-            behavior = behavior.repeat(1, self.streams)
+            modulation = modulation.repeat(1, self.streams)
 
-        inputs = [behavior, h]
+        inputs = [modulation, h]
 
         i = torch.sigmoid(self.proj_i(inputs, stream=stream))
         f = torch.sigmoid(self.proj_f(inputs, stream=stream))

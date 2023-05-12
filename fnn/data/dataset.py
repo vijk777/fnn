@@ -150,7 +150,7 @@ class Data(pd.DataFrame):
         Yields
         ------
         dict[str, ND array]
-            data batches stacked on dim=0
+            data batches stacked on axis=1
         """
         rng = np.random.default_rng(seed)
 
@@ -179,14 +179,14 @@ class Data(pd.DataFrame):
 
             batch = {}
             for k, v in d.items():
-                batch[k] = np.stack(v)
+                batch[k] = np.stack(v, axis=1)
                 v.clear()
             yield batch
 
         p.join()
 
         if (b + 1) % batchsize:
-            yield {k: np.stack(v) for k, v in d.items()}
+            yield {k: np.stack(v, axis=1) for k, v in d.items()}
 
     def _load(self, queue, keys, indexes):
         for key, index in zip(keys, indexes):

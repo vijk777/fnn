@@ -11,14 +11,14 @@ from .utils import isotropic_grid_sample_2d, rmat_3d
 class Perspective(Module):
     """Perspective Module"""
 
-    def _init(self, stimuli, eye_positions):
+    def _init(self, stimuli, perspectives):
         """
         Parameters
         ----------
         stimuli : int
             stimulus channels (S)
-        eye_positions : int
-            eye position features (E)
+        perspectives : int
+            perspective features (F)
         """
         raise NotImplementedError()
 
@@ -32,14 +32,14 @@ class Perspective(Module):
         """
         raise NotImplementedError()
 
-    def forward(self, stimulus, eye_position, pad_mode="constant", pad_value=0):
+    def forward(self, stimulus, perspective, pad_mode="constant", pad_value=0):
         """
         Parameters
         ----------
         stimulus : Tensor
             [N, S, H, W]
-        eye_position : Tensor
-            [N, E]
+        perspective : Tensor
+            [N, F]
         pad_mode : str
             "constant" | "replicate"
         pad_value : float
@@ -52,14 +52,14 @@ class Perspective(Module):
         """
         raise NotImplementedError()
 
-    def inverse(self, stimulus, eye_position, height=144, width=256, pad_mode="constant", pad_value=0):
+    def inverse(self, stimulus, perspective, height=144, width=256, pad_mode="constant", pad_value=0):
         """
         Parameters
         ----------
         stimulus : Tensor
             [N, S, H, W]
-        eye_position : Tensor
-            [N, E]
+        perspective : Tensor
+            [N, F]
         height : int
             output height (H')
         width : int
@@ -119,17 +119,17 @@ class MonitorRetina(Perspective):
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear=nonlinear)
 
-    def _init(self, stimuli, eye_positions):
+    def _init(self, stimuli, perspectives):
         """
         Parameters
         ----------
         stimuli : int
             stimulus channels (S)
-        eye_positions : int
-            eye position features (E)
+        perspectives : int
+            perspective features (F)
         """
         self._channels = int(stimuli)
-        self.layers[0].add_input(features=eye_positions)
+        self.layers[0].add_input(features=perspectives)
 
     @property
     def channels(self):
@@ -141,30 +141,30 @@ class MonitorRetina(Perspective):
         """
         return self._channels
 
-    def rmat(self, eye_position):
+    def rmat(self, perspective):
         """
         Parameters
         ----------
-        eye_position : Tensor
-            [N, E]
+        perspective : Tensor
+            [N, F]
 
         Returns
         -------
         Tensor
             [N, 3, 3], 3D rotation matrix
         """
-        x = reduce(lambda x, layer: self.nonlinear(layer([x])) * self.gamma, self.layers, eye_position)
+        x = reduce(lambda x, layer: self.nonlinear(layer([x])) * self.gamma, self.layers, perspective)
         x = self.proj([x])
         return rmat_3d(*x.unbind(1))
 
-    def forward(self, stimulus, eye_position, pad_mode="constant", pad_value=0):
+    def forward(self, stimulus, perspective, pad_mode="constant", pad_value=0):
         """
         Parameters
         ----------
         stimulus : Tensor
             [N, S, H, W]
-        eye_position : Tensor
-            [N, E]
+        perspective : Tensor
+            [N, F]
         pad_mode : str
             "constant" | "replicate"
         pad_value : float
@@ -175,8 +175,8 @@ class MonitorRetina(Perspective):
         Tensor
             [N, P, H', W']
         """
-        rmat = self.rmat(eye_position)
-        rays = self.retina.rays(rmat)
+        rmat = self.rmat(perspective)
+        rays = self.retina.rays(rmat).repeat(stimulus.size(0), 1, 1, 1)
         grid = self.monitor.project(rays)
         stim = self.luminance(stimulus)
         return isotropic_grid_sample_2d(
@@ -186,14 +186,14 @@ class MonitorRetina(Perspective):
             pad_value=pad_value,
         )
 
-    def inverse(self, stimulus, eye_position=None, height=144, width=256, pad_mode="constant", pad_value=0):
+    def inverse(self, stimulus, perspective=None, height=144, width=256, pad_mode="constant", pad_value=0):
         """
         Parameters
         ----------
         stimulus : Tensor
             [N, S, H, W]
-        eye_position : Tensor
-            [N, E]
+        perspective : Tensor
+            [N, F]
         height : int
             output height (H')
         width : int
@@ -209,7 +209,7 @@ class MonitorRetina(Perspective):
             [N, P, H', W']
         """
         rays = self.monitor.rays(stimulus.size(0), height, width)
-        rmat = self.rmat(eye_position)
+        rmat = self.rmat(perspective)
         grid = self.retina.project(rays, rmat)
         stim = isotropic_grid_sample_2d(
             stimulus,

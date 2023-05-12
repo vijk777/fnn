@@ -69,3 +69,6 @@ class Power(Luminance):
 
     def inverse(self, stimulus):
         return stimulus.sub(self.offset).div(self.scale).pow(1 / self.power)
+
+    def extra_repr(self):
+        return f"power={self.power:.3g}, scale={self.scale:.3g}, offset={self.offset:.3g}"
