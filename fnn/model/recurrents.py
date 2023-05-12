@@ -32,16 +32,6 @@ class Recurrent(Module):
         """
         raise NotImplementedError()
 
-    @property
-    def scale(self):
-        """
-        Returns
-        -------
-        int
-            downscale factor (D)
-        """
-        raise NotImplementedError()
-
     def forward(self, inputs, stream=None):
         """
         Parameters
@@ -190,16 +180,6 @@ class Rvt(Recurrent):
             recurrent channels per stream (R)
         """
         return self._channels
-
-    @property
-    def scale(self):
-        """
-        Returns
-        -------
-        int
-            downscale factor (D)
-        """
-        return 1
 
     def forward(self, inputs, stream=None):
         """

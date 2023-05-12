@@ -31,16 +31,6 @@ class Feedforward(Module):
         """
         raise NotImplementedError()
 
-    @property
-    def scale(self):
-        """
-        Returns
-        -------
-        int
-            downscale factor (D)
-        """
-        raise NotImplementedError()
-
     def forward(self, inputs, stream=None):
         """
         Parameters
@@ -153,16 +143,6 @@ class Res3d(Feedforward):
             feedforward channels per stream (F)
         """
         return self._channels[-1]
-
-    @property
-    def scale(self):
-        """
-        Returns
-        -------
-        int
-            downscale factor (D)
-        """
-        return math.prod(self.strides)
 
     def forward(self, inputs, stream=None):
         """

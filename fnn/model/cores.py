@@ -1,5 +1,7 @@
+import torch
 from .modules import Module
 from .elements import Conv
+from .utils import isotropic_grid_2d
 
 
 # -------------- Core Prototype --------------
@@ -8,14 +10,12 @@ from .elements import Conv
 class Core(Module):
     """Core Module"""
 
-    def _init(self, perspectives, grids, modulations, streams):
+    def _init(self, perspectives, modulations, streams):
         """
         Parameters
         ----------
         perspectives : int
             perspective channels (P)
-        grids : int
-            grid channels (G)
         modulations : int
             modulation features per stream (M)
         streams : int
@@ -33,24 +33,12 @@ class Core(Module):
         """
         raise NotImplementedError()
 
-    @property
-    def grid_scale(self):
-        """
-        Returns
-        -------
-        int
-            grid downscale factor (D)
-        """
-        raise NotImplementedError()
-
-    def forward(self, perspective, grid, modulation, stream=None):
+    def forward(self, perspective, modulation, stream=None):
         """
         Parameters
         ----------
         perspective : Tensor
             [N, P, H, W]
-        grid : Tensor
-            [G, H/D, W/D]
         modulation : Tensor
             [N, S*M] -- stream is None
                 or
@@ -78,7 +66,7 @@ class FeedforwardRecurrent(Core):
         ----------
         feedforward : fnn.model.feedforwards.Feedforward
             feedforward network
-        recurrent : fnn.model.recurrents.Feedforward
+        recurrent : fnn.model.recurrents.Recurrent
             recurrent network
         channels : int
             output channels per stream
@@ -88,41 +76,18 @@ class FeedforwardRecurrent(Core):
         self.recurrent = recurrent
         self._channels = int(channels)
 
-    @property
-    def channels(self):
-        """
-        Returns
-        -------
-        int
-            core channels per stream (C)
-        """
-        return self._channels
-
-    @property
-    def grid_scale(self):
-        """
-        Returns
-        -------
-        int
-            grid downscale factor (D)
-        """
-        return self.feedforward.scale
-
-    def _init(self, perspectives, grids, modulations, streams):
+    def _init(self, perspectives, modulations, streams):
         """
         Parameters
         ----------
         perspectives : int
             perspective channels (P)
-        grids : int
-            grid channels (G)
         modulations : int
             modulation features per stream (M)
         streams : int
             number of streams (S)
         """
         self.perspectives = int(perspectives)
-        self.grids = int(grids)
         self.modulations = int(modulations)
         self.streams = int(streams)
 
@@ -135,8 +100,8 @@ class FeedforwardRecurrent(Core):
         self.recurrent._init(
             inputs=[
                 [self.feedforward.channels, True],
-                [grids, False],
                 [modulations, True],
+                [2, False],
             ],
             streams=streams,
         )
@@ -147,14 +112,22 @@ class FeedforwardRecurrent(Core):
             drop=True,
         )
 
-    def forward(self, perspective, grid, modulation, stream=None):
+    @property
+    def channels(self):
+        """
+        Returns
+        -------
+        int
+            core channels per stream (C)
+        """
+        return self._channels
+
+    def forward(self, perspective, modulation, stream=None):
         """
         Parameters
         ----------
         perspective : Tensor
             [N, P, H, W]
-        grid : Tensor
-            [G, H/D, W/D]
         modulation : Tensor
             [N, S*M] -- stream is None
                 or
@@ -171,13 +144,20 @@ class FeedforwardRecurrent(Core):
         """
         if stream is None:
             perspective = perspective.repeat(1, self.streams, 1, 1)
-            grid = grid.repeat(self.streams, 1, 1)
 
-        inputs = [
-            self.feedforward([perspective], stream=stream),
-            grid[None, :, :, :],
-            modulation[:, :, None, None],
-        ]
-        out = self.recurrent(inputs, stream=stream)
+        f = self.feedforward([perspective], stream=stream)
+        m = modulation[:, :, None, None]
+        g = getattr(self, "grid", None)
 
-        return self.proj([out], stream=stream)
+        if g is None:
+            _, _, H, W = f.shape
+            g = isotropic_grid_2d(height=H, width=W, device=self.device)
+            g = torch.einsum("H W C -> C H W", g)[None]
+            self.register_buffer("grid", g)
+
+        if stream is None:
+            g = g.repeat(1, self.streams, 1, 1)
+
+        r = self.recurrent([f, m, g], stream=stream)
+
+        return self.proj([r], stream=stream)
