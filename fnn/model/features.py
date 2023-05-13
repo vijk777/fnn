@@ -1,5 +1,5 @@
 import torch
-from torch.nn import init, Parameter, ParameterList
+from torch.nn import Parameter, ParameterList
 from .modules import Module
 
 
@@ -74,15 +74,11 @@ class Norm(Feature):
         self.units = int(units)
         self.streams = int(streams)
 
-        weight = lambda: Parameter(torch.ones(self.units, self.outputs, self.inputs))
+        weight = lambda: Parameter(torch.zeros(self.units, self.outputs, self.inputs))
         gain = lambda: Parameter(torch.ones(self.units, self.outputs))
 
         self.weights = ParameterList([weight() for _ in range(self.streams)])
         self.gains = ParameterList([gain() for _ in range(self.streams)])
-
-        bound = self.inputs**-0.5
-        for weight in self.weights:
-            init.uniform_(weight, -bound, bound)
 
     def _reset(self):
         self._features.clear()
