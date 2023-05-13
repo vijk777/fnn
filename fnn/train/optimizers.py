@@ -7,14 +7,17 @@ import torch
 class Optimizer:
     """Module Optimizer"""
 
-    def _init(self, module):
+    def _init(self, module, scheduler):
         """
         Parameters
         ----------
         module : fnn.model.modules.Module
             module to optimize
+        scheduler : fnn.train.schedulers.Scheduler
+            hyperparameter scheduler
         """
         self.module = module
+        self.scheduler = scheduler
         self._initialized = True
 
     @property
@@ -27,6 +30,19 @@ class Optimizer:
         """
         return getattr(self, "_initialized", False)
 
+    def train(self, trainer):
+        """
+        Parameters
+        ----------
+        trainer : fnn.train.trainers.Trainer
+            module trainer
+        """
+        while self.scheduler.step():
+            trainer.epoch(
+                optimizer=self,
+                seed=self.scheduler.size * self.scheduler.cycle + self.scheduler.epoch,
+            )
+
     @property
     def hyperparameters(self):
         """
@@ -37,13 +53,9 @@ class Optimizer:
         """
         raise NotImplementedError()
 
-    def step(self, scheduler):
-        """Perform a single optimization step
-
-        Parameters
-        ----------
-        scheduler : fnn.train.schedulers.Scheduler
-            hyperparameter scheduler
+    def step(self):
+        """
+        Perform a gradient descent step
         """
         raise NotImplementedError()
 
@@ -70,7 +82,7 @@ class SgdClip(Optimizer):
             adaptive gradient clipping minimum
         """
         assert lr > 0
-        assert decay > 0
+        assert decay >= 0
         assert 0 <= momentum < 1
         assert clip > 0
         assert eps > 0
@@ -84,14 +96,16 @@ class SgdClip(Optimizer):
             eps=float(eps),
         )
 
-    def _init(self, module):
+    def _init(self, module, scheduler):
         """
         Parameters
         ----------
         module : fnn.model.modules.Module
             module to optimize
+        scheduler : fnn.train.schedulers.Scheduler
+            hyperparameter scheduler
         """
-        super()._init(module)
+        super()._init(module, scheduler)
         self.param_groups = list(module.param_groups(**self.hyperparameters))
         self.norm_dims = dict(module.param_norm_dims())
         self.momentums = dict()
@@ -107,17 +121,13 @@ class SgdClip(Optimizer):
         return self._hyperparameters
 
     @torch.no_grad()
-    def step(self, scheduler):
-        """Perform a single optimization step
-
-        Parameters
-        ----------
-        scheduler : fnn.train.schedulers.Scheduler
-            hyperparameter scheduler
+    def step(self):
+        """
+        Perform a gradient descent step
         """
         for group in self.param_groups:
 
-            hp = scheduler(**{k: group[k] for k in self.hyperparameters})
+            hp = self.scheduler(**{k: group[k] for k in self.hyperparameters})
 
             lr = hp["lr"]
             momentum = hp["momentum"]

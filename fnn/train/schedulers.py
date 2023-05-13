@@ -40,21 +40,6 @@ class Scheduler:
         self.epoch += 1
         return self.epoch < self.size
 
-    def schedule(self, epoch, size, cycle):
-        """
-        Parameters
-        ----------
-        epoch : int
-            epoch number [0, inf)
-        size : int
-            epochs in a cycle [1, inf)
-        cycle : int
-            cycle number [0, inf)
-        """
-        self.epoch = int(epoch)
-        self.size = int(size)
-        self.cycle = int(cycle)
-
     def __call__(self, **kwargs):
         """
         Parameters
