@@ -140,7 +140,6 @@ class VisualCortex(Module):
         )
         self.modulation._init(
             modulations=modulations,
-            streams=self.streams,
         )
         self.core._init(
             perspectives=self.perspective.channels,
@@ -182,7 +181,6 @@ class VisualCortex(Module):
         )
         m = self.modulation(
             modulation=modulation,
-            stream=stream,
         )
         c = self.core(
             perspective=p,

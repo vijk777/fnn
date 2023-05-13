@@ -40,9 +40,7 @@ class Core(Module):
         perspective : Tensor
             [N, P, H, W]
         modulation : Tensor
-            [N, S*M] -- stream is None
-                or
-            [N, M] -- stream is int
+            [N, M]
         stream : int | None
             specific stream | all streams
 
@@ -134,9 +132,7 @@ class FeedforwardRecurrent(Core):
         perspective : Tensor
             [N, P, H, W]
         modulation : Tensor
-            [N, S*M] -- stream is None
-                or
-            [N, M] -- stream is int
+            [N, M]
         stream : int | None
             specific stream | all streams
 
@@ -149,6 +145,7 @@ class FeedforwardRecurrent(Core):
         """
         if stream is None:
             perspective = perspective.repeat(1, self.streams, 1, 1)
+            modulation = modulation.repeat(1, self.streams)
 
         f = self.feedforward([perspective], stream=stream)
         m = modulation[:, :, None, None]
