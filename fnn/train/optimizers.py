@@ -103,6 +103,12 @@ class SgdClip(Optimizer):
 
     @property
     def hyperparameters(self):
+        """
+        Returns
+        -------
+        dict
+            dictionary of hyperparameters
+        """
         return self._hyperparameters
 
     @torch.no_grad()
