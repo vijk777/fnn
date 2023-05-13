@@ -69,16 +69,11 @@ class SgdClip(Optimizer):
         eps : float
             adaptive gradient clipping minimum
         """
-        if lr < 0:
-            raise ValueError(f"Invalid learning rate: {lr}")
-        if decay < 0:
-            raise ValueError(f"Invalid decay value: {decay}")
-        if not 0 <= momentum < 1:
-            raise ValueError(f"Invalid momentum value: {momentum}")
-        if clip < 0:
-            raise ValueError(f"Invalid clip value: {clip}")
-        if eps <= 0:
-            raise ValueError(f"Invalid eps value: {eps}")
+        assert lr > 0
+        assert decay > 0
+        assert 0 <= momentum < 1
+        assert clip > 0
+        assert eps > 0
 
         self._hyperparameters = dict(
             lr=float(lr),
