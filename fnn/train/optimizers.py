@@ -18,17 +18,6 @@ class Optimizer:
         """
         self.module = module
         self.scheduler = scheduler
-        self._initialized = True
-
-    @property
-    def initialized(self):
-        """
-        Returns
-        -------
-        bool
-            whether optimizer has been initialized
-        """
-        return getattr(self, "_initialized", False)
 
     def train(self, trainer):
         """

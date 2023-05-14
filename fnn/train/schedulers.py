@@ -35,7 +35,7 @@ class Scheduler:
             whether the cycle is unfinished
         """
         if self.epoch >= self.size:
-            raise RuntimeError("cycle has already completed")
+            raise RuntimeError("training cycle has already completed")
 
         self.epoch += 1
         return self.epoch < self.size
