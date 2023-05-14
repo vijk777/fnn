@@ -54,11 +54,11 @@ class Architecture(Module):
         """
         raise NotImplementedError()
 
-    def generate_losses(self, targets, stimuli, perspectives=None, modulations=None, stream=None, training=False):
+    def generate_losses(self, units, stimuli, perspectives=None, modulations=None, stream=None, training=False):
         """
         Parameters
         ----------
-        targets : Iterable[ np.ndarray ]
+        units : Iterable[ np.ndarray ]
             either singular or batch
         stimulus : Iterable[ np.ndarray ]
             either singular or batch
@@ -225,7 +225,7 @@ class VisualCortex(Architecture):
         )
         return self.unit(readout=r)
 
-    def loss(self, stimulus, perspective, modulation, target, stream=None):
+    def loss(self, stimulus, perspective, modulation, unit, stream=None):
         """
         Parameters
         ----------
@@ -235,7 +235,7 @@ class VisualCortex(Architecture):
             [N, P]
         modulations : Tensor
             [N, M]
-        target : Tensor
+        unit : Tensor
             [N, U]
         stream : int | None
             specific stream | all streams
@@ -251,7 +251,7 @@ class VisualCortex(Architecture):
             modulation=modulation,
             stream=stream,
         )
-        return self.unit.loss(readout=r, target=target)
+        return self.unit.loss(readout=r, unit=unit)
 
     def to_tensor(self, stimulus, perspective=None, modulation=None):
         """
@@ -293,7 +293,8 @@ class VisualCortex(Architecture):
         else:
             assert not squeeze
 
-        tensor = lambda x: torch.tensor(x, dtype=torch.float, device=self.device)
+        device = self.device
+        tensor = lambda x: torch.tensor(x, dtype=torch.float, device=device)
 
         return tensor(stimulus), tensor(perspective), tensor(modulation), squeeze
 
@@ -354,11 +355,11 @@ class VisualCortex(Architecture):
 
         self.train(_training)
 
-    def generate_losses(self, targets, stimuli, perspectives=None, modulations=None, stream=None, training=False):
+    def generate_losses(self, units, stimuli, perspectives=None, modulations=None, stream=None, training=False):
         """
         Parameters
         ----------
-        targets : Iterable[ 1D|2D np.narray ]
+        units : Iterable[ 1D|2D np.narray ]
             [U] | [N, U] x T -- dtype=float
         stimulus : Iterable[ 2D|3D|4D np.ndarray ]
             [H, W] | [H, W, C] | [N, H, W, C] x T --- dtype=uint8
@@ -400,18 +401,18 @@ class VisualCortex(Architecture):
 
         with context():
 
-            for target, stimulus, perspective, modulation in zip(targets, stimuli, perspectives, modulations):
+            for unit, stimulus, perspective, modulation in zip(units, stimuli, perspectives, modulations):
 
                 *tensors, squeeze = self.to_tensor(stimulus, perspective, modulation)
 
-                target = torch.tensor(target, dtype=torch.float, device=self.device)
-                if target.ndim == 1:
+                unit = torch.tensor(unit, dtype=torch.float, device=self.device)
+                if unit.ndim == 1:
                     assert squeeze
-                    target = target[None]
+                    unit = unit[None]
                 else:
                     assert not squeeze
 
-                loss = self.loss(*tensors, target=target, stream=stream)
+                loss = self.loss(*tensors, unit=unit, stream=stream)
 
                 if squeeze:
                     loss = loss.squeeze(0)

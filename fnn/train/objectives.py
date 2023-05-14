@@ -65,7 +65,7 @@ class Architecture(Objective):
     def dtype(self):
         return architectures.Architecture
 
-    def objective(self, targets, stimuli, perspectives=None, modulations=None, training=True):
+    def objective(self, units, stimuli, perspectives=None, modulations=None, training=True):
         """
         Parameters
         ----------
@@ -89,7 +89,7 @@ class Architecture(Objective):
             stream = None
 
         losses = self.module.generate_losses(
-            targets=targets,
+            units=units,
             stimuli=stimuli,
             perspectives=perspectives,
             modulations=modulations,

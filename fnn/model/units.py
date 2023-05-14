@@ -32,13 +32,13 @@ class Unit(Module):
         """
         raise NotImplementedError()
 
-    def loss(self, readout, target):
+    def loss(self, readout, unit):
         """
         Parameters
         ----------
         readout : Tensor
             [N, U, R]
-        target : Tensor
+        unit : Tensor
             [N, U]
 
         Returns
@@ -77,13 +77,13 @@ class Poisson(Unit):
         """
         return readout.squeeze(2).exp()
 
-    def loss(self, readout, target):
+    def loss(self, readout, unit):
         """
         Parameters
         ----------
         readout : Tensor
             [N, U, R]
-        target : Tensor
+        unit : Tensor
             [N, U]
 
         Returns
@@ -92,4 +92,4 @@ class Poisson(Unit):
             [N, U]
         """
         r = readout.squeeze(2)
-        return r.exp() - r * target
+        return r.exp() - r * unit
