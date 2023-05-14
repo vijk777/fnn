@@ -11,7 +11,7 @@ from .modules import Module
 class Architecture(Module):
     """Architecture Module"""
 
-    def _init(self, stimuli, perspectives, modulations, units):
+    def _init(self, stimuli, perspectives, modulations, units, streams):
         """
         Parameters
         ----------
@@ -23,6 +23,8 @@ class Architecture(Module):
             modulation features
         units : int
             number of units
+        streams : int
+            number of streams
         """
         raise NotImplementedError()
 
@@ -89,12 +91,10 @@ class Architecture(Module):
 class VisualCortex(Module):
     """Visual Cortex"""
 
-    def __init__(self, streams, core, perspective, modulation, readout, reduce, unit):
+    def __init__(self, core, perspective, modulation, readout, reduce, unit):
         """
         Parameters
         ----------
-        streams : int
-            number of streams
         core : fnn.model.cores.Core
             core model
         perspective : fnn.model.perspectives.Perspective
@@ -109,7 +109,6 @@ class VisualCortex(Module):
             neuronal unit
         """
         super().__init__()
-        self.streams = int(streams)
         self.core = core
         self.perspective = perspective
         self.modulation = modulation
@@ -117,7 +116,7 @@ class VisualCortex(Module):
         self.reduce = reduce
         self.unit = unit
 
-    def _init(self, stimuli, perspectives, modulations, units):
+    def _init(self, stimuli, perspectives, modulations, units, streams):
         """
         Parameters
         ----------
@@ -129,17 +128,21 @@ class VisualCortex(Module):
             modulation features
         units : int
             number of units
+        streams : int
+            number of streams
         """
-        self._stimuli = int(stimuli)
-        self._perspectives = int(perspectives)
-        self._modulations = int(modulations)
+        self.stimuli = int(stimuli)
+        self.perspectives = int(perspectives)
+        self.modulations = int(modulations)
+        self.units = int(units)
+        self.streams = int(streams)
 
         self.perspective._init(
             stimuli=stimuli,
-            perspectives=perspectives,
+            perspectives=self.perspectives,
         )
         self.modulation._init(
-            modulations=modulations,
+            modulations=self.modulations,
         )
         self.core._init(
             perspectives=self.perspective.channels,
@@ -149,7 +152,7 @@ class VisualCortex(Module):
         self.readout._init(
             cores=self.core.channels,
             readouts=self.unit.readouts,
-            units=units,
+            units=self.units,
             streams=self.streams,
         )
         self.reduce._init(
@@ -275,7 +278,7 @@ class VisualCortex(Module):
             squeeze = False
 
         if perspective is None:
-            perspective = np.zeros([1, self._perspectives])
+            perspective = np.zeros([1, self.perspectives])
         elif perspective.ndim == 1:
             assert squeeze
             perspective = perspective[None]
@@ -283,7 +286,7 @@ class VisualCortex(Module):
             assert not squeeze
 
         if modulation is None:
-            modulation = np.zeros([1, self._modulations])
+            modulation = np.zeros([1, self.modulations])
         elif modulation.ndim == 1:
             assert squeeze
             modulation = modulation[None]

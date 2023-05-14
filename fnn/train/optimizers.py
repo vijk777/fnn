@@ -19,19 +19,6 @@ class Optimizer:
         self.module = module
         self.scheduler = scheduler
 
-    def train(self, trainer):
-        """
-        Parameters
-        ----------
-        trainer : fnn.train.trainers.Trainer
-            module trainer
-        """
-        while self.scheduler.step():
-            trainer.epoch(
-                optimizer=self,
-                seed=self.scheduler.size * self.scheduler.cycle + self.scheduler.epoch,
-            )
-
     @property
     def hyperparameters(self):
         """
@@ -47,6 +34,37 @@ class Optimizer:
         Perform a gradient descent step
         """
         raise NotImplementedError()
+
+    def optimize(self, data, step):
+        """
+        Parameters
+        ----------
+        data : Callable[[bool, int], Iterable[dict]]
+            function that yields data batches
+        step : Callable[[bool, int, ...], 1D array]
+            function that returns loss values and performs gradient descent step if training=True
+        """
+        while self.scheduler.step():
+
+            info = self.scheduler(**self.hyperparameters)
+            info["cycle_epoch"] = self.scheduler.epoch
+            info["global_epoch"] = self.scheduler.size * self.scheduler.cycle + self.scheduler.epoch
+
+            for training, desc in [[True, "training"], [False, "validation"]]:
+
+                losses = []
+
+                for batch in data(training=training, epoch=info["global_epoch"]):
+
+                    loss = step(training=training, epoch=info["global_epoch"], **batch)
+                    losses.append(loss)
+
+                    self.step()
+
+                if losses:
+                    info[f"{desc}_loss"] = np.stack(losses, axis=0).mean(axis=0)
+
+            yield info
 
 
 # -------------- Optimizer Types --------------

@@ -92,7 +92,7 @@ class SubsampleIndex(Index):
 # -------------- Data Set --------------
 
 
-class Data(pd.DataFrame):
+class Dataset(pd.DataFrame):
     """Data Set"""
 
     def __init__(self, *args, **kwargs):
