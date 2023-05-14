@@ -7,22 +7,18 @@ import numpy as np
 class Scheduler:
     """Hyperparameter Scheduler"""
 
-    def _init(self, size, epoch=0, cycle=0):
+    def _init(self, epoch=0, cycle=0):
         """
         Parameters
         ----------
-        size : int
-            epochs in a cycle [1, inf)
         epoch : int
-            epoch number [0, inf)
+            epoch number
         cycle : int
-            cycle number [0, inf)
+            cycle number
         """
-        assert size > 0
         assert epoch >= 0
         assert cycle >= 0
 
-        self.size = int(size)
         self.epoch = int(epoch) - 1
         self.cycle = int(cycle)
 
@@ -34,11 +30,21 @@ class Scheduler:
         bool
             whether the cycle is unfinished
         """
-        if self.epoch >= self.size:
-            raise RuntimeError("training cycle has already completed")
+        if self.finished:
+            raise RuntimeError("training cycle has already finished")
 
         self.epoch += 1
-        return self.epoch < self.size
+        return not self.finished
+
+    @property
+    def finished(self):
+        """
+        Returns
+        -------
+        bool
+            whether the training cycle is finished
+        """
+        raise NotImplementedError()
 
     def __call__(self, **kwargs):
         """
@@ -61,24 +67,32 @@ class Scheduler:
 class CosineLr(Scheduler):
     """Cosine Learning Rate"""
 
-    def __init__(self, burnin=0, burnin_cycles=0):
+    def __init__(self, cycle_size=100, burnin_epochs=0, burnin_cycles=0):
         """
         Parameters
         ----------
+        cycle_size : int
+            number of epochs in a cycle
         burnin : int
             number of burnin epochs
         burnin_cycles : int
             number of burnin cycles
         """
-        assert burnin >= 0
+        assert cycle_size > 0
+        assert burnin_epochs >= 0
 
-        if burnin:
+        if burnin_epochs:
             assert burnin_cycles > 0
         else:
             assert burnin_cycles == 0
 
-        self.burnin = int(burnin)
+        self.cycle_size = int(cycle_size)
+        self.burnin_epochs = int(burnin_epochs)
         self.burnin_cycles = int(burnin_cycles)
+
+    @property
+    def finished(self):
+        return self.epoch >= self.cycle_size
 
     def __call__(self, lr, **kwargs):
         """
@@ -95,18 +109,18 @@ class CosineLr(Scheduler):
             hyperparameters with transformed learning rate
         """
         burnin_cycle = self.cycle < self.burnin_cycles
-        burnin_epoch = self.epoch < self.burnin
+        burnin_epoch = self.epoch < self.burnin_epochs
 
         if burnin_cycle and burnin_epoch:
-            lr = lr * (self.epoch + 0.5) / self.burnin
+            lr = lr * (self.epoch + 0.5) / self.burnin_epochs
 
         else:
             if burnin_cycle:
-                t = self.epoch - self.burnin
-                tmax = self.size - self.burnin
+                t = self.epoch - self.burnin_epochs
+                tmax = self.cycle_size - self.burnin_epochs
             else:
                 t = self.epoch
-                tmax = self.size
+                tmax = self.cycle_size
 
             lr = lr * (np.cos(t / tmax * np.pi) + 1) / 2
 
