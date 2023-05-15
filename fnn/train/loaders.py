@@ -119,7 +119,6 @@ class RandomBatches(Loader):
 
     def _load(self, queue, keys, indexes):
         for key, index in zip(keys, indexes):
-            print("loading")
             data = self.dataset.load(key, index)
             queue.put(data)
 
