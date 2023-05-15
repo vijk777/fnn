@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from multiprocessing import Process, Queue
+from tqdm import tqdm
 
 
 # -------------- Loader Prototype --------------
@@ -18,12 +19,14 @@ class Loader:
         """
         self.dataset = dataset
 
-    def load(self, training=True):
+    def load(self, training=True, display_progress=True):
         """
         Parameters
         ----------
         training : bool
             training or validation
+        display_progress : bool
+            display progress
 
         Yields
         -------
@@ -122,12 +125,14 @@ class RandomBatches(Loader):
             data = self.dataset.load(key, index)
             queue.put(data)
 
-    def load(self, training=True):
+    def load(self, training=True, display_progress=True):
         """
         Parameters
         ----------
         training : bool
             training or validation
+        display_progress : bool
+            display progress
 
         Yields
         -------
@@ -147,6 +152,12 @@ class RandomBatches(Loader):
         p = Process(target=self._load, args=(q, keys, indexes))
         p.start()
 
+        if display_progress:
+            if training:
+                iterbar = tqdm(desc="Training Batches", total=self.train_size)
+            else:
+                iterbar = tqdm(desc="Validation Batches", total=self.val_size)
+
         for b, _ in enumerate(keys):
 
             for k, v in q.get().items():
@@ -159,6 +170,10 @@ class RandomBatches(Loader):
             for k, v in d.items():
                 batch[k] = np.stack(v, axis=1)
                 v.clear()
+
+            if display_progress:
+                iterbar.update(n=1)
+
             yield batch
 
         p.join()

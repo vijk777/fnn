@@ -1,1 +1,1 @@
-from .dataset import NpyFile, SubsampleIndex, Dataset
+from .dataset import NpyFile, Dataset
