@@ -88,7 +88,7 @@ class Architecture(Module):
 # -------------- Architecture Types --------------
 
 
-class VisualCortex(Architecture):
+class Visual(Architecture):
     """Visual Cortex"""
 
     def __init__(self, core, perspective, modulation, readout, reduce, unit):

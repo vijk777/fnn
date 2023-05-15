@@ -49,17 +49,22 @@ class Objective:
 # -------------- Objective Types --------------
 
 
-class Architecture(Objective):
-    """Architecture Objective"""
+class ArchitectureLoss(Objective):
+    """Architecture Loss"""
 
-    def __init__(self, sample_stream=True):
+    def __init__(self, sample_stream=True, burnin_frames=0):
         """
         Parameters
         ----------
         sample_stream : bool
             sample stream during training
+        burnin_frames : int
+            number of initial losses to discard
         """
+        assert burnin_frames >= 0
+
         self.sample_stream = bool(sample_stream)
+        self.burnin_frames = int(burnin_frames)
 
     @property
     def dtype(self):
@@ -95,7 +100,7 @@ class Architecture(Objective):
             modulations=modulations,
             training=training,
         )
-        losses = list(losses)
+        losses = list(losses)[self.burnin_frames :]
 
         if training:
             objective = torch.stack(losses).mean()
