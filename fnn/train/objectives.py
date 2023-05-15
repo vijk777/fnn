@@ -36,12 +36,12 @@ class Objective:
         training : bool
             training or validation
         **data
-            training/validation data
+            training or validation data
 
         Returns
         -------
         float
-            objective value
+            training or validation objective
         """
         raise NotImplementedError()
 

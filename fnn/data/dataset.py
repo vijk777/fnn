@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-from multiprocessing import Process, Queue
 
 
 # -------------- Data Item --------------
@@ -47,48 +46,6 @@ class NpyFile(Item):
         return t(x[i])
 
 
-# -------------- Data Index --------------
-
-
-class Index:
-    """Data Index"""
-
-    def __call__(self, samples, rng=None):
-        """
-        Parameters
-        ----------
-        samples : int
-            number of samples
-        rng : np.random.Generator | None
-            random number generator
-
-        Returns
-        -------
-        1D array | None
-            data index
-        """
-        return
-
-
-class SubsampleIndex(Index):
-    """Subsample Data Index"""
-
-    def __init__(self, samplesize):
-        """
-        Parameters
-        ----------
-        samplesize : int
-            sample size
-        """
-        self.samplesize = samplesize
-
-    def __call__(self, samples, rng=None):
-        assert samples >= self.samplesize, "Not enough samples"
-
-        choice = np.random.choice if rng is None else rng.choice
-        return choice(samples - self.samplesize) + np.arange(self.samplesize)
-
-
 # -------------- Data Set --------------
 
 
@@ -131,64 +88,3 @@ class Dataset(pd.DataFrame):
             return {item: data[item][:] for item in self.dataitems}
         else:
             return {item: data[item][index] for item in self.dataitems}
-
-    def batches(self, batchsize, index, keys, batches=None, seed=42):
-        """
-        Parameters
-        ----------
-        batchsize : int
-            batch size
-        index : fnn.data.Index
-            data index generator
-        keys : list[hashable]
-            labels for DataFrame.loc
-        batches : int | None
-            number of batches -- int : random batches | None : ordered batches (until all keys are yielded)
-        seed : int
-            random number generation
-
-        Yields
-        ------
-        dict[str, ND array]
-            data batches stacked on axis=1
-        """
-        rng = np.random.default_rng(seed)
-
-        if batches is None:
-            size = len(keys)
-        else:
-            size = batchsize * batches
-            replace = size > len(keys)
-            keys = rng.choice(keys, size=size, replace=replace)
-
-        indexes = [index(samples, rng) for samples in self.loc[keys].samples]
-
-        d = {item: [] for item in self.dataitems}
-        q = Queue(batchsize)
-
-        p = Process(target=self._load, args=(q, keys, indexes))
-        p.start()
-
-        for b in range(size):
-
-            for k, v in q.get().items():
-                d[k].append(v)
-
-            if (b + 1) % batchsize:
-                continue
-
-            batch = {}
-            for k, v in d.items():
-                batch[k] = np.stack(v, axis=1)
-                v.clear()
-            yield batch
-
-        p.join()
-
-        if (b + 1) % batchsize:
-            yield {k: np.stack(v, axis=1) for k, v in d.items()}
-
-    def _load(self, queue, keys, indexes):
-        for key, index in zip(keys, indexes):
-            data = self.load(key, index)
-            queue.put(data)
