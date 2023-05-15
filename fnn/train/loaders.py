@@ -19,7 +19,7 @@ class Loader:
         """
         self.dataset = dataset
 
-    def load(self, training=True, display_progress=True):
+    def __call__(self, training=True, display_progress=True):
         """
         Parameters
         ----------
@@ -125,7 +125,7 @@ class RandomBatches(Loader):
             data = self.dataset.load(key, index)
             queue.put(data)
 
-    def load(self, training=True, display_progress=True):
+    def __call__(self, training=True, display_progress=True):
         """
         Parameters
         ----------

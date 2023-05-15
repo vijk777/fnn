@@ -29,7 +29,7 @@ class Objective:
         """
         raise NotImplementedError()
 
-    def objective(self, training=True, **data):
+    def __call__(self, training=True, **data):
         """
         Parameters
         ----------
@@ -65,7 +65,7 @@ class Architecture(Objective):
     def dtype(self):
         return architectures.Architecture
 
-    def objective(self, units, stimuli, perspectives=None, modulations=None, training=True):
+    def __call__(self, units, stimuli, perspectives=None, modulations=None, training=True):
         """
         Parameters
         ----------
