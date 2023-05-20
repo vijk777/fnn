@@ -154,8 +154,7 @@ class SgdClip(Optimizer):
             hyperparameter scheduler
         """
         super()._init(module, scheduler)
-        self.param_groups = list(module.param_groups(**self.hyperparameters))
-        self.norm_dims = dict(module.param_norm_dims())
+        self.parameters = list(module.parameters())
         self.momentums = dict()
 
     @property
@@ -173,50 +172,49 @@ class SgdClip(Optimizer):
         """
         Perform a gradient descent step
         """
-        for group in self.param_groups:
+        hp = self.scheduler(**self.hyperparameters)
 
-            hp = self.scheduler(**{k: group[k] for k in self.hyperparameters})
+        lr = hp["lr"]
+        momentum = hp["momentum"]
+        nesterov = hp["nesterov"]
+        decay = hp["decay"]
+        clip = hp["clip"]
+        eps = hp["eps"]
 
-            lr = hp["lr"]
-            momentum = hp["momentum"]
-            nesterov = hp["nesterov"]
-            decay = hp["decay"]
-            clip = hp["clip"]
-            eps = hp["eps"]
+        for p in self.parameters:
 
-            for p in group["params"]:
+            d_p = p.grad
 
-                d_p = p.grad
+            if d_p is None:
+                continue
 
-                if d_p is None:
-                    continue
+            d_p = d_p.mul(p.scale)
 
-                if clip < float("inf"):
-                    norm_dim = self.norm_dims.get(p)
-                    p_norm = p.norm(p=2, dim=norm_dim, keepdim=True)
-                    d_p_norm = d_p.norm(p=2, dim=norm_dim, keepdim=True)
+            if clip < float("inf"):
+                p_norm = p.norm(p=2, dim=p.norm_dim, keepdim=True)
+                d_p_norm = d_p.norm(p=2, dim=p.norm_dim, keepdim=True)
 
-                    min_norm = eps * p.numel() ** 0.5
-                    max_norm = (clip * p_norm).clamp(min=min_norm)
+                min_norm = eps * p.numel() ** 0.5
+                max_norm = (clip * p_norm).clamp(min=min_norm)
 
-                    c = max_norm / torch.maximum(d_p_norm, max_norm)
-                    d_p = d_p.mul(c)
+                c = max_norm / torch.maximum(d_p_norm, max_norm)
+                d_p = d_p.mul(c)
 
-                if decay > 0:
-                    d_p = d_p.add(p, alpha=decay)
+            if decay > 0 and p.decay:
+                d_p = d_p.add(p, alpha=decay)
 
-                if momentum > 0:
-                    m = self.momentums.get(p, None)
+            if momentum > 0:
+                m = self.momentums.get(p, None)
 
-                    if m is None:
-                        m = self.momentums[p] = torch.clone(d_p)
-                    else:
-                        m.mul_(momentum).add_(d_p)
+                if m is None:
+                    m = self.momentums[p] = torch.clone(d_p)
+                else:
+                    m.mul_(momentum).add_(d_p)
 
-                    if nesterov:
-                        d_p = d_p.add(m, alpha=momentum)
-                    else:
-                        d_p = m
+                if nesterov:
+                    d_p = d_p.add(m, alpha=momentum)
+                else:
+                    d_p = m
 
-                p.add_(d_p, alpha=-lr)
-                p.grad = None
+            p.add_(d_p, alpha=-lr)
+            p.grad = None

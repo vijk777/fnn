@@ -3,6 +3,8 @@ from itertools import chain
 
 
 class Module(nn.Module):
+    """Module"""
+
     def _iterate(self, fn, memo=None):
         if memo is None:
             memo = set()
@@ -22,58 +24,11 @@ class Module(nn.Module):
         else:
             yield from vals
 
-    def _param_groups(self, **kwargs):
-        return
-        yield
-
-    def _param_norm_dims(self):
-        return
-        yield
-
     def _reset(self):
         return
 
     def _restart(self):
         return
-
-    def param_groups(self, lr=0.1, decay=0, **kwargs):
-        collected = set()
-
-        def add_group(group):
-            params = set(group["params"])
-
-            assert len(params) == len(group["params"])
-            assert params.isdisjoint(collected)
-
-            collected.update(params)
-
-        def fn(module):
-            for group in module._param_groups(lr=lr, decay=decay, **kwargs):
-                add_group(group)
-                yield group
-
-            params = set(module.parameters()) - collected
-            if params:
-                group = dict(params=list(params), lr=lr, decay=decay, **kwargs)
-                add_group(group)
-                yield group
-
-        yield from self._iterate(fn)
-
-        assert collected == set(self.parameters())
-
-    def param_norm_dims(self):
-        collected = set()
-
-        def fn(module):
-            for param, norm_dim in module._param_norm_dims():
-
-                assert param not in collected
-                collected.update({param})
-
-                yield param, norm_dim
-
-        yield from self._iterate(fn)
 
     def reset(self):
         def fn(module):
@@ -126,8 +81,12 @@ class Module(nn.Module):
 
 
 class Sequential(nn.Sequential, Module):
+    """Sequential Module"""
+
     pass
 
 
 class ModuleList(nn.ModuleList, Module):
+    """Module List"""
+
     pass

@@ -1,7 +1,7 @@
 import torch
-from torch.nn import Parameter
-from .modules import Module
 from .utils import isotropic_grid_2d, rmat_3d
+from .parameters import Parameter
+from .modules import Module
 
 
 # -------------- Monitor Prototype --------------
@@ -102,22 +102,22 @@ class Plane(Monitor):
 
         self.center_std = Parameter(torch.zeros(3))
         self.angle_std = Parameter(torch.zeros(3))
-        self._restart()
 
+        for param in [self.center, self.angle, self.center_std, self.angle_std]:
+            param.decay = False
+
+        self._restart()
         self._position = dict()
         self._rays = dict()
-
-    def _reset(self):
-        self._position.clear()
-        self._rays.clear()
 
     def _restart(self):
         with torch.no_grad():
             self.center_std.fill_(self.init_center_std)
             self.angle_std.fill_(self.init_angle_std)
 
-    def _param_groups(self, lr=0.1, decay=0, **kwargs):
-        yield dict(params=list(self.parameters()), lr=lr, decay=0, **kwargs)
+    def _reset(self):
+        self._position.clear()
+        self._rays.clear()
 
     def position(self, batch_size=1):
         """

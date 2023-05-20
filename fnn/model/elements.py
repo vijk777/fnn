@@ -1,9 +1,10 @@
 import math
 import torch
-from torch.nn import functional, init, Parameter, ParameterList
+from torch.nn import functional, init
 from itertools import chain
 from functools import reduce
 from collections import deque
+from .parameters import Parameter, ParameterList
 from .modules import Module, ModuleList
 
 
@@ -186,16 +187,13 @@ class Input(Module):
             return Parameter(weight)
 
         self.weights = ParameterList([param() for _ in range(self.streams)])
+        self.weights.norm_dim = [1, 2, 3, 4]
 
         self._past = [deque(maxlen=self.past_size) for _ in range(self.streams)]
 
     def _reset(self):
         for past in self._past:
             past.clear()
-
-    def _param_norm_dims(self):
-        for weight in self.weights:
-            yield weight, [1, 2, 3, 4]
 
     def forward(self, x, stream):
         """
@@ -283,24 +281,21 @@ class Conv(Module):
         assert self.fan_out > 1
 
         if self.gain:
-            for _ in range(self.streams):
-                self.gains.append(Parameter(torch.ones(self.groups, self.fan_out)))
+            gain = lambda: Parameter(torch.ones(self.groups, self.fan_out))
+            self.gains = ParameterList([gain() for _ in range(streams)])
+            self.gains.decay = False
+            self.gains.norm_dim = 1
 
         if self.bias:
-            for _ in range(self.streams):
-                self.biases.append(Parameter(torch.zeros(self.groups, self.fan_out)))
+            bias = lambda: Parameter(torch.zeros(self.groups, self.fan_out))
+            self.biases = ParameterList([bias() for _ in range(streams)])
+            self.biases.decay = False
+            self.biases.norm_dim = 1
 
         self._weights = dict()
 
     def _reset(self):
         self._weights = dict()
-
-    def _param_norm_dims(self):
-        for param in chain(self.gains, self.biases):
-            yield param, 1
-
-    def _param_groups(self, lr=0.1, decay=0, **kwargs):
-        yield dict(params=list(chain(self.gains, self.biases)), lr=lr, decay=0, **kwargs)
 
     def weights(self, stream):
         """

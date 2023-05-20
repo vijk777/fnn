@@ -1,5 +1,5 @@
 import torch
-from torch.nn import Parameter, ParameterList
+from .parameters import Parameter, ParameterList
 from .modules import Module
 from .elements import Conv
 from .utils import to_groups_2d

@@ -1,4 +1,5 @@
 import torch
+from torch.multiprocessing import spawn, Queue
 import numpy as np
 from tqdm import tqdm
 
@@ -119,6 +120,12 @@ class RandomBatches(Loader):
 
         return i + np.arange(self.sample_size)
 
+    def _load(self, i, queue, keys, indexes):
+        assert i == 0
+        for key, index in zip(keys, indexes):
+            data = self.dataset.load(key, index)
+            queue.put(data)
+
     def __call__(self, training=True, display_progress=True):
         """
         Parameters
@@ -140,17 +147,19 @@ class RandomBatches(Loader):
         else:
             return
 
+        d = {item: [] for item in self.dataset.dataitems}
+        q = Queue(self.batch_size)
+        c = spawn(self._load, args=(q, keys, indexes), nprocs=1, join=False)
+
         if display_progress:
             if training:
                 iterbar = tqdm(desc="Training Batches", total=self.train_size)
             else:
                 iterbar = tqdm(desc="Validation Batches", total=self.val_size)
 
-        d = {item: [] for item in self.dataset.dataitems}
+        for b, _ in enumerate(keys):
 
-        for b, (key, index) in enumerate(zip(keys, indexes)):
-
-            for k, v in self.dataset.load(key, index).items():
+            for k, v in q.get().items():
                 d[k].append(v)
 
             if (b + 1) % self.batch_size:
@@ -166,60 +175,4 @@ class RandomBatches(Loader):
 
             yield batch
 
-    # def _load(self, queue, keys, indexes):
-    #     for key, index in zip(keys, indexes):
-    #         data = self.dataset.load(key, index)
-    #         queue.put(data)
-
-    # def __call__(self, training=True, display_progress=True):
-    #     """
-    #     Parameters
-    #     ----------
-    #     training : bool
-    #         training or validation
-    #     display_progress : bool
-    #         display progress
-
-    #     Yields
-    #     -------
-    #     dict
-    #         training or validation data
-    #     """
-    #     keys = self._random_keys(training)
-
-    #     if keys:
-    #         indexes = [self._random_indexes(key) for key in keys]
-    #     else:
-    #         return
-
-    #     d = {item: [] for item in self.dataset.dataitems}
-    #     q = Queue(self.batch_size)
-
-    #     p = Process(target=self._load, args=(q, keys, indexes))
-    #     p.start()
-
-    #     if display_progress:
-    #         if training:
-    #             iterbar = tqdm(desc="Training Batches", total=self.train_size)
-    #         else:
-    #             iterbar = tqdm(desc="Validation Batches", total=self.val_size)
-
-    #     for b, _ in enumerate(keys):
-
-    #         for k, v in q.get().items():
-    #             d[k].append(v)
-
-    #         if (b + 1) % self.batch_size:
-    #             continue
-
-    #         batch = {}
-    #         for k, v in d.items():
-    #             batch[k] = np.stack(v, axis=1)
-    #             v.clear()
-
-    #         if display_progress:
-    #             iterbar.update(n=1)
-
-    #         yield batch
-
-    #     p.join()
+        assert c.join()

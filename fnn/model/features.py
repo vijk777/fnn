@@ -1,5 +1,5 @@
 import torch
-from torch.nn import Parameter, ParameterList
+from .parameters import Parameter, ParameterList
 from .modules import Module
 
 
@@ -75,21 +75,18 @@ class Norm(Feature):
         self.streams = int(streams)
 
         weight = lambda: Parameter(torch.zeros(self.units, self.outputs, self.inputs))
-        gain = lambda: Parameter(torch.ones(self.units, self.outputs))
-
         self.weights = ParameterList([weight() for _ in range(self.streams)])
+        self.weights.scale = self.units
+        self.weights.norm_dim = 2
+
+        gain = lambda: Parameter(torch.ones(self.units, self.outputs))
         self.gains = ParameterList([gain() for _ in range(self.streams)])
+        self.gains.scale = self.units
+        self.gains.decay = False
+        self.gains.norm_dim = 0
 
     def _reset(self):
         self._features.clear()
-
-    def _param_norm_dims(self):
-        for weight in self.weights:
-            yield weight, 2
-
-    def _param_groups(self, lr=0.1, decay=0, **kwargs):
-        yield dict(params=list(self.weights), lr=lr * self.units, decay=decay, **kwargs)
-        yield dict(params=list(self.gains), lr=lr * self.units, decay=0, **kwargs)
 
     def features(self, stream):
         """

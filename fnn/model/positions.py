@@ -1,5 +1,5 @@
 import torch
-from torch.nn import Parameter
+from .parameters import Parameter
 from .modules import Module
 
 
@@ -56,7 +56,6 @@ class Gaussian(Position):
         """
         super().__init__()
         self.init_std = float(init_std)
-        self._reset()
 
     def _init(self, units):
         """
@@ -66,19 +65,26 @@ class Gaussian(Position):
             number of units (U)
         """
         self.units = int(units)
-        self.mu = Parameter(torch.zeros(units, 2))
-        self.sigma = Parameter(torch.eye(2).repeat(units, 1, 1))
-        self._restart()
 
-    def _reset(self):
-        self._position = None
+        self.mu = Parameter(torch.zeros(units, 2))
+        self.mu.scale = self.units
+        self.mu.decay = False
+        self.mu.norm_dim = 1
+
+        self.sigma = Parameter(torch.eye(2).repeat(units, 1, 1))
+        self.sigma.decay = self.units
+        self.sigma.decay = False
+        self.sigma.norm_dim = [1, 2]
+
+        self._restart()
+        self._reset()
 
     def _restart(self):
         with torch.no_grad():
             self.sigma.copy_(torch.eye(2).mul(self.init_std))
 
-    def _param_groups(self, lr=0.1, decay=0, **kwargs):
-        yield dict(params=[self.mu, self.sigma], lr=lr * self.units, decay=0, **kwargs)
+    def _reset(self):
+        self._position = None
 
     def sample(self, batch_size=1):
         """

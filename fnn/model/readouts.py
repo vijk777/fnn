@@ -1,5 +1,6 @@
 import torch
-from torch.nn import Parameter, ParameterList, functional
+from torch.nn import functional
+from .parameters import Parameter, ParameterList
 from .modules import Module
 from .utils import to_groups_2d
 
@@ -95,9 +96,9 @@ class PositionFeature(Readout):
         )
         bias = lambda: Parameter(torch.zeros(self.units, self.readouts))
         self.biases = ParameterList([bias() for _ in range(self.streams)])
-
-    def _param_groups(self, lr=0.1, decay=0, **kwargs):
-        yield dict(params=list(self.biases), lr=lr * self.units, decay=0, **kwargs)
+        self.biases.scale = self.units
+        self.biases.decay = False
+        self.biases.norm_dim = 0
 
     def forward(self, core, stream=None):
         """
