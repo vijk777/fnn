@@ -9,7 +9,7 @@ from .parallel import ParameterGroup
 class Optimizer:
     """Module Optimizer"""
 
-    def _init(self, module, scheduler):
+    def _init(self, scheduler):
         """
         Parameters
         ----------
@@ -18,7 +18,6 @@ class Optimizer:
         scheduler : fnn.train.schedulers.Scheduler
             hyperparameter scheduler
         """
-        self.module = module
         self.scheduler = scheduler
 
     @property
@@ -31,13 +30,19 @@ class Optimizer:
         """
         raise NotImplementedError()
 
-    def step(self):
-        """
-        Perform a gradient descent step
+    def step(self, parameters, **kwargs):
+        """Perform a gradient descent step
+
+        Parameters
+        ----------
+        parameters : list[fnn.model.parameters.Parameter]
+            list of parameters
+        **kwargs
+            hyperparameters
         """
         raise NotImplementedError()
 
-    def optimize(self, loader, objective, seed=42, parallel=None):
+    def optimize(self, loader, objective, parameters, groups=None, seed=42):
         """
         Parameters
         ----------
@@ -45,29 +50,22 @@ class Optimizer:
             data loader
         objective : fnn.train.objectives.Objective
             training objective
+        parameters : list[fnn.model.parameters.Parameter]
+            list of parameters
+        groups : None | list[fnn.train.parallel.ParameterGroup]
+            None | list of parameter groups
         seed : int
             random seed
-        parallel : None | list[ tuple[list[str], torch.distributed.ProcessGroup] ]
-            None or [([`component`, ...], `process group`), ...]
+
+        Yields
+        ------
+        int
+            epoch number
+        dict
+            optimization info (hyperparameters and objectives)
         """
-        objective._init(self.module)
-
-        groups = []
-        for components, group in [] if parallel is None else parallel:
-
-            parameters = dict()
-            for component in components:
-
-                c = getattr(self.module, component)
-                if c.frozen:
-                    continue
-
-                p = {f"{component}.{k}": v for k, v in c.named_parameters()}
-                parameters = dict(**parameters, **p)
-
-            if parameters:
-                g = ParameterGroup(parameters=parameters, group=group)
-                groups.append(g)
+        parameters = list(parameters)
+        groups = [] if groups is None else list(groups)
 
         while self.scheduler.step():
 
@@ -98,7 +96,7 @@ class Optimizer:
                             for g in groups:
                                 g.sync_grads()
 
-                            self.step()
+                            self.step(parameters, **info)
 
                         objectives.append(o)
 
@@ -168,20 +166,27 @@ class SgdClip(Optimizer):
         return self._hyperparameters
 
     @torch.no_grad()
-    def step(self):
-        """
-        Perform a gradient descent step
-        """
-        hp = self.scheduler(**self.hyperparameters)
+    def step(self, parameters, lr, momentum, nesterov, decay, clip, eps):
+        """Perform a gradient descent step
 
-        lr = hp["lr"]
-        momentum = hp["momentum"]
-        nesterov = hp["nesterov"]
-        decay = hp["decay"]
-        clip = hp["clip"]
-        eps = hp["eps"]
-
-        for p in self.parameters:
+        Parameters
+        ----------
+        parameters : list[fnn.model.parameters.Parameter]
+            list of parameters
+        lr : float
+            learning rate
+        decay : float
+            weight decay
+        momentum : float
+            momentum factor [0, 1)
+        nesterov : bool
+            enables nesterov momentum
+        clip : float
+            adaptive gradient clipping factor
+        eps : float
+            adaptive gradient clipping minimum
+        """
+        for p in parameters:
 
             d_p = p.grad
 

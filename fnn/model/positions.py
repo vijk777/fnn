@@ -69,12 +69,10 @@ class Gaussian(Position):
         self.mu = Parameter(torch.zeros(units, 2))
         self.mu.scale = self.units
         self.mu.decay = False
-        self.mu.norm_dim = 1
 
         self.sigma = Parameter(torch.eye(2).repeat(units, 1, 1))
-        self.sigma.decay = self.units
+        self.sigma.scale = self.units
         self.sigma.decay = False
-        self.sigma.norm_dim = [1, 2]
 
         self._restart()
         self._reset()
