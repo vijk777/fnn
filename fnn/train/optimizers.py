@@ -78,15 +78,12 @@ class Optimizer:
                 g.sync_params()
 
             for training, desc in [[True, "training"], [False, "validation"]]:
-
                 objectives = []
 
                 with torch.random.fork_rng(devices):
-
                     torch.manual_seed(_seed)
 
                     for data in loader(training=training):
-
                         o = objective(training=training, **data)
 
                         if not np.isfinite(o):
@@ -95,7 +92,6 @@ class Optimizer:
                         if training:
                             for g in groups:
                                 g.sync_grads()
-
                             self.step(parameters, **kwargs)
 
                         objectives.append(o)
