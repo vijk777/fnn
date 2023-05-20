@@ -35,8 +35,8 @@ class Optimizer:
 
         Parameters
         ----------
-        parameters : list[fnn.model.parameters.Parameter]
-            list of parameters
+        parameters : Mapping[str, fnn.model.parameters.Parameter]
+            mapping of parameters
         **kwargs
             hyperparameters
         """
@@ -50,8 +50,8 @@ class Optimizer:
             data loader
         objective : fnn.train.objectives.Objective
             training objective
-        parameters : list[fnn.model.parameters.Parameter]
-            list of parameters
+        parameters : Mapping[str, fnn.model.parameters.Parameter]
+            mapping of parameters
         groups : None | list[fnn.train.parallel.ParameterGroup]
             None | list of parameter groups
         seed : int
@@ -64,7 +64,7 @@ class Optimizer:
         dict
             optimization info (hyperparameters and objectives)
         """
-        parameters = list(parameters)
+        parameters = dict(parameters)
         groups = [] if groups is None else list(groups)
 
         while self.scheduler.step():
@@ -160,8 +160,8 @@ class SgdClip(Optimizer):
 
         Parameters
         ----------
-        parameters : list[fnn.model.parameters.Parameter]
-            list of parameters
+        parameters : Mapping[str, fnn.model.parameters.Parameter]
+            mapping of parameters
         lr : float
             learning rate
         decay : float
@@ -175,7 +175,7 @@ class SgdClip(Optimizer):
         eps : float
             adaptive gradient clipping minimum
         """
-        for p in parameters:
+        for k, p in parameters.items():
 
             d_p = p.grad
 
@@ -198,10 +198,10 @@ class SgdClip(Optimizer):
                 d_p = d_p.add(p, alpha=decay)
 
             if momentum > 0:
-                m = self.momentums.get(p, None)
+                m = self.momentums.get(k, None)
 
                 if m is None:
-                    m = self.momentums[p] = torch.clone(d_p)
+                    m = self.momentums[k] = torch.clone(d_p)
                 else:
                     m.mul_(momentum).add_(d_p)
 
