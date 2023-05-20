@@ -70,6 +70,7 @@ class Optimizer:
         while self.scheduler.step():
 
             info = self.scheduler(**self.hyperparameters)
+            _seed = seed + self.scheduler.seed
 
             for g in groups:
                 g.sync_params()
@@ -82,7 +83,6 @@ class Optimizer:
                 devices = list(range(devices))
                 with torch.random.fork_rng(devices):
 
-                    _seed = seed + self.scheduler.seed
                     torch.manual_seed(_seed)
 
                     for data in loader(training=training):
@@ -103,7 +103,7 @@ class Optimizer:
                 if objectives:
                     info[f"{desc}_objective"] = np.mean(objectives)
 
-            yield self.scheduler.epoch, info
+            yield self.scheduler.epoch, dict(seed=_seed, **info)
 
 
 # -------------- Optimizer Types --------------
