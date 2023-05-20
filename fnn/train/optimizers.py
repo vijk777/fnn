@@ -66,6 +66,7 @@ class Optimizer:
         """
         parameters = dict(parameters)
         groups = [] if groups is None else list(groups)
+        devices = list(range(torch.cuda.device_count()))
 
         while self.scheduler.step():
 
@@ -80,8 +81,6 @@ class Optimizer:
 
                 objectives = []
 
-                devices = torch.cuda.device_count()
-                devices = list(range(devices))
                 with torch.random.fork_rng(devices):
 
                     torch.manual_seed(_seed)
