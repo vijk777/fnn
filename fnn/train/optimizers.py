@@ -69,8 +69,9 @@ class Optimizer:
 
         while self.scheduler.step():
 
-            info = self.scheduler(**self.hyperparameters)
+            kwargs = self.scheduler(**self.hyperparameters)
             _seed = seed + self.scheduler.seed
+            info = dict(seed=_seed, **kwargs)
 
             for g in groups:
                 g.sync_params()
@@ -96,14 +97,14 @@ class Optimizer:
                             for g in groups:
                                 g.sync_grads()
 
-                            self.step(parameters, **info)
+                            self.step(parameters, **kwargs)
 
                         objectives.append(o)
 
                 if objectives:
                     info[f"{desc}_objective"] = np.mean(objectives)
 
-            yield self.scheduler.epoch, dict(seed=_seed, **info)
+            yield self.scheduler.epoch, info
 
 
 # -------------- Optimizer Types --------------
