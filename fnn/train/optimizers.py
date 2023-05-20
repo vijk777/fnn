@@ -133,8 +133,6 @@ class SgdClip(Optimizer):
         assert clip > 0
         assert eps > 0
 
-        self.momentum = dict()
-
         self._hyperparameters = dict(
             lr=float(lr),
             decay=float(decay),
@@ -143,6 +141,8 @@ class SgdClip(Optimizer):
             clip=float(clip),
             eps=float(eps),
         )
+
+        self.momentums = dict()
 
     @property
     def hyperparameters(self):
