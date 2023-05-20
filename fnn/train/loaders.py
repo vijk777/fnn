@@ -42,7 +42,7 @@ class Loader:
 class RandomBatches(Loader):
     """Randomly Sampled Batches"""
 
-    def __init__(self, sample_size, batch_size, epoch_size, train_fraction=0.95, split_seed=42):
+    def __init__(self, sample_size, batch_size, epoch_size, train_fraction=0.95, seed=42):
         """
         Parameters
         ----------
@@ -54,7 +54,7 @@ class RandomBatches(Loader):
             number of batches in an epoch
         train_fraction : float
             fraction of the data used for training
-        split_seed : int
+        seed : int
             random seed for splitting data into training/validation
         """
         assert sample_size > 0
@@ -66,7 +66,7 @@ class RandomBatches(Loader):
         self.batch_size = int(batch_size)
         self.epoch_size = int(epoch_size)
         self.train_fraction = float(train_fraction)
-        self.split_seed = int(split_seed)
+        self.seed = int(seed)
 
     def _init(self, dataset):
         """
@@ -84,7 +84,7 @@ class RandomBatches(Loader):
         self.train_size = round(self.epoch_size * train_n / n)
         self.val_size = round(self.epoch_size * val_n / n)
 
-        rng = np.random.default_rng(self.split_seed)
+        rng = np.random.default_rng(self.seed)
         train_idx = rng.choice(n, size=train_n, replace=False)
 
         train_mask = np.zeros(n, dtype=bool)

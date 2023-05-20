@@ -47,20 +47,26 @@ class Optimizer:
             training objective
         seed : int
             random seed
-        parallel : None | list[ tuple[str, torch.distributed.ProcessGroup] ]
-            None or [(`component`, `process group`), ...]
+        parallel : None | list[ tuple[list[str], torch.distributed.ProcessGroup] ]
+            None or [([`component`, ...], `process group`), ...]
         """
         objective._init(self.module)
 
         groups = []
-        if parallel is not None:
-            for component, group in parallel:
+        for components, group in [] if parallel is None else parallel:
+
+            parameters = dict()
+            for component in components:
 
                 c = getattr(self.module, component)
                 if c.frozen:
                     continue
 
-                g = ParameterGroup(parameters=c.named_parameters(), group=group)
+                p = {f"{component}.{k}": v for k, v in c.named_parameters()}
+                parameters = dict(**parameters, **p)
+
+            if parameters:
+                g = ParameterGroup(parameters=parameters, group=group)
                 groups.append(g)
 
         while self.scheduler.step():
@@ -74,12 +80,11 @@ class Optimizer:
 
                 objectives = []
 
-                device = torch.cuda.current_device()
-                print(device)  # TODO: REMOVE
+                devices = torch.cuda.device_count()
+                devices = list(range(devices))
+                with torch.random.fork_rng(devices):
 
-                with torch.random.fork_rng([device]):
-
-                    _seed = seed + self.scheduler.size * self.scheduler.cycle + self.scheduler.epoch
+                    _seed = seed + self.scheduler.seed
                     torch.manual_seed(_seed)
 
                     for data in loader(training=training):
@@ -100,7 +105,7 @@ class Optimizer:
                 if objectives:
                     info[f"{desc}_objective"] = np.mean(objectives)
 
-            yield info
+            yield self.scheduler.epoch, info
 
 
 # -------------- Optimizer Types --------------

@@ -1,4 +1,5 @@
 import numpy as np
+import torch.distributed as dist
 
 
 # -------------- Scheduler Prototype --------------
@@ -35,6 +36,16 @@ class Scheduler:
 
         self.epoch += 1
         return not self.finished
+
+    @property
+    def seed(self):
+        """
+        Returns
+        -------
+        int
+            training seed
+        """
+        raise NotImplementedError()
 
     @property
     def finished(self):
@@ -91,7 +102,30 @@ class CosineLr(Scheduler):
         self.burnin_cycles = int(burnin_cycles)
 
     @property
+    def seed(self):
+        """
+        Returns
+        -------
+        int
+            training seed
+        """
+        if dist.is_initialized():
+            rank = dist.get_rank()
+            size = dist.get_world_size()
+        else:
+            rank = 0
+            size = 1
+
+        return self.epoch + rank + size * self.cycle_size * self.cycle
+
+    @property
     def finished(self):
+        """
+        Returns
+        -------
+        bool
+            whether the training cycle is finished
+        """
         return self.epoch >= self.cycle_size
 
     def __call__(self, lr, **kwargs):

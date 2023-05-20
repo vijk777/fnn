@@ -176,7 +176,7 @@ class MonitorRetina(Perspective):
             [N, P, H', W']
         """
         rmat = self.rmat(perspective)
-        rays = self.retina.rays(rmat).repeat(stimulus.size(0), 1, 1, 1)
+        rays = self.retina.rays(rmat)
         grid = self.monitor.project(rays)
         stim = self.luminance(stimulus)
         return isotropic_grid_sample_2d(

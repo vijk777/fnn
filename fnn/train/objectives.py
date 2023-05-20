@@ -98,6 +98,7 @@ class ArchitectureLoss(Objective):
             stimuli=stimuli,
             perspectives=perspectives,
             modulations=modulations,
+            stream=stream,
             training=training,
         )
         losses = list(losses)[self.burnin_frames :]
