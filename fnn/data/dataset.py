@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+import os
+import tempfile
 
 
 # -------------- Data Item --------------
@@ -26,7 +28,7 @@ class Item:
 class NpyFile(Item):
     """Numpy Data Item"""
 
-    def __init__(self, filepath, indexmap=None, transform=None):
+    def __init__(self, filepath, indexmap=None, transform=None, dtype=None):
         """
         Parameters
         ----------
@@ -34,16 +36,33 @@ class NpyFile(Item):
             file to read
         indexmap : 1D array
             index map for the npy file
+        transform : Callable[[ND array], ND array]
+            data transformation
+        dtype : None | np.dtype
+            data dtype
         """
-        self.filepath = filepath
-        self.indexmap = indexmap
-        self.transform = transform
+        data = np.load(filepath)
+
+        if indexmap is not None:
+            data = data[indexmap]
+
+        if transform is not None:
+            data = transform(data)
+
+        if dtype is not None:
+            data = data.astype(dtype)
+
+        self.fd = tempfile.mkdtemp()
+        self.fp = os.path.join(self.fd, "data.npy")
+
+        np.save(self.fp, data)
 
     def __getitem__(self, index):
-        x = np.load(self.filepath, mmap_mode="r")
-        i = index if self.indexmap is None else self.indexmap[index]
-        t = np.array if self.transform is None else self.transform
-        return t(x[i])
+        return np.load(self.fp, mmap_mode="r")[index]
+
+    def __del__(self):
+        os.remove(self.fp)
+        os.rmdir(self.fd)
 
 
 # -------------- Data Set --------------
