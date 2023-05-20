@@ -116,7 +116,7 @@ class CosineLr(Scheduler):
             rank = 0
             size = 1
 
-        return self.epoch + rank + size * self.cycle_size * self.cycle
+        return rank + size * (self.epoch + self.cycle_size * self.cycle)
 
     @property
     def finished(self):
