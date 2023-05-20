@@ -133,6 +133,8 @@ class SgdClip(Optimizer):
         assert clip > 0
         assert eps > 0
 
+        self.momentum = dict()
+
         self._hyperparameters = dict(
             lr=float(lr),
             decay=float(decay),
@@ -141,19 +143,6 @@ class SgdClip(Optimizer):
             clip=float(clip),
             eps=float(eps),
         )
-
-    def _init(self, module, scheduler):
-        """
-        Parameters
-        ----------
-        module : fnn.model.modules.Module
-            module to optimize
-        scheduler : fnn.train.schedulers.Scheduler
-            hyperparameter scheduler
-        """
-        super()._init(module, scheduler)
-        self.parameters = list(module.parameters())
-        self.momentums = dict()
 
     @property
     def hyperparameters(self):
