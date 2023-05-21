@@ -107,8 +107,9 @@ class Plane(Monitor):
             param.decay = False
 
         self._restart()
+
         self._position = dict()
-        self._rays = dict()
+        self._rays = None
 
     def _restart(self):
         with torch.no_grad():
@@ -117,7 +118,7 @@ class Plane(Monitor):
 
     def _reset(self):
         self._position.clear()
-        self._rays.clear()
+        self._rays = None
 
     def position(self, batch_size=1):
         """
@@ -199,14 +200,7 @@ class Plane(Monitor):
         Tensor
             [N, H, W, 3], grid of 3D rays
         """
-        if self._rays:
-            assert batch_size == self._rays["rays"].size(0)
-            assert height == self._rays["height"]
-            assert width == self._rays["width"]
-
-            rays = self._rays["rays"]
-
-        else:
+        if self._rays is None:
             x, y = isotropic_grid_2d(
                 height=height,
                 width=width,
@@ -218,13 +212,15 @@ class Plane(Monitor):
             X = torch.einsum("H W , N D -> N H W D", x, X)
             Y = torch.einsum("H W , N D -> N H W D", y, Y)
 
-            rays = center[:, None, None, :] + X + Y
+            self._rays = center[:, None, None, :] + X + Y
 
-            self._rays["rays"] = rays
-            self._rays["height"] = height
-            self._rays["width"] = width
+        else:
+            N, H, W, _ = self._rays.shape
+            assert N == batch_size
+            assert H == height
+            assert W == width
 
-        return rays
+        return self._rays
 
     def extra_repr(self):
         params = self.center.tolist() + self.angle.tolist()
