@@ -84,6 +84,19 @@ class Architecture(Module):
         """
         raise NotImplementedError()
 
+    def parallel_groups(self, instances=1):
+        """
+        Parameters
+        ----------
+        instances : int
+            training instances
+
+        Yields
+        ------
+        fnn.train.parallel.ParameterGroup
+        """
+        raise NotImplementedError()
+
 
 # -------------- Architecture Types --------------
 
@@ -423,3 +436,49 @@ class Visual(Architecture):
                     yield loss.cpu().numpy()
 
         self.train(_training)
+
+    def parallel_groups(self, instances=1):
+        """
+        Parameters
+        ----------
+        instances : int
+            training instances
+
+        Yields
+        ------
+        fnn.train.parallel.ParameterGroup
+        """
+        from torch.distributed import is_initialized, get_world_size, get_rank, new_group
+        from fnn.train.parallel import ParameterGroup
+
+        if not is_initialized():
+            assert instances == 1
+            return
+
+        size = get_world_size()
+        assert size % instances == 0
+
+        if not size > 1:
+            return
+
+        if not self.core.frozen:
+            ranks = np.arange(size)
+            yield ParameterGroup(
+                parameters=self.core.named_parameters(),
+                group=new_group(ranks),
+            )
+
+        if instances > 1:
+            params = dict()
+
+            for name in ["perspective", "modulation", "readout", "reduce", "unit"]:
+                module = getattr(self, name)
+                if not module.frozen:
+                    params = dict(params, **{f"{name}.{k}": v for k, v in module.named_parameters()})
+
+            if params:
+                ranks = get_rank() // instances * instances + np.arange(instances)
+                yield ParameterGroup(
+                    parameters=params,
+                    group=new_group(ranks),
+                )
