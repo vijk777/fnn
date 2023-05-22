@@ -33,16 +33,12 @@ class Modulation(Module):
         Parameters
         ----------
         modulation : Tensor
-            [N, S*I] -- stream is None
-                or
-            [N, I] -- stream is int
+            [N, I]
 
         Returns
         -------
         Tensor
-            [N, S*M] -- stream is None
-                or
-            [N, M] -- stream is int
+            [N, M]
         """
         raise NotImplementedError()
 
@@ -102,16 +98,12 @@ class Lstm(Modulation):
         Parameters
         ----------
         modulation : Tensor
-            [N, S*I] -- stream is None
-                or
-            [N, I] -- stream is int
+            [N, I]
 
         Returns
         -------
         Tensor
-            [N, S*M] -- stream is None
-                or
-            [N, M] -- stream is int
+            [N, M]
         """
         if self._past:
             h = self._past["h"]

@@ -88,28 +88,25 @@ class FeedforwardRecurrent(Core):
         self.perspectives = int(perspectives)
         self.modulations = int(modulations)
         self.streams = int(streams)
-
         self.feedforward._init(
             inputs=[
-                [perspectives, False],
+                [self.perspectives, False],
             ],
-            streams=streams,
+            streams=self.streams,
         )
         self.recurrent._init(
             inputs=[
                 [self.feedforward.channels, True],
-                [modulations, True],
+                [self.modulations, True],
                 [2, False],
             ],
-            streams=streams,
+            streams=self.streams,
         )
-
         self.proj = Conv(channels=self.channels, streams=self.streams, gain=False, bias=False)
         self.proj.add_input(
             channels=self.recurrent.channels,
             drop=True,
         )
-
         self._reset()
 
     def _reset(self):
