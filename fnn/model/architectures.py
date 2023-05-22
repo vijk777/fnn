@@ -28,7 +28,7 @@ class Architecture(Module):
         """
         raise NotImplementedError()
 
-    def generate_predictions(self, stimuli, perspectives=None, modulations=None, training=False):
+    def generate_responses(self, stimuli, perspectives=None, modulations=None, training=False):
         """
         Parameters
         ----------
@@ -311,7 +311,7 @@ class Visual(Architecture):
 
         return tensor(stimulus), tensor(perspective), tensor(modulation), squeeze
 
-    def generate_predictions(self, stimuli, perspectives=None, modulations=None, training=False):
+    def generate_responses(self, stimuli, perspectives=None, modulations=None, training=False):
         """
         Parameters
         ----------
