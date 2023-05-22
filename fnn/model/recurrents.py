@@ -76,7 +76,6 @@ class Rvt(Recurrent):
         self._channels = int(channels)
         self.groups = int(groups)
         self.kernel_size = int(kernel_size)
-        self._past = dict()
 
     def _init(self, inputs, streams):
         """
@@ -167,6 +166,8 @@ class Rvt(Recurrent):
             groups=self.groups,
             kernel_size=self.kernel_size,
         )
+
+        self._past = dict()
 
     def _reset(self):
         self._past.clear()
