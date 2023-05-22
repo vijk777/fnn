@@ -146,7 +146,7 @@ class Rvt(Recurrent):
             kernel_size=self.kernel_size,
         )
 
-        self.proj_g = Conv(channels=self.channels, groups=self.groups, streams=streams)
+        self.proj_g = Conv(channels=self.channels, groups=self.groups, streams=self.streams)
         self.proj_g.add_input(
             channels=self.channels,
             groups=self.groups,
@@ -157,7 +157,7 @@ class Rvt(Recurrent):
             kernel_size=self.kernel_size,
         )
 
-        self.proj_o = Conv(channels=self.channels, groups=self.groups, streams=streams)
+        self.proj_o = Conv(channels=self.channels, groups=self.groups, streams=self.streams)
         self.proj_o.add_input(
             channels=self.channels,
             groups=self.groups,
