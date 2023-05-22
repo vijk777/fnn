@@ -71,7 +71,7 @@ class Optimizer:
         while self.scheduler.step():
 
             kwargs = self.scheduler(**self.hyperparameters)
-            _seed = seed + self.scheduler.seed
+            _seed = int(seed + self.scheduler.seed)
             info = dict(seed=_seed, **kwargs)
 
             for g in groups:
