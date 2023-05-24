@@ -1,7 +1,7 @@
-import torch
-from torch.multiprocessing import spawn, Queue
 import numpy as np
 from tqdm import tqdm
+from torch import randint
+from torch.multiprocessing import spawn, Queue
 
 
 # -------------- Loader Prototype --------------
@@ -106,7 +106,7 @@ class RandomBatches(Loader):
         else:
             return []
 
-        idx = torch.randint(high=len(keys), size=(size,)).numpy()
+        idx = randint(high=len(keys), size=(size,)).numpy()
 
         return keys[idx].tolist()
 
@@ -114,7 +114,7 @@ class RandomBatches(Loader):
         high = self.dataset.loc[key].samples - self.sample_size
 
         if high > 0:
-            i = torch.randint(high=high, size=(1,)).item()
+            i = randint(high=high, size=(1,)).item()
         else:
             i = 0
 
