@@ -46,6 +46,9 @@ class Linear(Luminance):
     def inverse(self, stimulus):
         return stimulus.sub(self.offset).div(self.scale)
 
+    def extra_repr(self):
+        return f"scale={self.scale:.3g}, offset={self.offset:.3g}"
+
 
 class Power(Luminance):
     def __init__(self, power=1, scale=1, offset=0):
