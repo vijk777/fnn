@@ -5,11 +5,11 @@ from contextlib import nullcontext
 from .modules import Module
 
 
-# -------------- Architecture Prototype --------------
+# -------------- Network Prototype --------------
 
 
-class Architecture(Module):
-    """Architecture Module"""
+class Network(Module):
+    """Neural Network"""
 
     def _init(self, stimuli, perspectives, modulations, units, streams):
         """
@@ -98,11 +98,11 @@ class Architecture(Module):
         raise NotImplementedError()
 
 
-# -------------- Architecture Types --------------
+# -------------- Network Types --------------
 
 
-class Visual(Architecture):
-    """Visual Cortex"""
+class Visual(Network):
+    """Visual Neural Network"""
 
     def __init__(self, core, perspective, modulation, readout, reduce, unit):
         """

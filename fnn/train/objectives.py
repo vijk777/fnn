@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-from fnn.model import architectures
 
 
 # -------------- Objective Prototype --------------
@@ -16,18 +15,7 @@ class Objective:
         module : fnn.model.modules.Module
             module to optimize
         """
-        assert isinstance(module, self.dtype)
         self.module = module
-
-    @property
-    def dtype(self):
-        """
-        Returns
-        -------
-        type(fnn.model.modules.Module)
-            module type
-        """
-        raise NotImplementedError()
 
     def __call__(self, training=True, **data):
         """
@@ -49,8 +37,8 @@ class Objective:
 # -------------- Objective Types --------------
 
 
-class ArchitectureLoss(Objective):
-    """Architecture Loss"""
+class NetworkLoss(Objective):
+    """Network Loss"""
 
     def __init__(self, sample_stream=True, burnin_frames=0):
         """
@@ -65,10 +53,6 @@ class ArchitectureLoss(Objective):
 
         self.sample_stream = bool(sample_stream)
         self.burnin_frames = int(burnin_frames)
-
-    @property
-    def dtype(self):
-        return architectures.Architecture
 
     def __call__(self, units, stimuli, perspectives=None, modulations=None, training=True):
         """
