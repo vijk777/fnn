@@ -144,8 +144,9 @@ class FeedforwardRecurrent(Core):
             perspective = perspective.repeat(1, self.streams, 1, 1)
             modulation = modulation.repeat(1, self.streams)
 
-        f = self.feedforward([perspective], stream=stream)
-        m = modulation[:, :, None, None]
+        N = max(perspective.size(0), modulation.size(0))
+        f = self.feedforward([perspective], stream=stream).expand(N, -1, -1, -1)
+        m = modulation[:, :, None, None].expand(N, -1, -1, -1)
         g = self._grid
 
         if g is None:

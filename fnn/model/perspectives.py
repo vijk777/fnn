@@ -175,10 +175,11 @@ class MonitorRetina(Perspective):
         Tensor
             [N, P, H', W']
         """
-        rmat = self.rmat(perspective)
+        size = max(stimulus.size(0), perspective.size(0))
+        rmat = self.rmat(perspective).expand(size, -1, -1)
         rays = self.retina.rays(rmat)
         grid = self.monitor.project(rays)
-        stim = self.luminance(stimulus)
+        stim = self.luminance(stimulus).expand(size, -1, -1, -1)
         return isotropic_grid_sample_2d(
             stim,
             grid=grid,
