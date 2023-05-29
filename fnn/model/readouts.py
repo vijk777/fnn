@@ -47,7 +47,7 @@ class Readout(Module):
         raise NotImplementedError()
 
 
-# -------------- Readout Prototype --------------
+# -------------- Readout Types --------------
 
 
 class PositionFeature(Readout):
