@@ -104,6 +104,8 @@ class Optimizer:
 
 
 class SgdClip(Optimizer):
+    """Stochastic Gradient Descent with Adaptive Gradient Clipping"""
+
     def __init__(self, lr=0.1, decay=0, momentum=0, nesterov=False, clip=float("inf"), eps=0.001):
         """
         Parameters
