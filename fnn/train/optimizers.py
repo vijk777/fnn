@@ -13,8 +13,6 @@ class Optimizer:
         """
         Parameters
         ----------
-        module : fnn.model.modules.Module
-            module to optimize
         scheduler : fnn.train.schedulers.Scheduler
             hyperparameter scheduler
         """
