@@ -33,6 +33,8 @@ class Bound(Module):
 
 
 class Tanh(Bound):
+    """Tanh Bound"""
+
     @property
     def vmin(self):
         return -1

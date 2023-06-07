@@ -27,6 +27,8 @@ class Luminance(Module):
 
 
 class Linear(Luminance):
+    """Linear Luminance"""
+
     def __init__(self, scale=1, offset=0):
         """
         Parameters
@@ -51,6 +53,8 @@ class Linear(Luminance):
 
 
 class Power(Luminance):
+    """Power Luminance"""
+
     def __init__(self, power=1, scale=1, offset=0):
         """
         Parameters

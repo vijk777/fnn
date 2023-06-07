@@ -47,6 +47,8 @@ class Position(Module):
 
 
 class Gaussian(Position):
+    """Gaussian Position"""
+
     def __init__(self, init_std=0.4):
         """
         Parameters

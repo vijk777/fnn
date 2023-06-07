@@ -45,6 +45,8 @@ class Feature(Module):
 
 
 class Norm(Feature):
+    """Norm Feature"""
+
     def __init__(self, eps=1e-5):
         """
         Parameters

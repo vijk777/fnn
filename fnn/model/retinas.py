@@ -71,6 +71,8 @@ class Retina(Module):
 
 
 class Angular(Retina):
+    """Angular Retina"""
+
     def __init__(self, degrees=75):
         """
         Parameters

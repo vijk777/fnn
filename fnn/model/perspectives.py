@@ -81,6 +81,8 @@ class Perspective(Module):
 
 
 class MonitorRetina(Perspective):
+    """Monitor & Retina Perspective"""
+
     def __init__(self, monitor, luminance, retina, height, width, features, nonlinear=None):
         """
         Parameters

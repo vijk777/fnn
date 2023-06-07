@@ -47,6 +47,8 @@ class Modulation(Module):
 
 
 class Lstm(Modulation):
+    """Lstm Modulation"""
+
     def __init__(self, features):
         """
         Parameters

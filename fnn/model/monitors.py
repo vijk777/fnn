@@ -47,6 +47,8 @@ class Monitor(Module):
 
 
 class Plane(Monitor):
+    """Plane Monitor"""
+
     def __init__(
         self,
         init_center_x=0,

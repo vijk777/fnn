@@ -51,6 +51,8 @@ class Readout(Module):
 
 
 class PositionFeature(Readout):
+    """Position & Feature Readout"""
+
     def __init__(self, position, bound, feature):
         """
         Parameters

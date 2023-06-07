@@ -58,6 +58,8 @@ class Core(Module):
 
 
 class FeedforwardRecurrent(Core):
+    """Feedforward & Recurrent Core"""
+
     def __init__(self, feedforward, recurrent, channels):
         """
         Parameters

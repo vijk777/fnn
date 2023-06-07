@@ -53,6 +53,8 @@ class Unit(Module):
 
 
 class Poisson(Unit):
+    """Poisson Unit"""
+
     @property
     def readouts(self):
         """

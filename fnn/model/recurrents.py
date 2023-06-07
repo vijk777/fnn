@@ -57,6 +57,8 @@ class Recurrent(Module):
 
 
 class Rvt(Recurrent):
+    """Recurrent Vision Transformer"""
+
     def __init__(self, channels, groups, kernel_size):
         """
         Parameters

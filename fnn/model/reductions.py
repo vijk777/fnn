@@ -26,6 +26,8 @@ class Reduce(Module):
 
 
 class Mean(Reduce):
+    """Mean Reduction"""
+
     def _init(self, dim, keepdim=False):
         """
         Parameters

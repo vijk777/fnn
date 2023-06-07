@@ -56,6 +56,8 @@ class Feedforward(Module):
 
 
 class Res3d(Feedforward):
+    """3D Residual Feedforward"""
+
     def __init__(self, channels, kernel_sizes, strides, nonlinear=None):
         """
         Parameters
