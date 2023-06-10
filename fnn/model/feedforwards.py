@@ -232,7 +232,7 @@ class SpatialTemporalResidual(Feedforward):
                 stride=self.spatial_strides[0],
             )
 
-        temporal = Conv(channels=self._channels[0], streams=streams).add_input(
+        temporal = Conv(channels=self._channels[0], streams=streams, gain=True, bias=True).add_input(
             channels=self._channels[0],
             dynamic_size=self.temporal_sizes[0],
         )
