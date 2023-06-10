@@ -22,6 +22,20 @@ class Luminance(Module):
         """
         raise NotImplementedError()
 
+    def inverse(self, stimulus):
+        """
+        Parameters
+        ----------
+        stimulus : Tensor
+            [N, C, H, W]
+
+        Returns
+        -------
+        Tensor
+            [N, C, H, W]
+        """
+        raise NotImplementedError()
+
 
 # -------------- Luminance Types --------------
 
@@ -43,9 +57,31 @@ class Linear(Luminance):
         self.register_buffer("offset", torch.tensor(offset, dtype=torch.float))
 
     def forward(self, stimulus):
+        """
+        Parameters
+        ----------
+        stimulus : Tensor
+            [N, C, H, W]
+
+        Returns
+        -------
+        Tensor
+            [N, C, H, W]
+        """
         return stimulus.mul(self.scale).add(self.offset)
 
     def inverse(self, stimulus):
+        """
+        Parameters
+        ----------
+        stimulus : Tensor
+            [N, C, H, W]
+
+        Returns
+        -------
+        Tensor
+            [N, C, H, W]
+        """
         return stimulus.sub(self.offset).div(self.scale)
 
     def extra_repr(self):
@@ -72,9 +108,31 @@ class Power(Luminance):
         self.register_buffer("offset", torch.tensor(offset, dtype=torch.float))
 
     def forward(self, stimulus):
+        """
+        Parameters
+        ----------
+        stimulus : Tensor
+            [N, C, H, W]
+
+        Returns
+        -------
+        Tensor
+            [N, C, H, W]
+        """
         return stimulus.pow(self.power).mul(self.scale).add(self.offset)
 
     def inverse(self, stimulus):
+        """
+        Parameters
+        ----------
+        stimulus : Tensor
+            [N, C, H, W]
+
+        Returns
+        -------
+        Tensor
+            [N, C, H, W]
+        """
         return stimulus.sub(self.offset).div(self.scale).pow(1 / self.power)
 
     def extra_repr(self):

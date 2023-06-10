@@ -47,7 +47,7 @@ class NetworkLoss(Objective):
         sample_stream : bool
             sample stream during training
         burnin_frames : int
-            number of initial losses to discard
+            number of initial frames to discard
         """
         assert burnin_frames >= 0
 
