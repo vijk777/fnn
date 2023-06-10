@@ -40,7 +40,45 @@ class Optimizer:
         """
         raise NotImplementedError()
 
-    def optimize(self, loader, objective, parameters, groups=None, seed=42):
+    def optimize(self, loader, objective, parameters, groups=None):
+        """
+        Parameters
+        ----------
+        loader : fnn.train.loaders.Loader
+            data loader
+        objective : fnn.train.objectives.Objective
+            training objective
+        parameters : Mapping[str, fnn.model.parameters.Parameter]
+            mapping of parameters
+        groups : None | List[fnn.train.parallel.ParameterGroup]
+            none or list of parameter groups
+
+        Yields
+        ------
+        int
+            epoch number
+        dict
+            optimization info (hyperparameters and objectives)
+        """
+        raise NotImplementedError()
+
+
+# -------------- Optimizer Types --------------
+
+
+class RandomOptimizer(Optimizer):
+    """Random Optimizer"""
+
+    def __init__(self, seed=42):
+        """
+        Parameters
+        ----------
+        seed : int
+            random seed
+        """
+        self.seed = int(seed)
+
+    def optimize(self, loader, objective, parameters, groups=None):
         """
         Parameters
         ----------
@@ -52,8 +90,6 @@ class Optimizer:
             mapping of parameters
         groups : None | list[fnn.train.parallel.ParameterGroup]
             None | list of parameter groups
-        seed : int
-            random seed
 
         Yields
         ------
@@ -69,8 +105,8 @@ class Optimizer:
         while self.scheduler.step():
 
             kwargs = self.scheduler(**self.hyperparameters)
-            _seed = int(seed + self.scheduler.seed)
-            info = dict(seed=_seed, **kwargs)
+            seed = int(self.seed + self.scheduler.seed)
+            info = dict(seed=seed, **kwargs)
 
             for g in groups:
                 g.sync_params()
@@ -79,7 +115,7 @@ class Optimizer:
                 objectives = []
 
                 with torch.random.fork_rng(devices):
-                    torch.manual_seed(_seed)
+                    torch.manual_seed(seed)
 
                     for data in loader(training=training):
                         o = objective(training=training, **data)
@@ -100,13 +136,10 @@ class Optimizer:
             yield self.scheduler.epoch, info
 
 
-# -------------- Optimizer Types --------------
-
-
-class SgdClip(Optimizer):
+class SgdClip(RandomOptimizer):
     """Stochastic Gradient Descent with Adaptive Gradient Clipping"""
 
-    def __init__(self, lr=0.1, decay=0, momentum=0, nesterov=False, clip=float("inf"), eps=0.001):
+    def __init__(self, lr=0.1, decay=0, momentum=0, nesterov=False, clip=float("inf"), eps=0.001, seed=42):
         """
         Parameters
         ----------
@@ -122,6 +155,8 @@ class SgdClip(Optimizer):
             adaptive gradient clipping factor
         eps : float
             adaptive gradient clipping minimum
+        seed : int
+            random seed
         """
         assert lr > 0
         assert decay >= 0
@@ -129,6 +164,9 @@ class SgdClip(Optimizer):
         assert clip > 0
         assert eps > 0
 
+        super().__init__(
+            seed=seed,
+        )
         self._hyperparameters = dict(
             lr=float(lr),
             decay=float(decay),
@@ -137,7 +175,6 @@ class SgdClip(Optimizer):
             clip=float(clip),
             eps=float(eps),
         )
-
         self.momentums = dict()
 
     @property
