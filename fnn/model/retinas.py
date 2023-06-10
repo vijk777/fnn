@@ -18,9 +18,9 @@ class Retina(Module):
         width : int
             output width (W)
         """
-        self.register_buffer("_grid", self.grid(height=height, width=width))
+        self.register_buffer("grid", self._grid(height=height, width=width))
 
-    def grid(self, height=144, width=256):
+    def _grid(self, height=144, width=256):
         """
         Parameters
         ----------
@@ -64,7 +64,7 @@ class Retina(Module):
         Tensor
             [N, H, W, 3], grid of 3D rays
         """
-        return torch.einsum("N C D , H W D -> N H W C", rmat, self._grid)
+        return torch.einsum("N C D , H W D -> N H W C", rmat, self.grid)
 
 
 # -------------- Retina Types --------------
@@ -84,7 +84,7 @@ class Angular(Retina):
         self.degrees = float(degrees)
         self.radians = self.degrees / 180 * torch.pi
 
-    def grid(self, height=144, width=256):
+    def _grid(self, height=144, width=256):
         """
         Parameters
         ----------

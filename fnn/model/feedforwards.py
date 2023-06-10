@@ -217,6 +217,10 @@ class SpatialTemporalResidual(Feedforward):
         self.streams = int(streams)
 
         spatial = Conv(channels=self._channels[0], streams=streams, gain=False, bias=False)
+        temporal = Conv(channels=self._channels[0], streams=streams, gain=True, bias=True).add_input(
+            channels=self._channels[0],
+            dynamic_size=self.temporal_sizes[0],
+        )
         residual = Conv(channels=self._channels[0], streams=streams, gain=True, bias=True)
 
         for _channels, drop in self.inputs:
@@ -231,11 +235,6 @@ class SpatialTemporalResidual(Feedforward):
                 kernel_size=self.spatial_strides[0],
                 stride=self.spatial_strides[0],
             )
-
-        temporal = Conv(channels=self._channels[0], streams=streams, gain=True, bias=True).add_input(
-            channels=self._channels[0],
-            dynamic_size=self.temporal_sizes[0],
-        )
 
         self.spatial = ModuleList([spatial])
         self.temporal = ModuleList([temporal])
