@@ -84,12 +84,12 @@ class Network(Module):
         """
         raise NotImplementedError()
 
-    def parallel_groups(self, instances=1):
+    def parallel_groups(self, groups=1):
         """
         Parameters
         ----------
-        instances : int
-            training instances
+        groups : int
+            number of groups
 
         Yields
         ------
@@ -437,12 +437,12 @@ class Visual(Network):
 
         self.train(_training)
 
-    def parallel_groups(self, instances=1):
+    def parallel_groups(self, groups=1):
         """
         Parameters
         ----------
-        instances : int
-            training instances
+        groups : int
+            number of groups
 
         Yields
         ------
@@ -452,11 +452,11 @@ class Visual(Network):
         from fnn.train.parallel import ParameterGroup
 
         if not is_initialized():
-            assert instances == 1
+            assert groups == 1
             return
 
         size = get_world_size()
-        assert size % instances == 0
+        assert size % groups == 0
 
         if not size > 1:
             return
@@ -468,7 +468,7 @@ class Visual(Network):
                 group=new_group(ranks),
             )
 
-        if instances > 1:
+        if groups > 1:
             params = dict()
 
             for name in ["perspective", "modulation", "readout", "reduce", "unit"]:
@@ -477,7 +477,7 @@ class Visual(Network):
                     params = dict(params, **{f"{name}.{k}": v for k, v in module.named_parameters()})
 
             if params:
-                ranks = get_rank() // instances * instances + np.arange(instances)
+                ranks = get_rank() // groups * groups + np.arange(groups)
                 yield ParameterGroup(
                     parameters=params,
                     group=new_group(ranks),
