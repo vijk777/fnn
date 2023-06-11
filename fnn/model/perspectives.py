@@ -83,16 +83,18 @@ class Perspective(Module):
 class MonitorRetina(Perspective):
     """Monitor & Retina Perspective"""
 
-    def __init__(self, monitor, luminance, retina, height, width, features, nonlinear=None):
+    def __init__(self, monitor, monitor_pixel, retina, retina_pixel, height, width, features, nonlinear=None):
         """
         Parameters
         ----------
         monitor : fnn.model.monitors.Monitor
             3D monitor model
-        luminane : fnn.model.luminances.Luminance
-            pixel -> luminance model
+        monitor_pixel : fnn.model.pixels.Pixel
+            monitor pixel intensity
         retina : fnn.model.retinas.Retina
             3D retina model
+        retina_pixel : fnn.model.pixels.Pixel
+            retina pixel intensity
         height : int
             retina height
         width : int
@@ -105,9 +107,11 @@ class MonitorRetina(Perspective):
         super().__init__()
 
         self.monitor = monitor
-        self.luminance = luminance
+        self.monitor_pixel = monitor_pixel
+
         self.retina = retina
         self.retina._init(height=height, width=width)
+        self.retina_pixel = retina_pixel
 
         self.features = list(map(int, features))
         self.layers = ModuleList([Linear(features=f) for f in self.features])
@@ -178,18 +182,18 @@ class MonitorRetina(Perspective):
             [N, P, H', W']
         """
         size = max(stimulus.size(0), perspective.size(0))
+
         rmat = self.rmat(perspective).expand(size, -1, -1)
         rays = self.retina.rays(rmat)
         grid = self.monitor.project(rays)
-        stim = self.luminance(stimulus).expand(size, -1, -1, -1)
-        return isotropic_grid_sample_2d(
-            stim,
-            grid=grid,
-            pad_mode=pad_mode,
-            pad_value=pad_value,
-        )
 
-    def inverse(self, stimulus, perspective=None, height=144, width=256, pad_mode="constant", pad_value=0):
+        pixels = self.monitor_pixel(stimulus).expand(size, -1, -1, -1)
+        pixels = isotropic_grid_sample_2d(pixels, grid=grid, pad_mode=pad_mode, pad_value=pad_value)
+        pixels = self.retina_pixel(pixels)
+
+        return pixels
+
+    def inverse(self, stimulus, perspective, height=144, width=256, pad_mode="constant", pad_value=0):
         """
         Parameters
         ----------
@@ -211,13 +215,14 @@ class MonitorRetina(Perspective):
         Tensor
             [N, P, H', W']
         """
-        rays = self.monitor.rays(stimulus.size(0), height, width)
-        rmat = self.rmat(perspective)
+        size = max(stimulus.size(0), perspective.size(0))
+
+        rmat = self.rmat(perspective).expand(size, -1, -1)
+        rays = self.monitor.rays(size, height, width)
         grid = self.retina.project(rays, rmat)
-        stim = isotropic_grid_sample_2d(
-            stimulus,
-            grid=grid,
-            pad_mode=pad_mode,
-            pad_value=pad_value,
-        )
-        return self.luminance.inverse(stim)
+
+        pixels = self.retina_pixel.inverse(stimulus).expand(size, -1, -1, -1)
+        pixels = isotropic_grid_sample_2d(pixels, grid=grid, pad_mode=pad_mode, pad_value=pad_value)
+        pixels = self.monitor_pixel.inverse(pixels)
+
+        return pixels

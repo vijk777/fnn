@@ -2,13 +2,13 @@ import torch
 from .modules import Module
 
 
-# -------------- Luminance Prototype --------------
+# -------------- Pixel Prototype --------------
 
 
-class Luminance(Module):
-    """Luminance Module"""
+class Pixel(Module):
+    """Pixel Intensity"""
 
-    def forward(self, stimulus):
+    def forward(self, pixels):
         """
         Parameters
         ----------
@@ -22,7 +22,7 @@ class Luminance(Module):
         """
         raise NotImplementedError()
 
-    def inverse(self, stimulus):
+    def inverse(self, pixels):
         """
         Parameters
         ----------
@@ -40,8 +40,40 @@ class Luminance(Module):
 # -------------- Luminance Types --------------
 
 
-class Linear(Luminance):
-    """Linear Luminance"""
+class Raw(Pixel):
+    """Raw Pixel Intensity"""
+
+    def forward(self, pixels):
+        """
+        Parameters
+        ----------
+        stimulus : Tensor
+            [N, C, H, W]
+
+        Returns
+        -------
+        Tensor
+            [N, C, H, W]
+        """
+        return pixels
+
+    def inverse(self, pixels):
+        """
+        Parameters
+        ----------
+        stimulus : Tensor
+            [N, C, H, W]
+
+        Returns
+        -------
+        Tensor
+            [N, C, H, W]
+        """
+        return pixels
+
+
+class Linear(Pixel):
+    """Linear Pixel Intensity"""
 
     def __init__(self, scale=1, offset=0):
         """
@@ -56,7 +88,7 @@ class Linear(Luminance):
         self.register_buffer("scale", torch.tensor(scale, dtype=torch.float))
         self.register_buffer("offset", torch.tensor(offset, dtype=torch.float))
 
-    def forward(self, stimulus):
+    def forward(self, pixels):
         """
         Parameters
         ----------
@@ -68,9 +100,9 @@ class Linear(Luminance):
         Tensor
             [N, C, H, W]
         """
-        return stimulus.mul(self.scale).add(self.offset)
+        return pixels.mul(self.scale).add(self.offset)
 
-    def inverse(self, stimulus):
+    def inverse(self, pixels):
         """
         Parameters
         ----------
@@ -82,14 +114,14 @@ class Linear(Luminance):
         Tensor
             [N, C, H, W]
         """
-        return stimulus.sub(self.offset).div(self.scale)
+        return pixels.sub(self.offset).div(self.scale)
 
     def extra_repr(self):
         return f"scale={self.scale:.3g}, offset={self.offset:.3g}"
 
 
-class Power(Luminance):
-    """Power Luminance"""
+class Power(Pixel):
+    """Linear Pixel Intensity"""
 
     def __init__(self, power=1, scale=1, offset=0):
         """
@@ -107,7 +139,7 @@ class Power(Luminance):
         self.register_buffer("scale", torch.tensor(scale, dtype=torch.float))
         self.register_buffer("offset", torch.tensor(offset, dtype=torch.float))
 
-    def forward(self, stimulus):
+    def forward(self, pixels):
         """
         Parameters
         ----------
@@ -119,9 +151,9 @@ class Power(Luminance):
         Tensor
             [N, C, H, W]
         """
-        return stimulus.pow(self.power).mul(self.scale).add(self.offset)
+        return pixels.pow(self.power).mul(self.scale).add(self.offset)
 
-    def inverse(self, stimulus):
+    def inverse(self, pixels):
         """
         Parameters
         ----------
@@ -133,7 +165,7 @@ class Power(Luminance):
         Tensor
             [N, C, H, W]
         """
-        return stimulus.sub(self.offset).div(self.scale).pow(1 / self.power)
+        return pixels.sub(self.offset).div(self.scale).pow(1 / self.power)
 
     def extra_repr(self):
         return f"power={self.power:.3g}, scale={self.scale:.3g}, offset={self.offset:.3g}"
