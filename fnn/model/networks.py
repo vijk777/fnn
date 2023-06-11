@@ -5,7 +5,7 @@ from contextlib import nullcontext
 from .modules import Module
 
 
-# -------------- Network Prototype --------------
+# -------------- Neural Network Prototype --------------
 
 
 class Network(Module):
@@ -98,7 +98,7 @@ class Network(Module):
         raise NotImplementedError()
 
 
-# -------------- Network Types --------------
+# -------------- Neural Network Types --------------
 
 
 class Visual(Network):
@@ -293,18 +293,16 @@ class Visual(Network):
         if perspective is None:
             perspective = np.zeros([1, self.perspectives])
         elif perspective.ndim == 1:
-            assert squeeze
             perspective = perspective[None]
         else:
-            assert not squeeze
+            squeeze = False
 
         if modulation is None:
             modulation = np.zeros([1, self.modulations])
         elif modulation.ndim == 1:
-            assert squeeze
             modulation = modulation[None]
         else:
-            assert not squeeze
+            squeeze = False
 
         device = self.device
         tensor = lambda x: torch.tensor(x, dtype=torch.float, device=device)
@@ -356,15 +354,15 @@ class Visual(Network):
             for stimulus, perspective, modulation in zip(stimuli, perspectives, modulations):
 
                 *tensors, squeeze = self.to_tensor(stimulus, perspective, modulation)
-                prediction = self(*tensors)
+                response = self(*tensors)
 
                 if squeeze:
-                    prediction = prediction.squeeze(0)
+                    response = response.squeeze(0)
 
                 if training:
-                    yield prediction
+                    yield response
                 else:
-                    yield prediction.cpu().numpy()
+                    yield response.cpu().numpy()
 
         self.train(_training)
 
