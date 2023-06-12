@@ -74,7 +74,7 @@ class RandomOptimizer(Optimizer):
         Parameters
         ----------
         seed : int
-            random seed
+            random seed for optimization
         """
         self.seed = int(seed)
 
