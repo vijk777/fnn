@@ -119,7 +119,10 @@ class MonitorRetina(Perspective):
         for layer, f in zip(self.layers[1:], self.features):
             layer.add_input(features=f)
 
-        self.proj = Linear(features=3).add_input(features=self.features[-1])
+        self.proj = Linear(features=3).add_input(
+            features=self.features[-1],
+            drop=True,
+        )
         for gain in self.proj.gains:
             init.constant_(gain, 0)
 

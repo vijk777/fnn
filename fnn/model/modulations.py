@@ -70,16 +70,24 @@ class Lstm(Modulation):
         """
         self.modulations = int(modulations)
         self.proj_i = (
-            Linear(features=self.features).add_input(features=self.modulations).add_input(features=self.features)
+            Linear(features=self.features)
+            .add_input(features=self.modulations, drop=False)
+            .add_input(features=self.features, drop=True)
         )
         self.proj_f = (
-            Linear(features=self.features).add_input(features=self.modulations).add_input(features=self.features)
+            Linear(features=self.features)
+            .add_input(features=self.modulations, drop=False)
+            .add_input(features=self.features, drop=True)
         )
         self.proj_g = (
-            Linear(features=self.features).add_input(features=self.modulations).add_input(features=self.features)
+            Linear(features=self.features)
+            .add_input(features=self.modulations, drop=False)
+            .add_input(features=self.features, drop=True)
         )
         self.proj_o = (
-            Linear(features=self.features).add_input(features=self.modulations).add_input(features=self.features)
+            Linear(features=self.features)
+            .add_input(features=self.modulations, drop=False)
+            .add_input(features=self.features, drop=True)
         )
 
     def _reset(self):
