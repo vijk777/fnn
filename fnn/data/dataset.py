@@ -77,8 +77,7 @@ class Dataset:
     def dataitems(self):
         return set(self.df.columns) - set(self.datainfo)
 
-    @property
-    def keys(training=True):
+    def keys(self, training=True):
         """
         Parameters
         ----------
