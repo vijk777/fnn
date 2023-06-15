@@ -70,7 +70,7 @@ class Batches(Loader):
         dataset : fnn.data.dataset.Dataset
             dataset to load
         """
-        assert dataset.samples.min() >= self.sample_size
+        assert dataset.df.samples.min() >= self.sample_size
         super()._init(dataset)
 
     def _random_keys(self, training=True):
