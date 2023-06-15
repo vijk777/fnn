@@ -39,10 +39,10 @@ class Loader:
 # -------------- Loader Types --------------
 
 
-class RandomBatches(Loader):
+class Batches(Loader):
     """Randomly Sampled Batches"""
 
-    def __init__(self, sample_size, batch_size, epoch_size, train_fraction=0.95, seed=42):
+    def __init__(self, sample_size, batch_size, training_size, validation_size):
         """
         Parameters
         ----------
@@ -50,12 +50,10 @@ class RandomBatches(Loader):
             number of samples in a datapoint
         batch_size : int
             number of datapoints in a batch
-        epoch_size : int
-            number of batches in an epoch
-        train_fraction : float
-            fraction of the data used for training
-        seed : int
-            random seed for splitting data into training/validation
+        training_size : int
+            number of training batches in an epoch
+        validation_size : int
+            number of validation batches in an epoch
         """
         assert sample_size > 0
         assert batch_size > 0
@@ -65,8 +63,8 @@ class RandomBatches(Loader):
         self.sample_size = int(sample_size)
         self.batch_size = int(batch_size)
         self.epoch_size = int(epoch_size)
-        self.train_fraction = float(train_fraction)
-        self.seed = int(seed)
+        self.training_size = int(training_size)
+        self.validation_size = int(validation_size)
 
     def _init(self, dataset):
         """
@@ -76,49 +74,28 @@ class RandomBatches(Loader):
             dataset to load
         """
         assert dataset.samples.min() >= self.sample_size
-
-        n = len(dataset)
-        train_n = round(n * self.train_fraction)
-        val_n = n - train_n
-
-        self.train_size = round(self.epoch_size * train_n / n)
-        self.val_size = round(self.epoch_size * val_n / n)
-
-        rng = np.random.default_rng(self.seed)
-        train_idx = rng.choice(n, size=train_n, replace=False)
-
-        train_mask = np.zeros(n, dtype=bool)
-        train_mask[train_idx] = True
-
-        keys = np.sort(dataset.index)
-        self.train_keys = keys[train_mask]
-        self.val_keys = keys[~train_mask]
-
         super()._init(dataset)
 
     def _random_keys(self, training=True):
         if training:
-            keys = self.train_keys
-            size = self.batch_size * self.train_size
-        elif self.val_size:
-            keys = self.val_keys
-            size = self.batch_size * self.val_size
+            keys = self.dataset.keys(training=True)
+            size = self.training_size
         else:
+            keys = self.dataset.keys(training=False)
+            size = self.validation_size
+
+        if not size:
             return []
-
-        idx = randint(high=len(keys), size=(size,)).numpy()
-
-        return keys[idx].tolist()
+        else:
+            idx = randint(high=len(keys), size=(size,)).numpy()
+            return keys[idx].tolist()
 
     def _random_indexes(self, key):
-        high = self.dataset.loc[key].samples - self.sample_size
-
+        high = self.dataset.df.loc[key].samples - self.sample_size
         if high > 0:
-            i = randint(high=high, size=(1,)).item()
+            return randint(high=high, size=(1,)).item() + np.arange(self.sample_size)
         else:
-            i = 0
-
-        return i + np.arange(self.sample_size)
+            return np.arange(self.sample_size)
 
     def _load(self, i, queue, keys, indexes):
         assert i == 0
