@@ -1,6 +1,5 @@
 import torch
 from torch.nn import functional
-from .elements import Dropout
 from .parameters import Parameter, ParameterList
 from .modules import Module, ModuleList
 from .utils import to_groups_2d
@@ -88,8 +87,6 @@ class PositionFeature(Readout):
         self.units = int(units)
         self.streams = int(streams)
 
-        self.drop = ModuleList([Dropout() for _ in range(self.streams + 1)])
-
         self.position._init(
             units=self.units,
         )
@@ -128,13 +125,8 @@ class PositionFeature(Readout):
         else:
             position = self.position.mean.expand(core.size(0), -1, -1)
 
-        if stream is None:
-            drop = self.drop[self.streams]
-        else:
-            drop = self.drop[stream]
-
         out = functional.grid_sample(
-            drop(core),
+            core,
             grid=self.bound(position).unsqueeze(dim=2),
             mode="bilinear",
             padding_mode="border",

@@ -1,6 +1,6 @@
 import torch
 from .modules import Module
-from .elements import Linear
+from .elements import Linear, Dropout
 
 
 # -------------- Modulation Prototype --------------
@@ -49,16 +49,19 @@ class Modulation(Module):
 class Lstm(Modulation):
     """Lstm Modulation"""
 
-    def __init__(self, features):
+    def __init__(self, features, drop=0):
         """
         Parameters
         ----------
         features : int
             lstm features
+        drop : float
+            dropout probability -- [0, 1)
         """
         super().__init__()
 
         self._features = int(features)
+        self._drop = float(drop)
         self._past = dict()
 
     def _init(self, modulations):
@@ -70,25 +73,18 @@ class Lstm(Modulation):
         """
         self.modulations = int(modulations)
         self.proj_i = (
-            Linear(features=self.features)
-            .add_input(features=self.modulations, drop=False)
-            .add_input(features=self.features, drop=True)
+            Linear(features=self.features).add_input(features=self.modulations).add_input(features=self.features)
         )
         self.proj_f = (
-            Linear(features=self.features)
-            .add_input(features=self.modulations, drop=False)
-            .add_input(features=self.features, drop=True)
+            Linear(features=self.features).add_input(features=self.modulations).add_input(features=self.features)
         )
         self.proj_g = (
-            Linear(features=self.features)
-            .add_input(features=self.modulations, drop=False)
-            .add_input(features=self.features, drop=True)
+            Linear(features=self.features).add_input(features=self.modulations).add_input(features=self.features)
         )
         self.proj_o = (
-            Linear(features=self.features)
-            .add_input(features=self.modulations, drop=False)
-            .add_input(features=self.features, drop=True)
+            Linear(features=self.features).add_input(features=self.modulations).add_input(features=self.features)
         )
+        self.drop = Dropout(p=self._drop)
 
     def _reset(self):
         self._past.clear()
@@ -130,6 +126,7 @@ class Lstm(Modulation):
 
         c = f * c + i * g
         h = o * torch.tanh(c)
+        h = self.drop(h[:, :, None, None])[:, :, 0, 0]
 
         self._past["c"] = c
         self._past["h"] = h

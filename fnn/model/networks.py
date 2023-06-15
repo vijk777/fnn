@@ -276,6 +276,17 @@ class Visual(Network):
             [P] | [N, P]
         modulations : 1D|2D array | None
             [M] | [N, M]
+
+        Returns
+        -------
+        torch.Tensor
+            [N, C, H, W]
+        torch.Tensor
+            [N, P]
+        torch.Tensor
+            [N, M]
+        bool
+            squeeze response batch dim
         """
         assert stimulus.dtype == np.uint8
         stimulus = stimulus / 255
@@ -283,12 +294,15 @@ class Visual(Network):
         if stimulus.ndim == 2:
             stimulus = stimulus[None, None]
             squeeze = True
+            N = 1
         elif stimulus.ndim == 3:
             stimulus = np.einsum("H W C -> C H W", stimulus)[None]
             squeeze = True
+            N = 1
         else:
             stimulus = np.einsum("N H W C -> N C H W", stimulus)
             squeeze = False
+            N = stimulus.shape[0]
 
         if perspective is None:
             perspective = np.zeros([1, self.perspectives])
@@ -296,6 +310,7 @@ class Visual(Network):
             perspective = perspective[None]
         else:
             squeeze = False
+            N = max(N, perspective.shape[0])
 
         if modulation is None:
             modulation = np.zeros([1, self.modulations])
@@ -303,11 +318,16 @@ class Visual(Network):
             modulation = modulation[None]
         else:
             squeeze = False
+            N = max(N, modulation.shape[0])
 
         device = self.device
         tensor = lambda x: torch.tensor(x, dtype=torch.float, device=device)
 
-        return tensor(stimulus), tensor(perspective), tensor(modulation), squeeze
+        stimulus = tensor(stimulus).expand(N, -1, -1, -1)
+        perspective = tensor(perspective).expand(N, -1)
+        modulation = tensor(modulation).expand(N, -1)
+
+        return stimulus, perspective, modulation, squeeze
 
     def generate_responses(self, stimuli, perspectives=None, modulations=None, training=False):
         """

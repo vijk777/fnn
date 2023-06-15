@@ -92,6 +92,43 @@ class Dropout(Module):
         return f"p={self.p:.3g}"
 
 
+class StreamDropout(ModuleList):
+    def __init__(self, p=0, streams=1):
+        """
+        Parameters
+        ----------
+        p : float
+            dropout probability between 0 and 1
+        streams : int
+            number of streams
+        """
+        super().__init__()
+
+        self.streams = int(streams)
+
+        for _ in range(self.streams + 1):
+            dropout = Dropout(p=p)
+            self.append(dropout)
+
+    def forward(self, x, stream=None):
+        """
+        Parameters
+        ----------
+        x : Tensor
+            input
+        stream : int | None
+            specific stream (int) or all streams (None)
+
+        Returns
+        -------
+        Tensor
+            dropped input
+        """
+        drop = self[self.streams] if stream is None else self[stream]
+
+        return drop(x)
+
+
 class Input(Module):
     def __init__(
         self,
@@ -103,7 +140,6 @@ class Input(Module):
         dynamic_size=1,
         stride=1,
         pad=True,
-        drop=False,
         mask=None,
     ):
         """
@@ -127,8 +163,6 @@ class Input(Module):
             spatial padding to preserve height and width
         mask : Tensor | None
             dtype=torch.bool, shape must be broadcastable with the kernel
-        drop : bool
-            channelwise dropout
         """
         if in_channels % groups != 0:
             raise ValueError("in_channels must be divisible by groups")
@@ -150,11 +184,6 @@ class Input(Module):
         self.past_size = self.dynamic_size - 1
         self.stride = int(stride)
         self.pad = (self.kernel_size - self.stride) // 2 if pad else 0
-
-        if drop:
-            self.drop = ModuleList([Dropout() for _ in range(self.streams)])
-        else:
-            self.drop = None
 
         shape = [
             self.out_channels,
@@ -210,9 +239,6 @@ class Input(Module):
             [N, C, T, H, W]
         """
         assert x.size(1) == self.in_channels
-
-        if self.drop is not None:
-            x = self.drop[stream](x)
 
         if self.pad:
             x = functional.pad(x, pad=[self.pad] * 4)
@@ -338,7 +364,7 @@ class Conv(Module):
         self._weights[stream] = weights
         return weights
 
-    def add_input(self, channels, groups=1, kernel_size=1, dynamic_size=1, stride=1, pad=True, drop=False):
+    def add_input(self, channels, groups=1, kernel_size=1, dynamic_size=1, stride=1, pad=True):
         """
         Parameters
         ----------
@@ -354,8 +380,6 @@ class Conv(Module):
             spatial stride
         pad : bool
             spatial padding to preserve height and width
-        drop : bool
-            channelwise dropout
         """
         module = Input(
             in_channels=channels,
@@ -366,18 +390,11 @@ class Conv(Module):
             dynamic_size=dynamic_size,
             stride=stride,
             pad=pad,
-            drop=drop,
         )
         self.inputs.append(module)
         return self
 
-    def add_intergroup(self, drop=False):
-        """
-        Parameters
-        ----------
-        drop : bool
-            channelwise dropout
-        """
+    def add_intergroup(self):
         if self.groups <= 1:
             raise ValueError("there must be > 1 groups to add intergroup")
 
@@ -395,7 +412,6 @@ class Conv(Module):
             out_channels=c,
             mask=m,
             streams=self.streams,
-            drop=drop,
         )
         self.inputs.append(module)
         return self
@@ -488,7 +504,7 @@ class Linear(Conv):
         super().__init__(channels=features, groups=groups, streams=streams, gain=gain, bias=bias, eps=eps)
         self.features = self.channels
 
-    def add_input(self, features, groups=1, drop=False):
+    def add_input(self, features, groups=1):
         """
         Parameters
         ----------
@@ -496,10 +512,8 @@ class Linear(Conv):
             input features, must be divisible by groups
         groups : int
             number of input groups per stream
-        drop : bool
-            channelwise dropout
         """
-        return super().add_input(channels=features, groups=groups, drop=drop)
+        return super().add_input(channels=features, groups=groups)
 
     def forward(self, inputs, stream=None):
         """

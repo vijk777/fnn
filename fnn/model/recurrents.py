@@ -1,7 +1,7 @@
 import torch
 from .parameters import Parameter, ParameterList
 from .modules import Module
-from .elements import Conv
+from .elements import Conv, StreamDropout
 from .utils import to_groups_2d
 
 
@@ -15,8 +15,8 @@ class Recurrent(Module):
         """
         Parameters
         ----------
-        channels : Sequence[[int, bool]]
-            [[input channels per stream (I), whether to drop input] ...]
+        channels : Sequence[int]
+            [input channels per stream (I), ...]
         streams : int
             number of streams, S
         """
@@ -59,7 +59,7 @@ class Recurrent(Module):
 class Rvt(Recurrent):
     """Recurrent Vision Transformer"""
 
-    def __init__(self, channels, groups, kernel_size):
+    def __init__(self, channels, groups, kernel_size, drop=0):
         """
         Parameters
         ----------
@@ -69,6 +69,8 @@ class Rvt(Recurrent):
             groups per stream
         kernel_size : int
             kernel size
+        drop : float
+            dropout probability -- [0, 1)
         """
         if channels % groups != 0:
             raise ValueError("channels must be divisible by groups")
@@ -78,25 +80,26 @@ class Rvt(Recurrent):
         self._channels = int(channels)
         self.groups = int(groups)
         self.kernel_size = int(kernel_size)
+        self._drop = float(drop)
 
     def _init(self, inputs, streams):
         """
         Parameters
         ----------
-        channels : Sequence[[int, bool]]
-            [[input channels per stream (I), whether to drop input] ...]
+        channels : Sequence[int]
+            [input channels per stream (I), ...]
         streams : int
             number of streams, S
         """
-        self.inputs = list([int(inp), bool(drop)] for inp, drop in inputs)
+        self.inputs = list(map(int, inputs))
         self.streams = int(streams)
 
         self.proj_x = Conv(channels=self.channels, groups=self.groups, streams=self.streams, gain=False, bias=False)
-        for _channels, drop in inputs:
-            self.proj_x.add_input(channels=_channels, drop=drop)
+        for _channels in inputs:
+            self.proj_x.add_input(channels=_channels)
 
         if self.groups > 1:
-            self.proj_x.add_intergroup(drop=True)
+            self.proj_x.add_intergroup()
 
         init = (self.channels / self.groups) ** -0.5
         tau = lambda: Parameter(torch.full([self.groups], init))
@@ -168,6 +171,8 @@ class Rvt(Recurrent):
             groups=self.groups,
             kernel_size=self.kernel_size,
         )
+
+        self.drop = StreamDropout(p=self._drop, streams=self.streams)
 
         self._past = dict()
 
@@ -245,6 +250,7 @@ class Rvt(Recurrent):
 
         c = f * c + i * g
         h = o * torch.tanh(c)
+        h = self.drop(h, stream=stream)
 
         self._past["c"] = c
         self._past["h"] = h

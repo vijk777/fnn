@@ -1,7 +1,7 @@
 import math
 from torch.nn import init
 from .modules import Module, ModuleList
-from .elements import Conv, nonlinearity
+from .elements import Conv, StreamDropout, nonlinearity
 
 
 # -------------- Feedforward Prototype --------------
@@ -14,8 +14,8 @@ class Feedforward(Module):
         """
         Parameters
         ----------
-        channels : Sequence[[int, bool]]
-            [[input channels per stream (I), whether to drop input] ...]
+        channels : Sequence[int]
+            [input channels per stream (I), ...]
         streams : int
             number of streams, S
         """
@@ -55,10 +55,10 @@ class Feedforward(Module):
 # -------------- Feature Prototype --------------
 
 
-class Res3d(Feedforward):
-    """3D Residual"""
+class Residual3D(Feedforward):
+    """Residual 3D"""
 
-    def __init__(self, channels, spatial_sizes, spatial_strides, temporal_sizes, nonlinear=None):
+    def __init__(self, channels, spatial_sizes, spatial_strides, temporal_sizes, nonlinear=None, drop=0):
         """
         Parameters
         ----------
@@ -72,6 +72,8 @@ class Res3d(Feedforward):
             layer temporal sizes
         nonlinear : str | None
             nonlinearity
+        drop : float
+            dropout probability -- [0, 1)
         """
         assert len(channels) == len(spatial_sizes) == len(temporal_sizes) == len(spatial_strides)
         super().__init__()
@@ -81,26 +83,26 @@ class Res3d(Feedforward):
         self.spatial_strides = list(map(int, spatial_strides))
         self.temporal_sizes = list(map(int, temporal_sizes))
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
+        self._drop = float(drop)
 
     def _init(self, inputs, streams):
         """
         Parameters
         ----------
-        channels : Sequence[[int, bool]]
-            [[input channels per stream (I), whether to drop input] ...]
+        channels : Sequence[int]
+            [input channels per stream (I), ...]
         streams : int
             number of streams, S
         """
-        self.inputs = list([int(inp), bool(drop)] for inp, drop in inputs)
+        self.inputs = list(map(int, inputs))
         self.streams = int(streams)
 
         conv = Conv(channels=self._channels[0], streams=streams)
         res = Conv(channels=self._channels[0], streams=streams)
 
-        for _channels, drop in self.inputs:
+        for _channels in self.inputs:
             conv.add_input(
                 channels=_channels,
-                drop=drop,
                 kernel_size=self.spatial_sizes[0],
                 dynamic_size=self.temporal_sizes[0],
                 stride=self.spatial_strides[0],
@@ -140,6 +142,8 @@ class Res3d(Feedforward):
             for gain in res.gains:
                 init.constant_(gain, 0)
 
+        self.drop = StreamDropout(p=self._drop, streams=self.streams)
+
     @property
     def channels(self):
         """
@@ -174,13 +178,13 @@ class Res3d(Feedforward):
             r = res(inputs, stream=stream)
             inputs = [self.nonlinear(c) * self.gamma + r]
 
-        return inputs[0]
+        return self.drop(inputs[0], stream=stream)
 
 
 class SpatialTemporalResidual(Feedforward):
     """Spatial Temporal Residual"""
 
-    def __init__(self, channels, spatial_sizes, spatial_strides, temporal_sizes, nonlinear=None):
+    def __init__(self, channels, spatial_sizes, spatial_strides, temporal_sizes, nonlinear=None, drop=0):
         """
         Parameters
         ----------
@@ -194,6 +198,8 @@ class SpatialTemporalResidual(Feedforward):
             layer temporal sizes
         nonlinear : str | None
             nonlinearity
+        drop : float
+            dropout probability -- [0, 1)
         """
         assert len(channels) == len(spatial_sizes) == len(temporal_sizes) == len(spatial_strides)
         super().__init__()
@@ -203,17 +209,18 @@ class SpatialTemporalResidual(Feedforward):
         self.spatial_strides = list(map(int, spatial_strides))
         self.temporal_sizes = list(map(int, temporal_sizes))
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
+        self._drop = float(drop)
 
     def _init(self, inputs, streams):
         """
         Parameters
         ----------
-        channels : Sequence[[int, bool]]
-            [[input channels per stream (I), whether to drop input] ...]
+        channels : Sequence[int]
+            [input channels per stream (I), ...]
         streams : int
             number of streams, S
         """
-        self.inputs = list([int(inp), bool(drop)] for inp, drop in inputs)
+        self.inputs = list(map(int, inputs))
         self.streams = int(streams)
 
         spatial = Conv(channels=self._channels[0], streams=streams, gain=False, bias=False)
@@ -223,10 +230,9 @@ class SpatialTemporalResidual(Feedforward):
         )
         residual = Conv(channels=self._channels[0], streams=streams, gain=True, bias=True)
 
-        for _channels, drop in self.inputs:
+        for _channels in self.inputs:
             spatial.add_input(
                 channels=_channels,
-                drop=drop,
                 kernel_size=self.spatial_sizes[0],
                 stride=self.spatial_strides[0],
             )
@@ -270,6 +276,8 @@ class SpatialTemporalResidual(Feedforward):
             for gain in residual.gains:
                 init.constant_(gain, 0)
 
+        self.drop = StreamDropout(p=self._drop, streams=self.streams)
+
     @property
     def channels(self):
         """
@@ -305,4 +313,4 @@ class SpatialTemporalResidual(Feedforward):
             res = residual(inputs, stream=stream)
             inputs = [self.nonlinear(conv) * self.gamma + res]
 
-        return inputs[0]
+        return self.drop(inputs[0], stream=stream)

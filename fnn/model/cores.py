@@ -90,24 +90,19 @@ class FeedforwardRecurrent(Core):
         self.perspectives = int(perspectives)
         self.modulations = int(modulations)
         self.streams = int(streams)
+
         self.feedforward._init(
-            inputs=[
-                [self.perspectives, False],
-            ],
+            inputs=[self.perspectives],
             streams=self.streams,
         )
         self.recurrent._init(
-            inputs=[
-                [self.feedforward.channels, True],
-                [self.modulations, True],
-                [2, False],
-            ],
+            inputs=[self.feedforward.channels, self.modulations, 2],
             streams=self.streams,
         )
+
         self.proj = Conv(channels=self.channels, streams=self.streams, gain=False, bias=False)
         self.proj.add_input(
             channels=self.recurrent.channels,
-            drop=True,
         )
         self._reset()
 
@@ -146,9 +141,8 @@ class FeedforwardRecurrent(Core):
             perspective = perspective.repeat(1, self.streams, 1, 1)
             modulation = modulation.repeat(1, self.streams)
 
-        N = max(perspective.size(0), modulation.size(0))
-        f = self.feedforward([perspective], stream=stream).expand(N, -1, -1, -1)
-        m = modulation[:, :, None, None].expand(N, -1, -1, -1)
+        f = self.feedforward([perspective], stream=stream)
+        m = modulation[:, :, None, None]
         g = self._grid
 
         if g is None:
