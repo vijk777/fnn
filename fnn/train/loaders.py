@@ -57,12 +57,9 @@ class Batches(Loader):
         """
         assert sample_size > 0
         assert batch_size > 0
-        assert epoch_size > 0
-        assert 0 < train_fraction <= 1
 
         self.sample_size = int(sample_size)
         self.batch_size = int(batch_size)
-        self.epoch_size = int(epoch_size)
         self.training_size = int(training_size)
         self.validation_size = int(validation_size)
 
