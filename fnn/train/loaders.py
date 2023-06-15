@@ -127,9 +127,9 @@ class Batches(Loader):
 
         if display_progress:
             if training:
-                iterbar = tqdm(desc="Training Batches", total=self.train_size)
+                iterbar = tqdm(desc="Training Batches", total=self.training_size)
             else:
-                iterbar = tqdm(desc="Validation Batches", total=self.val_size)
+                iterbar = tqdm(desc="Validation Batches", total=self.validation_size)
 
         for b, _ in enumerate(keys):
 
