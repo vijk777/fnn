@@ -62,7 +62,7 @@ class Dataset:
             rows -- data items
             columns -- datainfo (`training`, `samples`) and dataitems
         """
-        assert np.unique(dataframe.index) == len(dataframe), "Index is not unique"
+        assert np.unique(dataframe.index).size == len(dataframe), "Index is not unique"
 
         for item in self.dataitems:
             assert isinstance(dataframe[item][0], Item), f"{dataframe[item][0]} is not an instance of Item"
