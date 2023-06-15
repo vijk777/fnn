@@ -81,7 +81,7 @@ class Batches(Loader):
             keys = self.dataset.keys(training=False)
             size = self.validation_size
 
-        if not size:
+        if not len(keys) or not size:
             return []
         else:
             idx = randint(high=len(keys), size=(size,)).numpy()
