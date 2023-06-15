@@ -76,10 +76,10 @@ class Batches(Loader):
     def _random_keys(self, training=True):
         if training:
             keys = self.dataset.keys(training=True)
-            size = self.training_size
+            size = self.batch_size * self.training_size
         else:
             keys = self.dataset.keys(training=False)
-            size = self.validation_size
+            size = self.batch_size * self.validation_size
 
         if not len(keys) or not size:
             return []
