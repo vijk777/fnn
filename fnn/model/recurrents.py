@@ -173,8 +173,10 @@ class Rvt(Recurrent):
         )
 
         self.drop = StreamDropout(p=self._drop, streams=self.streams)
-
         self._past = dict()
+
+    def _restart(self):
+        self.drop.p = self._drop
 
     def _reset(self):
         self._past.clear()

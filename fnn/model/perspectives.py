@@ -1,7 +1,7 @@
 from torch.nn import init
 from functools import reduce
 from .modules import Module, ModuleList
-from .elements import Linear, nonlinearity
+from .elements import Linear, FlatDropout, nonlinearity
 from .utils import isotropic_grid_sample_2d, rmat_3d
 
 
@@ -83,7 +83,7 @@ class Perspective(Module):
 class MonitorRetina(Perspective):
     """Monitor & Retina Perspective"""
 
-    def __init__(self, monitor, monitor_pixel, retina, retina_pixel, height, width, features, nonlinear=None):
+    def __init__(self, monitor, monitor_pixel, retina, retina_pixel, height, width, features, nonlinear=None, drop=0):
         """
         Parameters
         ----------
@@ -103,6 +103,8 @@ class MonitorRetina(Perspective):
             mlp features
         nonlinear : str | None
             nonlinearity
+        drop : float
+            dropout probability -- [0, 1)
         """
         super().__init__()
 
@@ -118,6 +120,9 @@ class MonitorRetina(Perspective):
 
         for layer, f in zip(self.layers[1:], self.features):
             layer.add_input(features=f)
+
+        self._drop = float(drop)
+        self.drop = FlatDropout(p=self._drop)
 
         self.proj = Linear(features=3).add_input(
             features=self.features[-1],
@@ -138,6 +143,9 @@ class MonitorRetina(Perspective):
         """
         self._channels = int(stimuli)
         self.layers[0].add_input(features=perspectives)
+
+    def _restart(self):
+        self.drop.p = self._drop
 
     @property
     def channels(self):
@@ -162,6 +170,7 @@ class MonitorRetina(Perspective):
             [N, 3, 3], 3D rotation matrix
         """
         x = reduce(lambda x, layer: self.nonlinear(layer([x])) * self.gamma, self.layers, perspective)
+        x = self.drop(x)
         x = self.proj([x])
         return rmat_3d(*x.unbind(1))
 

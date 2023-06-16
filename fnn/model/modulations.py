@@ -1,6 +1,6 @@
 import torch
 from .modules import Module
-from .elements import Linear, Dropout
+from .elements import Linear, FlatDropout
 
 
 # -------------- Modulation Prototype --------------
@@ -84,7 +84,10 @@ class Lstm(Modulation):
         self.proj_o = (
             Linear(features=self.features).add_input(features=self.modulations).add_input(features=self.features)
         )
-        self.drop = Dropout(p=self._drop)
+        self.drop = FlatDropout(p=self._drop)
+
+    def _restart(self):
+        self.drop.p = self._drop
 
     def _reset(self):
         self._past.clear()
@@ -126,7 +129,7 @@ class Lstm(Modulation):
 
         c = f * c + i * g
         h = o * torch.tanh(c)
-        h = self.drop(h[:, :, None, None])[:, :, 0, 0]
+        h = self.drop(h)
 
         self._past["c"] = c
         self._past["h"] = h

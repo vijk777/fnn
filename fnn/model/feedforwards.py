@@ -144,6 +144,9 @@ class Residual3D(Feedforward):
 
         self.drop = StreamDropout(p=self._drop, streams=self.streams)
 
+    def _restart(self):
+        self.drop.p = self._drop
+
     @property
     def channels(self):
         """

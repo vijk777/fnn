@@ -71,12 +71,12 @@ class Dropout(Module):
         Parameters
         ----------
         x : Tensor
-            input
+            [N, C, H, W]
 
         Returns
         -------
         Tensor
-            dropped input
+            [N, C, H, W]
         """
         if not self.p:
             return x
@@ -90,6 +90,30 @@ class Dropout(Module):
 
     def extra_repr(self):
         return f"p={self.p:.3g}"
+
+
+class FlatDropout(Dropout):
+    def forward(self, x):
+        """
+        Parameters
+        ----------
+        x : Tensor
+            [N, C]
+
+        Returns
+        -------
+        Tensor
+            [N, C]
+        """
+        if not self.p:
+            return x
+
+        if self.mask is None:
+            N, C = x.shape
+            rand = torch.rand([N, C], device=x.device)
+            self.mask = (rand > self.p) * self.scale
+
+        return x * self.mask
 
 
 class StreamDropout(ModuleList):
@@ -115,14 +139,14 @@ class StreamDropout(ModuleList):
         Parameters
         ----------
         x : Tensor
-            input
+            [N, C, H, W]
         stream : int | None
             specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            dropped input
+            [N, C, H, W]
         """
         drop = self[self.streams] if stream is None else self[stream]
 
