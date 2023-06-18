@@ -227,9 +227,6 @@ class SgdClip(RandomOptimizer):
                 c = max_norm / torch.maximum(d_p_norm, max_norm)
                 d_p = d_p.mul(c)
 
-            if decay > 0 and p.decay:
-                d_p = d_p.add(p, alpha=decay)
-
             if momentum > 0:
                 m = self.momentums.get(k, None)
 
@@ -242,6 +239,9 @@ class SgdClip(RandomOptimizer):
                     d_p = d_p.add(m, alpha=momentum)
                 else:
                     d_p = m
+
+            if decay > 0 and p.decay:
+                d_p = d_p.add(p, alpha=decay)
 
             p.add_(d_p, alpha=-lr)
             p.grad = None
