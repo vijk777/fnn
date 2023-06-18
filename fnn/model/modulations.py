@@ -49,19 +49,19 @@ class Modulation(Module):
 class Lstm(Modulation):
     """Lstm Modulation"""
 
-    def __init__(self, features, drop=0):
+    def __init__(self, features, dropout=0):
         """
         Parameters
         ----------
         features : int
             lstm features
-        drop : float
+        dropout : float
             dropout probability -- [0, 1)
         """
         super().__init__()
 
         self._features = int(features)
-        self._drop = float(drop)
+        self._drop = float(dropout)
         self._past = dict()
 
     def _init(self, modulations):

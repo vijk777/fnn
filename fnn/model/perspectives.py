@@ -83,7 +83,9 @@ class Perspective(Module):
 class MonitorRetina(Perspective):
     """Monitor & Retina Perspective"""
 
-    def __init__(self, monitor, monitor_pixel, retina, retina_pixel, height, width, features, nonlinear=None, drop=0):
+    def __init__(
+        self, monitor, monitor_pixel, retina, retina_pixel, height, width, features, nonlinear=None, dropout=0
+    ):
         """
         Parameters
         ----------
@@ -103,7 +105,7 @@ class MonitorRetina(Perspective):
             mlp features
         nonlinear : str | None
             nonlinearity
-        drop : float
+        dropout : float
             dropout probability -- [0, 1)
         """
         super().__init__()
@@ -121,7 +123,7 @@ class MonitorRetina(Perspective):
         for layer, f in zip(self.layers[1:], self.features):
             layer.add_input(features=f)
 
-        self._drop = float(drop)
+        self._drop = float(dropout)
         self.drop = FlatDropout(p=self._drop)
 
         self.proj = Linear(features=3).add_input(

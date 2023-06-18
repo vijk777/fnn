@@ -59,7 +59,7 @@ class Recurrent(Module):
 class Rvt(Recurrent):
     """Recurrent Vision Transformer"""
 
-    def __init__(self, channels, groups, kernel_size, drop=0):
+    def __init__(self, channels, groups, kernel_size, dropout=0):
         """
         Parameters
         ----------
@@ -69,7 +69,7 @@ class Rvt(Recurrent):
             groups per stream
         kernel_size : int
             kernel size
-        drop : float
+        dropout : float
             dropout probability -- [0, 1)
         """
         if channels % groups != 0:
@@ -80,7 +80,7 @@ class Rvt(Recurrent):
         self._channels = int(channels)
         self.groups = int(groups)
         self.kernel_size = int(kernel_size)
-        self._drop = float(drop)
+        self._drop = float(dropout)
 
     def _init(self, inputs, streams):
         """

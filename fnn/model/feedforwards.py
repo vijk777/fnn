@@ -59,7 +59,7 @@ class Feedforward(Module):
 class SpatialTemporalResidual(Feedforward):
     """Spatial Temporal Residual"""
 
-    def __init__(self, channels, spatial_sizes, spatial_strides, temporal_sizes, nonlinear=None, drop=0):
+    def __init__(self, channels, spatial_sizes, spatial_strides, temporal_sizes, nonlinear=None, dropout=0):
         """
         Parameters
         ----------
@@ -73,7 +73,7 @@ class SpatialTemporalResidual(Feedforward):
             layer temporal sizes
         nonlinear : str | None
             nonlinearity
-        drop : float
+        dropout : float
             dropout probability -- [0, 1)
         """
         assert len(channels) == len(spatial_sizes) == len(temporal_sizes) == len(spatial_strides)
@@ -84,7 +84,7 @@ class SpatialTemporalResidual(Feedforward):
         self.spatial_strides = list(map(int, spatial_strides))
         self.temporal_sizes = list(map(int, temporal_sizes))
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
-        self._drop = float(drop)
+        self._drop = float(dropout)
 
     def _init(self, inputs, streams):
         """
