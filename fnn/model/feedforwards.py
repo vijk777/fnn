@@ -1,7 +1,8 @@
 import math
 from torch.nn import init
 from .modules import Module, ModuleList
-from .elements import Conv, StreamDropout, nonlinearity
+from .elements import Conv, Residual, StreamDropout, nonlinearity
+from .utils import to_groups_2d
 
 
 # -------------- Feedforward Prototype --------------
@@ -55,135 +56,6 @@ class Feedforward(Module):
 # -------------- Feature Prototype --------------
 
 
-class Residual3D(Feedforward):
-    """Residual 3D"""
-
-    def __init__(self, channels, spatial_sizes, spatial_strides, temporal_sizes, nonlinear=None, drop=0):
-        """
-        Parameters
-        ----------
-        channels : Sequence[int]
-            layer channels
-        spatial_sizes : Sequence[int]
-            layer spatial sizes
-        spatial_strides : Sequence[int]
-            layer spatial strides
-        temporal_sizes : Sequence[int]
-            layer temporal sizes
-        nonlinear : str | None
-            nonlinearity
-        drop : float
-            dropout probability -- [0, 1)
-        """
-        assert len(channels) == len(spatial_sizes) == len(temporal_sizes) == len(spatial_strides)
-        super().__init__()
-
-        self._channels = list(map(int, channels))
-        self.spatial_sizes = list(map(int, spatial_sizes))
-        self.spatial_strides = list(map(int, spatial_strides))
-        self.temporal_sizes = list(map(int, temporal_sizes))
-        self.nonlinear, self.gamma = nonlinearity(nonlinear)
-        self._drop = float(drop)
-
-    def _init(self, inputs, streams):
-        """
-        Parameters
-        ----------
-        channels : Sequence[int]
-            [input channels per stream (I), ...]
-        streams : int
-            number of streams, S
-        """
-        self.inputs = list(map(int, inputs))
-        self.streams = int(streams)
-
-        conv = Conv(channels=self._channels[0], streams=streams)
-        res = Conv(channels=self._channels[0], streams=streams)
-
-        for _channels in self.inputs:
-            conv.add_input(
-                channels=_channels,
-                kernel_size=self.spatial_sizes[0],
-                dynamic_size=self.temporal_sizes[0],
-                stride=self.spatial_strides[0],
-            )
-            res.add_input(
-                channels=_channels,
-                kernel_size=self.spatial_strides[0],
-                stride=self.spatial_strides[0],
-            )
-
-        self.conv = ModuleList([conv])
-        self.residual = ModuleList([res])
-
-        _channels = self._channels[0]
-        for channels, spatial_size, temporal_size, stride in zip(
-            self._channels[1:],
-            self.spatial_sizes[1:],
-            self.temporal_sizes[1:],
-            self.spatial_strides[1:],
-        ):
-            conv = Conv(channels=channels, streams=streams).add_input(
-                channels=_channels,
-                kernel_size=spatial_size,
-                dynamic_size=temporal_size,
-                stride=stride,
-            )
-            res = Conv(channels=channels, streams=streams).add_input(
-                channels=_channels,
-                kernel_size=stride,
-                stride=stride,
-            )
-            self.conv.append(conv)
-            self.residual.append(res)
-            _channels = channels
-
-        for res in self.residual:
-            for gain in res.gains:
-                init.constant_(gain, 0)
-
-        self.drop = StreamDropout(p=self._drop, streams=self.streams)
-
-    def _restart(self):
-        self.drop.p = self._drop
-
-    @property
-    def channels(self):
-        """
-        Returns
-        -------
-        int
-            feedforward channels per stream (F)
-        """
-        return self._channels[-1]
-
-    def forward(self, inputs, stream=None):
-        """
-        Parameters
-        ----------
-        inputs : Sequence[Tensor]
-            [[N, S*I, H, W] ...] -- stream is None
-                or
-            [[N, I, H, W] ...] -- stream is int
-        stream : int | None
-            specific stream | all streams
-
-        Returns
-        -------
-        Tensor
-            [N, S*F, H//D, W//D] -- stream is None
-                or
-            [N, F, H//D, W//D] -- stream is int
-        """
-        for conv, res in zip(self.conv, self.residual):
-
-            c = conv(inputs, stream=stream)
-            r = res(inputs, stream=stream)
-            inputs = [self.nonlinear(c) * self.gamma + r]
-
-        return self.drop(inputs[0], stream=stream)
-
-
 class SpatialTemporalResidual(Feedforward):
     """Spatial Temporal Residual"""
 
@@ -226,35 +98,16 @@ class SpatialTemporalResidual(Feedforward):
         self.inputs = list(map(int, inputs))
         self.streams = int(streams)
 
-        spatial = Conv(channels=self._channels[0], streams=streams, gain=False, bias=False)
-        temporal = Conv(channels=self._channels[0], streams=streams, gain=True, bias=True).add_input(
-            channels=self._channels[0],
-            dynamic_size=self.temporal_sizes[0],
-        )
-        residual = Conv(channels=self._channels[0], streams=streams, gain=True, bias=True)
+        self.spatial = ModuleList([])
+        self.temporal = ModuleList([])
+        self.residual = ModuleList([])
 
-        for _channels in self.inputs:
-            spatial.add_input(
-                channels=_channels,
-                kernel_size=self.spatial_sizes[0],
-                stride=self.spatial_strides[0],
-            )
-            residual.add_input(
-                channels=_channels,
-                kernel_size=self.spatial_strides[0],
-                stride=self.spatial_strides[0],
-            )
-
-        self.spatial = ModuleList([spatial])
-        self.temporal = ModuleList([temporal])
-        self.residual = ModuleList([residual])
-
-        _channels = self._channels[0]
+        _channels = sum(self.inputs)
         for channels, spatial_size, temporal_size, stride in zip(
-            self._channels[1:],
-            self.spatial_sizes[1:],
-            self.temporal_sizes[1:],
-            self.spatial_strides[1:],
+            self._channels,
+            self.spatial_sizes,
+            self.temporal_sizes,
+            self.spatial_strides,
         ):
             spatial = Conv(channels=channels, streams=streams, gain=False, bias=False).add_input(
                 channels=_channels,
@@ -265,19 +118,13 @@ class SpatialTemporalResidual(Feedforward):
                 channels=channels,
                 dynamic_size=temporal_size,
             )
-            residual = Conv(channels=channels, streams=streams, gain=True, bias=True).add_input(
-                channels=_channels,
-                kernel_size=stride,
-                stride=stride,
-            )
+            residual = Residual(in_channels=_channels, out_channels=channels, streams=streams, stride=stride)
+
             self.spatial.append(spatial)
             self.temporal.append(temporal)
             self.residual.append(residual)
-            _channels = channels
 
-        for residual in self.residual:
-            for gain in residual.gains:
-                init.constant_(gain, 0)
+            _channels = channels
 
         self.drop = StreamDropout(p=self._drop, streams=self.streams)
 
@@ -309,11 +156,16 @@ class SpatialTemporalResidual(Feedforward):
                 or
             [N, F, H//D, W//D] -- stream is int
         """
+        if len(self.inputs) == 1:
+            x = inputs[0]
+        elif stream is None:
+            x = torch.cat([to_groups_2d(_, self.streams) for _ in inputs], 2).flatten(1, 2)
+        else:
+            x = torch.cat(inputs, 1)
+
         for spatial, temporal, residual in zip(self.spatial, self.temporal, self.residual):
-
-            conv = spatial(inputs, stream=stream)
+            conv = spatial([x], stream=stream)
             conv = temporal([conv], stream=stream)
-            res = residual(inputs, stream=stream)
-            inputs = [self.nonlinear(conv) * self.gamma + res]
+            x = self.nonlinear(conv) * self.gamma + residual(x, stream=stream)
 
-        return self.drop(inputs[0], stream=stream)
+        return self.drop(x, stream=stream)

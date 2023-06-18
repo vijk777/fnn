@@ -35,6 +35,9 @@ class Parameter(nn.Parameter):
             except TypeError:
                 self._norm_dim = int(norm_dim)
 
+    def __repr__(self):
+        return "Parameter containing:\n" + repr(self.data)
+
 
 class ParameterList(nn.ParameterList):
     """Parameter List"""
