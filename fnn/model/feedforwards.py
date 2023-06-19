@@ -53,7 +53,7 @@ class Feedforward(Module):
         raise NotImplementedError()
 
 
-# -------------- Feature Prototype --------------
+# -------------- Feedforward Types --------------
 
 
 class SpatialResidual(Feedforward):
