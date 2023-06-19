@@ -60,7 +60,7 @@ class Core(Module):
 class FeedforwardRecurrent(Core):
     """Feedforward & Recurrent Core"""
 
-    def __init__(self, feedforward, recurrent, channels):
+    def __init__(self, feedforward, recurrent):
         """
         Parameters
         ----------
@@ -68,13 +68,10 @@ class FeedforwardRecurrent(Core):
             feedforward network
         recurrent : fnn.model.recurrents.Recurrent
             recurrent network
-        channels : int
-            output channels per stream
         """
         super().__init__()
         self.feedforward = feedforward
         self.recurrent = recurrent
-        self._channels = int(channels)
 
     def _init(self, perspectives, modulations, streams):
         """
@@ -100,10 +97,6 @@ class FeedforwardRecurrent(Core):
             streams=self.streams,
         )
 
-        self.proj = Conv(channels=self.channels, streams=self.streams, gain=False, bias=False)
-        self.proj.add_input(
-            channels=self.recurrent.channels,
-        )
         self._reset()
 
     def _reset(self):
@@ -117,7 +110,7 @@ class FeedforwardRecurrent(Core):
         int
             core channels per stream (C)
         """
-        return self._channels
+        return self.recurrent.channels
 
     def forward(self, perspective, modulation, stream=None):
         """
@@ -154,6 +147,4 @@ class FeedforwardRecurrent(Core):
         if stream is None:
             g = g.repeat(1, self.streams, 1, 1)
 
-        r = self.recurrent([f, m, g], stream=stream)
-
-        return self.proj([r], stream=stream)
+        return self.recurrent([f, m, g], stream=stream)
