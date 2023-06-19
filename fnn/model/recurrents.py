@@ -59,7 +59,7 @@ class Recurrent(Module):
 class Rvt(Recurrent):
     """Recurrent Vision Transformer"""
 
-    def __init__(self, channels, groups, kernel_size, dynamic_size, dropout=0):
+    def __init__(self, channels, groups, kernel_size, dropout=0):
         """
         Parameters
         ----------
@@ -69,8 +69,6 @@ class Rvt(Recurrent):
             groups per stream
         kernel_size : int
             kernel size
-        dynamic_size : int
-            dynamic size
         dropout : float
             dropout probability -- [0, 1)
         """
@@ -82,7 +80,6 @@ class Rvt(Recurrent):
         self._channels = int(channels)
         self.groups = int(groups)
         self.kernel_size = int(kernel_size)
-        self.dynamic_size = int(dynamic_size)
         self._drop = float(dropout)
 
     def _init(self, inputs, streams):
@@ -113,7 +110,6 @@ class Rvt(Recurrent):
             channels=self.channels * 2,
             groups=self.groups,
             kernel_size=self.kernel_size,
-            dynamic_size=self.dynamic_size,
         )
 
         self.proj_k = Conv(channels=self.channels, groups=self.groups, streams=self.streams, gain=False, bias=False)
@@ -121,7 +117,6 @@ class Rvt(Recurrent):
             channels=self.channels * 2,
             groups=self.groups,
             kernel_size=self.kernel_size,
-            dynamic_size=self.dynamic_size,
             pad=False,
         )
 
@@ -130,7 +125,6 @@ class Rvt(Recurrent):
             channels=self.channels * 2,
             groups=self.groups,
             kernel_size=self.kernel_size,
-            dynamic_size=self.dynamic_size,
             pad=False,
         )
 
@@ -143,7 +137,6 @@ class Rvt(Recurrent):
             channels=self.channels * 2,
             groups=self.groups,
             kernel_size=self.kernel_size,
-            dynamic_size=self.dynamic_size,
         )
 
         self.proj_f = Conv(channels=self.channels, groups=self.groups, streams=self.streams)
@@ -155,7 +148,6 @@ class Rvt(Recurrent):
             channels=self.channels * 2,
             groups=self.groups,
             kernel_size=self.kernel_size,
-            dynamic_size=self.dynamic_size,
         )
 
         self.proj_g = Conv(channels=self.channels, groups=self.groups, streams=self.streams)
@@ -167,7 +159,6 @@ class Rvt(Recurrent):
             channels=self.channels * 2,
             groups=self.groups,
             kernel_size=self.kernel_size,
-            dynamic_size=self.dynamic_size,
         )
 
         self.proj_o = Conv(channels=self.channels, groups=self.groups, streams=self.streams)
@@ -179,7 +170,6 @@ class Rvt(Recurrent):
             channels=self.channels * 2,
             groups=self.groups,
             kernel_size=self.kernel_size,
-            dynamic_size=self.dynamic_size,
         )
 
         self.drop = StreamDropout(p=self._drop, streams=self.streams)
