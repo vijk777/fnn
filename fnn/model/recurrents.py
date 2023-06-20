@@ -94,18 +94,15 @@ class Rvt(Recurrent):
         self.inputs = list(map(int, inputs))
         self.streams = int(streams)
 
-        self.proj_x = Conv(channels=self.channels, groups=self.groups, streams=self.streams, gain=False, bias=False)
+        self.proj_x = Conv(channels=self.channels, groups=self.groups, streams=self.streams)
         for _channels in inputs:
             self.proj_x.add_input(channels=_channels)
 
         if self.groups > 1:
             self.proj_x.add_intergroup()
 
-        init = (self.channels / self.groups) ** -0.5
-        tau = lambda: Parameter(torch.full([self.groups], init))
-        self.tau = ParameterList([tau() for _ in range(streams)])
-
-        self.proj_q = Conv(channels=self.channels, groups=self.groups, streams=self.streams, gain=False, bias=False)
+        gain = (self.channels / self.groups) ** -0.5
+        self.proj_q = Conv(channels=self.channels, groups=self.groups, streams=self.streams, init_gain=gain, bias=False)
         self.proj_q.add_input(
             channels=self.channels * 2,
             groups=self.groups,
@@ -120,7 +117,7 @@ class Rvt(Recurrent):
             pad=False,
         )
 
-        self.proj_v = Conv(channels=self.channels, groups=self.groups, streams=self.streams, gain=False, bias=False)
+        self.proj_v = Conv(channels=self.channels, groups=self.groups, streams=self.streams)
         self.proj_v.add_input(
             channels=self.channels * 2,
             groups=self.groups,
@@ -212,11 +209,9 @@ class Rvt(Recurrent):
         if stream is None:
             channels = self.channels * self.streams
             groups = self.groups * self.streams
-            tau = torch.cat(list(self.tau))
         else:
             channels = self.channels
             groups = self.groups
-            tau = self.tau[stream]
 
         if self._past:
             assert self._past["stream"] == stream
@@ -239,7 +234,7 @@ class Rvt(Recurrent):
         k = to_groups_2d(self.proj_k([xh], stream=stream), groups).flatten(3, 4)
         v = to_groups_2d(self.proj_v([xh], stream=stream), groups).flatten(3, 4)
 
-        w = torch.einsum("G , N G C Q , N G C D -> N G Q D", tau, q, k).softmax(dim=3)
+        w = torch.einsum("N G C Q , N G C D -> N G Q D", q, k).softmax(dim=3)
         a = torch.einsum("N G C D , N G Q D -> N G C Q", v, w).view_as(x)
 
         i = torch.sigmoid(self.proj_i([a, xh], stream=stream))

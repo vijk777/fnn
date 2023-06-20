@@ -81,12 +81,9 @@ class Linear(Pixel):
         ----------
         scale : float
             luminance scale
-        offset : float
-            luminance offset
         """
         super().__init__()
         self.register_buffer("scale", torch.tensor(scale, dtype=torch.float))
-        self.register_buffer("offset", torch.tensor(offset, dtype=torch.float))
 
     def forward(self, pixels):
         """
@@ -100,7 +97,7 @@ class Linear(Pixel):
         Tensor
             [N, C, H, W]
         """
-        return pixels.mul(self.scale).add(self.offset)
+        return pixels.mul(self.scale)
 
     def inverse(self, pixels):
         """
@@ -114,10 +111,10 @@ class Linear(Pixel):
         Tensor
             [N, C, H, W]
         """
-        return pixels.sub(self.offset).div(self.scale)
+        return pixels.div(self.scale)
 
     def extra_repr(self):
-        return f"scale={self.scale:.3g}, offset={self.offset:.3g}"
+        return f"scale={self.scale:.3g}"
 
 
 class Power(Pixel):

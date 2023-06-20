@@ -292,7 +292,7 @@ class Input(Module):
 
 
 class Conv(Module):
-    def __init__(self, channels, groups=1, streams=1, gain=True, bias=True, eps=1e-5):
+    def __init__(self, channels, groups=1, streams=1, gain=True, bias=True, eps=1e-5, init_gain=1, init_bias=0):
         """
         Parameters
         ----------
@@ -308,6 +308,10 @@ class Conv(Module):
             output bias
         eps : float
             small value added to denominator for numerical stability
+        init_gain : float
+            initial gain
+        init_bias : float
+            initial bias
         """
         if channels % groups != 0:
             raise ValueError("channels must be divisible by groups")
@@ -320,6 +324,8 @@ class Conv(Module):
         self.gain = bool(gain)
         self.bias = bool(bias)
         self.eps = float(eps)
+        self.init_gain = float(init_gain)
+        self.init_bias = float(init_bias)
 
         self.inputs = ModuleList()
         self.gains = ParameterList()
@@ -329,13 +335,13 @@ class Conv(Module):
         assert self.fan_out > 1
 
         if self.gain:
-            gain = lambda: Parameter(torch.ones(self.groups, self.fan_out))
+            gain = lambda: Parameter(torch.full([self.groups, self.fan_out], self.init_gain))
             self.gains = ParameterList([gain() for _ in range(streams)])
             self.gains.decay = False
             self.gains.norm_dim = 1
 
         if self.bias:
-            bias = lambda: Parameter(torch.zeros(self.groups, self.fan_out))
+            bias = lambda: Parameter(torch.full([self.groups, self.fan_out], self.init_bias))
             self.biases = ParameterList([bias() for _ in range(streams)])
             self.biases.decay = False
             self.biases.norm_dim = 1
@@ -506,7 +512,7 @@ class Conv(Module):
 
 
 class Linear(Conv):
-    def __init__(self, features, groups=1, streams=1, gain=True, bias=True, eps=1e-5):
+    def __init__(self, features, groups=1, streams=1, gain=True, bias=True, eps=1e-5, init_gain=1, init_bias=0):
         """
         Parameters
         ----------
@@ -522,8 +528,21 @@ class Linear(Conv):
             output bias
         eps : float
             small value added to denominator for numerical stability
+        init_gain : float
+            initial gain
+        init_bias : float
+            initial bias
         """
-        super().__init__(channels=features, groups=groups, streams=streams, gain=gain, bias=bias, eps=eps)
+        super().__init__(
+            channels=features,
+            groups=groups,
+            streams=streams,
+            gain=gain,
+            bias=bias,
+            eps=eps,
+            init_gain=init_gain,
+            init_bias=init_bias,
+        )
         self.features = self.channels
 
     def add_input(self, features, groups=1):

@@ -59,7 +59,7 @@ class Feedforward(Module):
 class Block(Module):
     """Dense Block"""
 
-    def __init__(self, channels, groups, layers, kernel_size, dynamic_size, nonlinear=None):
+    def __init__(self, channels, groups, layers, kernel_size, dynamic_size, pool_size, nonlinear=None):
         """
         Parameters
         ----------
@@ -83,6 +83,7 @@ class Block(Module):
         self.layers = int(layers)
         self.kernel_size = int(kernel_size)
         self.dynamic_size = int(dynamic_size)
+        self.pool_size = int(pool_size)
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
 
@@ -119,6 +120,11 @@ class Block(Module):
             self.conv.append(conv)
             self.dense.append(dense)
 
+        if self.pool_size == 1:
+            self.pool = Identity()
+        else:
+            self.pool = AvgPool2d(self.pool_size)
+
     def forward(self, x, stream=None):
         """
         Parameters
@@ -145,6 +151,10 @@ class Block(Module):
             x = self.nonlinear(x) * self.gamma
 
             y.append(x)
+
+            if len(y) == self.layers:
+                y = list(map(self.pool, y))
+
             x = dense(y, stream=stream)
 
         return x
@@ -236,7 +246,6 @@ class Dense(Feedforward):
         )
 
         self.blocks = ModuleList([])
-        self.pools = ModuleList([])
 
         inputs = self.pre_channels
         for channels, groups, layers, kernel, dynamic, pool in zip(
@@ -253,17 +262,14 @@ class Dense(Feedforward):
                 layers=layers,
                 kernel_size=kernel,
                 dynamic_size=dynamic,
+                pool_size=pool,
                 nonlinear=self.nonlinear,
             )
             block._init(
                 inputs=inputs,
                 streams=self.streams,
             )
-
-            pool = Identity() if pool == 1 else AvgPool2d(pool)
-
             self.blocks.append(block)
-            self.pools.append(pool)
             inputs = channels
 
         self.drop = StreamDropout(p=self._drop, streams=self.streams)
@@ -308,8 +314,7 @@ class Dense(Feedforward):
 
         x = self.pre([x], stream=stream)
 
-        for block, pool in zip(self.blocks, self.pools):
+        for block in self.blocks:
             x = block(x, stream=stream)
-            x = pool(x)
 
         return self.drop(x, stream=stream)
