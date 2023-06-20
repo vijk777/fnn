@@ -108,6 +108,7 @@ class Rvt(Recurrent):
             groups=self.groups,
             kernel_size=self.kernel_size,
         )
+        self.proj_q.gains.decay = True
 
         self.proj_k = Conv(channels=self.channels, groups=self.groups, streams=self.streams, gain=False, bias=False)
         self.proj_k.add_input(
