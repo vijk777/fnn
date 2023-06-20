@@ -229,7 +229,7 @@ class Dense(Feedforward):
         self.inputs = list(map(int, inputs))
         self.streams = int(streams)
 
-        self.pre = Conv(channels=self.pre_channels, groups=self.block_groups[0], streams=self.streams).add_input(
+        self.pre = Conv(channels=self.pre_channels, streams=self.streams).add_input(
             channels=sum(self.inputs),
             kernel_size=self.pre_kernel,
             stride=self.pre_stride,
