@@ -106,6 +106,7 @@ class Block(Module):
 
             conv = Conv(channels=self.channels, streams=self.streams, groups=self.groups).add_input(
                 channels=channels[-1],
+                groups=self.groups,
                 kernel_size=self.kernel_size,
                 dynamic_size=self.dynamic_size,
             )
@@ -228,7 +229,7 @@ class Dense(Feedforward):
         self.inputs = list(map(int, inputs))
         self.streams = int(streams)
 
-        self.pre = Conv(channels=self.pre_channels, streams=self.streams).add_input(
+        self.pre = Conv(channels=self.pre_channels, groups=self.block_groups[0], streams=self.streams).add_input(
             channels=sum(self.inputs),
             kernel_size=self.pre_kernel,
             stride=self.pre_stride,
