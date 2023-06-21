@@ -58,8 +58,7 @@ class Dataset:
         Parameters
         ----------
         dataframe : pandas.DataFrame
-            index -- data item identifier
-            rows -- data items
+            index -- unique identifier
             columns -- datainfo (`training`, `samples`) and dataitems
         """
         self.df = dataframe.astype(self.datainfo)
