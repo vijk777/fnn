@@ -200,8 +200,6 @@ class Dense(Feedforward):
             block kernel sizes
         block_dynamics : Sequence[int]
             block dynamic sizes
-        pool_sizes : Sequence[int]
-            pooling sizes
         nonlinear : str | None
             nonlinearity
         dropout : float
