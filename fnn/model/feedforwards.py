@@ -78,20 +78,14 @@ class Block(Module):
             nonlinearity
         """
         super().__init__()
-
         self.channels = int(channels)
         self.groups = int(groups)
         self.layers = int(layers)
         self.pool_size = int(pool_size)
         self.kernel_size = int(kernel_size)
         self.dynamic_size = int(dynamic_size)
-
-        if self.pool_size == 1:
-            self.pool = None
-        else:
-            self.pool = torch.nn.AvgPool2d(self.pool_size)
-
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
+        self.pool = None if self.pool_size == 1 else torch.nn.AvgPool2d(self.pool_size)
 
     def _init(self, mix, inputs, streams):
         """
