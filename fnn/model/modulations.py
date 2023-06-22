@@ -81,7 +81,9 @@ class LnLstm(Modulation):
         self.proj_g = Linear(features=self.features).add_input(features=self.features * 2)
         self.proj_o = Linear(features=self.features).add_input(features=self.features * 2)
 
-        self.drop = FlatDropout(p=self._dropout)
+        self.drop_x = FlatDropout(p=self._dropout)
+        self.drop_h = FlatDropout(p=self._dropout)
+
         self._past = dict()
 
     def _restart(self):
@@ -120,6 +122,7 @@ class LnLstm(Modulation):
 
         x = self.proj_x([modulation])
         x = self.nonlinear(x) * self.gamma
+        x = self.drop_x(x)
 
         xh = torch.cat([x, h], dim=1)
 
@@ -130,7 +133,7 @@ class LnLstm(Modulation):
 
         c = f * c + i * g
         h = o * torch.tanh(c)
-        h = self.drop(h)
+        h = self.drop_h(h)
 
         self._past["c"] = c
         self._past["h"] = h
