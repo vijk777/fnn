@@ -155,11 +155,8 @@ class Block(Module):
             x = self.proj([x], stream=stream)
 
         y = []
-
         for conv in self.convs:
-
             y.append(x)
-
             x = conv(y, stream=stream)
             x = self.nonlinear(x) * self.gamma
 
