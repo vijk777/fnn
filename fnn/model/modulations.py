@@ -1,6 +1,6 @@
 import torch
 from .modules import Module
-from .elements import Linear, FlatDropout
+from .elements import Linear, FlatDropout, nonlinearity
 
 
 # -------------- Modulation Prototype --------------
@@ -46,23 +46,25 @@ class Modulation(Module):
 # -------------- Modulation Types --------------
 
 
-class Lstm(Modulation):
-    """Lstm Modulation"""
+class LnLstm(Modulation):
+    """Linear -> Nonlinear -> Lstm"""
 
-    def __init__(self, features, dropout=0):
+    def __init__(self, features, nonlinear=None, dropout=0):
         """
         Parameters
         ----------
         features : int
-            lstm features
+            feature size
+        nonlinear : str | None
+            nonlinearity
         dropout : float
             dropout probability -- [0, 1)
         """
         super().__init__()
 
         self._features = int(features)
-        self._drop = float(dropout)
-        self._past = dict()
+        self.nonlinear, self.gamma = nonlinearity(nonlinear)
+        self._dropout = float(dropout)
 
     def _init(self, modulations):
         """
@@ -72,22 +74,18 @@ class Lstm(Modulation):
             number of inputs (I)
         """
         self.modulations = int(modulations)
-        self.proj_i = (
-            Linear(features=self.features).add_input(features=self.modulations).add_input(features=self.features)
-        )
-        self.proj_f = (
-            Linear(features=self.features).add_input(features=self.modulations).add_input(features=self.features)
-        )
-        self.proj_g = (
-            Linear(features=self.features).add_input(features=self.modulations).add_input(features=self.features)
-        )
-        self.proj_o = (
-            Linear(features=self.features).add_input(features=self.modulations).add_input(features=self.features)
-        )
-        self.drop = FlatDropout(p=self._drop)
+
+        self.proj_x = Linear(features=self.features).add_input(features=self.modulations)
+        self.proj_i = Linear(features=self.features).add_input(features=self.features * 2)
+        self.proj_f = Linear(features=self.features).add_input(features=self.features * 2)
+        self.proj_g = Linear(features=self.features).add_input(features=self.features * 2)
+        self.proj_o = Linear(features=self.features).add_input(features=self.features * 2)
+
+        self.drop = FlatDropout(p=self._dropout)
+        self._past = dict()
 
     def _restart(self):
-        self.drop.p = self._drop
+        self.dropout(p=self._dropout)
 
     def _reset(self):
         self._past.clear()
@@ -120,12 +118,15 @@ class Lstm(Modulation):
         else:
             h = c = torch.zeros(modulation.size(0), self.features, device=self.device)
 
-        inputs = [modulation, h]
+        x = self.proj_x([modulation])
+        x = self.nonlinear(x) * self.gamma
 
-        i = torch.sigmoid(self.proj_i(inputs))
-        f = torch.sigmoid(self.proj_f(inputs))
-        g = torch.tanh(self.proj_g(inputs))
-        o = torch.sigmoid(self.proj_o(inputs))
+        xh = torch.cat([x, h], dim=1)
+
+        i = torch.sigmoid(self.proj_i([xh]))
+        f = torch.sigmoid(self.proj_f([xh]))
+        g = torch.tanh(self.proj_g([xh]))
+        o = torch.sigmoid(self.proj_o([xh]))
 
         c = f * c + i * g
         h = o * torch.tanh(c)

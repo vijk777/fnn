@@ -1,8 +1,7 @@
 import math
-from torch.nn import Identity, AvgPool2d
+import torch
 from .modules import Module, ModuleList
 from .elements import Conv, StreamDropout, nonlinearity
-from .utils import to_groups_2d
 
 
 # -------------- Feedforward Prototype --------------
@@ -59,7 +58,7 @@ class Feedforward(Module):
 class Block(Module):
     """Dense Block"""
 
-    def __init__(self, channels, groups, layers, kernel_size, dynamic_size, pool_size, nonlinear=None):
+    def __init__(self, channels, groups, layers, pool_size, kernel_size, dynamic_size, nonlinear=None):
         """
         Parameters
         ----------
@@ -69,6 +68,8 @@ class Block(Module):
             groups per stream
         layers : int
             number of layers
+        pool_size : int
+            pool size
         kernel_size : int
             kernel size
         dynamic_size : int
@@ -81,49 +82,53 @@ class Block(Module):
         self.channels = int(channels)
         self.groups = int(groups)
         self.layers = int(layers)
+        self.pool_size = int(pool_size)
         self.kernel_size = int(kernel_size)
         self.dynamic_size = int(dynamic_size)
-        self.pool_size = int(pool_size)
+
+        if self.pool_size == 1:
+            self.pool = None
+        else:
+            self.pool = torch.nn.AvgPool2d(self.pool_size)
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
 
-    def _init(self, inputs, streams):
+    def _init(self, mix, inputs, streams):
         """
         Parameters
         ----------
+        mix : bool
+            mix input channels
         inputs : int
             input channels per stream
         streams : int
             number of streams
         """
+        self.mix = bool(mix)
         self.inputs = int(inputs)
         self.streams = int(streams)
 
-        self.conv = ModuleList([])
-        self.dense = ModuleList([])
+        def new_conv():
+            return Conv(channels=self.channels, streams=self.streams, groups=self.groups)
 
-        channels = [self.inputs]
-        for _ in range(self.layers):
-
-            conv = Conv(channels=self.channels, streams=self.streams, groups=self.groups).add_input(
-                channels=channels[-1],
+        def layer_conv(layer):
+            conv = new_conv()
+            conv.add_input(
+                channels=self.channels,
                 groups=self.groups,
                 kernel_size=self.kernel_size,
                 dynamic_size=self.dynamic_size,
             )
-            channels.append(self.channels)
+            for _ in range(layer + 1):
+                conv.add_input(channels=self.channels)
+            return conv
 
-            dense = Conv(channels=self.channels, streams=self.streams)
-            for _channels in channels:
-                dense.add_input(channels=_channels)
-
-            self.conv.append(conv)
-            self.dense.append(dense)
-
-        if self.pool_size == 1:
-            self.pool = Identity()
+        if self.mix or self.inputs != self.channels:
+            self.proj = new_conv().add_input(channels=self.inputs)
         else:
-            self.pool = AvgPool2d(self.pool_size)
+            self.proj = None
+
+        self.convs = ModuleList([layer_conv(layer) for layer in range(self.layers)])
 
     def forward(self, x, stream=None):
         """
@@ -143,19 +148,20 @@ class Block(Module):
                 or
             [N, F, H, W] -- stream is int
         """
+        if self.pool is not None:
+            x = self.pool(x)
+
+        if self.proj is not None:
+            x = self.proj([x], stream=stream)
+
         y = [x]
 
-        for conv, dense in zip(self.conv, self.dense):
+        for conv in self.convs:
 
-            x = conv([x], stream=stream)
+            x = conv([x] + y, stream=stream)
             x = self.nonlinear(x) * self.gamma
 
             y.append(x)
-
-            if len(y) == self.layers:
-                y = list(map(self.pool, y))
-
-            x = dense(y, stream=stream)
 
         return x
 
@@ -171,9 +177,9 @@ class Dense(Feedforward):
         block_channels,
         block_groups,
         block_layers,
+        block_pools,
         block_kernels,
         block_dynamics,
-        pool_sizes,
         nonlinear=None,
         dropout=0,
     ):
@@ -192,6 +198,8 @@ class Dense(Feedforward):
             block groups per stream
         block_layers : Sequence[int]
             block layers
+        block_pools : Sequence[int]
+            block pool sizes
         block_kernels : Sequence[int]
             block kernel sizes
         block_dynamics : Sequence[int]
@@ -207,9 +215,9 @@ class Dense(Feedforward):
             len(block_channels)
             == len(block_groups)
             == len(block_layers)
+            == len(block_pools)
             == len(block_kernels)
             == len(block_dynamics)
-            == len(pool_sizes)
         )
         super().__init__()
 
@@ -220,9 +228,9 @@ class Dense(Feedforward):
         self.block_channels = list(map(int, block_channels))
         self.block_groups = list(map(int, block_groups))
         self.block_layers = list(map(int, block_layers))
+        self.block_pools = list(map(int, block_pools))
         self.block_kernels = list(map(int, block_kernels))
         self.block_dynamics = list(map(int, block_dynamics))
-        self.pool_sizes = list(map(int, pool_sizes))
 
         self.nonlinear = str(nonlinear)
         self._drop = float(dropout)
@@ -239,43 +247,52 @@ class Dense(Feedforward):
         self.inputs = list(map(int, inputs))
         self.streams = int(streams)
 
-        self.pre = Conv(channels=self.pre_channels, streams=self.streams).add_input(
-            channels=sum(self.inputs),
-            kernel_size=self.pre_kernel,
-            stride=self.pre_stride,
-        )
+        self.pre = Conv(channels=self.pre_channels, groups=self.block_groups[0], streams=self.streams)
+        for channels in self.inputs:
+            self.pre.add_input(
+                channels=channels,
+                kernel_size=self.pre_kernel,
+                stride=self.pre_stride,
+            )
 
         self.blocks = ModuleList([])
+        self.drops = ModuleList([])
 
         inputs = self.pre_channels
-        for channels, groups, layers, kernel, dynamic, pool in zip(
+        mix = False
+
+        for channels, groups, layers, pool, kernel, dynamic in zip(
             self.block_channels,
             self.block_groups,
             self.block_layers,
+            self.block_pools,
             self.block_kernels,
             self.block_dynamics,
-            self.pool_sizes,
         ):
             block = Block(
                 channels=channels,
                 groups=groups,
                 layers=layers,
+                pool_size=pool,
                 kernel_size=kernel,
                 dynamic_size=dynamic,
-                pool_size=pool,
                 nonlinear=self.nonlinear,
             )
             block._init(
+                mix=mix,
                 inputs=inputs,
                 streams=self.streams,
             )
-            self.blocks.append(block)
-            inputs = channels
+            drop = StreamDropout(p=self._drop, streams=self.streams)
 
-        self.drop = StreamDropout(p=self._drop, streams=self.streams)
+            self.blocks.append(block)
+            self.drops.append(drop)
+
+            inputs = channels
+            mix = groups > 1
 
     def _restart(self):
-        self.drop.p = self._drop
+        self.drop.dropout(p=self._drop)
 
     @property
     def channels(self):
@@ -305,16 +322,10 @@ class Dense(Feedforward):
                 or
             [N, F, H//D, W//D] -- stream is int
         """
-        if len(self.inputs) == 1:
-            x = inputs[0]
-        elif stream is None:
-            x = torch.cat([to_groups_2d(_, self.streams) for _ in inputs], 2).flatten(1, 2)
-        else:
-            x = torch.cat(inputs, 1)
+        x = self.pre(inputs, stream=stream)
 
-        x = self.pre([x], stream=stream)
-
-        for block in self.blocks:
+        for block, drop in zip(self.blocks, self.drops):
             x = block(x, stream=stream)
+            x = drop(x, stream=stream)
 
-        return self.drop(x, stream=stream)
+        return x

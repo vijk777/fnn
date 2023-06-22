@@ -3,7 +3,7 @@ from torch.nn import functional
 
 
 def to_groups_2d(tensor, groups):
-    """Reshapes a 2D tensor to channel groups
+    """Reshapes a 2D (H, W) tensor to channel groups
 
     Parameters
     ----------
@@ -19,6 +19,25 @@ def to_groups_2d(tensor, groups):
     """
     N, _, H, W = tensor.shape
     return tensor.view(N, groups, -1, H, W)
+
+
+def cat_groups_2d(tensors, groups):
+    """Groupwise concatenation of 2D (H, W) tensors along the channel dimension (C)
+
+    Parameters
+    ----------
+    tensors : Sequence[Tensor]
+        [[N, C, H, W], ...]
+    groups : int
+        channel groups (G)
+
+    Returns
+    -------
+    Tensor
+        [N, C', H, W]
+    """
+    tensors = [to_groups_2d(tensor, groups) for tensor in groups]
+    return torch.cat(tensors, 2).flatten(1, 2)
 
 
 def rmat_3d(x, y, z):

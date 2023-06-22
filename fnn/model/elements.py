@@ -246,21 +246,25 @@ class Input(Module):
         for past in self._past:
             past.clear()
 
-    def forward(self, x, stream):
+    def forward(self, x, stream=None):
         """
         Parameters
         ----------
         x : Tensor
             [N, C, H, W]
-        stream : int
-            stream index
+        stream : int | None
+            specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
             [N, C, T, H, W]
         """
-        assert x.size(1) == self.in_channels
+        if stream is None:
+            assert not self.past_size
+            assert x.size(1) == self.in_channels * self.streams
+        else:
+            assert x.size(1) == self.in_channels
 
         if self.pad:
             x = functional.pad(x, pad=[self.pad] * 4)
@@ -486,12 +490,15 @@ class Conv(Module):
 
         for i, x, w in zip(self.inputs, inputs, weights):
 
-            if stream is None:
+            if stream is None and i.past_size:
                 x = [i(_x, stream=s) for s, _x in enumerate(x.chunk(self.streams, dim=1))]
                 x = torch.cat(x, dim=1)
-                g = i.groups * self.streams
             else:
                 x = i(x, stream=stream)
+
+            if stream is None:
+                g = i.groups * self.streams
+            else:
                 g = i.groups
 
             out = functional.conv3d(x, weight=w, groups=g, bias=bias, stride=i.stride).squeeze(dim=2)

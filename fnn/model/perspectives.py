@@ -123,8 +123,8 @@ class MonitorRetina(Perspective):
         for layer, f in zip(self.layers[1:], self.features):
             layer.add_input(features=f)
 
-        self._drop = float(dropout)
-        self.drop = FlatDropout(p=self._drop)
+        self._dropout = float(dropout)
+        self.drop = FlatDropout(p=self._dropout)
 
         self.proj = Linear(features=3).add_input(
             features=self.features[-1],
@@ -147,7 +147,7 @@ class MonitorRetina(Perspective):
         self.layers[0].add_input(features=perspectives)
 
     def _restart(self):
-        self.drop.p = self._drop
+        self.dropout(p=self._dropout)
 
     @property
     def channels(self):

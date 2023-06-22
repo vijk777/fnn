@@ -80,7 +80,7 @@ class Rvt(Recurrent):
         self._channels = int(channels)
         self.groups = int(groups)
         self.kernel_size = int(kernel_size)
-        self._drop = float(dropout)
+        self._dropout = float(dropout)
 
     def _init(self, inputs, streams):
         """
@@ -170,11 +170,11 @@ class Rvt(Recurrent):
             kernel_size=self.kernel_size,
         )
 
-        self.drop = StreamDropout(p=self._drop, streams=self.streams)
+        self.drop = StreamDropout(p=self._dropout, streams=self.streams)
         self._past = dict()
 
     def _restart(self):
-        self.drop.p = self._drop
+        self.dropout(p=self._dropout)
 
     def _reset(self):
         self._past.clear()
