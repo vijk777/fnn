@@ -32,22 +32,22 @@ class Network(Module):
         """
         Parameters
         ----------
-        stimulus : Iterable[ np.ndarray ]
+        stimulus : Iterable[ND array]
             either singular or batch
-        perspective : Iterable[ np.ndarray ] | None
+        perspective : Iterable[ND array] | None
             either singular or batch
-        modulations : Iterable[ np.ndarray ] | None
+        modulations : Iterable[ND array] | None
             either singular or batch
         training : bool
             training or inference
 
         Yields
         ------
-        either 1D np.ndarry
+        either 1D array
             [U] (singular input, training=False)
         or 1D Tensor
             [U] (singular input, training=True)
-        or 2D np.ndarry
+        or 2D array
             [N, U] (batch input, training=False)
         or 2D Tensor
             [N, U] (batch input, training=True)
@@ -58,13 +58,13 @@ class Network(Module):
         """
         Parameters
         ----------
-        units : Iterable[ np.ndarray ]
+        units : Iterable[ND array]
             either singular or batch
-        stimulus : Iterable[ np.ndarray ]
+        stimulus : Iterable[ND array]
             either singular or batch
-        perspective : Iterable[ np.ndarray ] | None
+        perspective : Iterable[ND array] | None
             either singular or batch
-        modulations : Iterable[ np.ndarray ] | None
+        modulations : Iterable[ND array] | None
             either singular or batch
         stream : int | None
             specific stream | all streams
@@ -73,11 +73,11 @@ class Network(Module):
 
         Yields
         ------
-        either 1D np.ndarry
+        either 1D array
             [U] (singular input, training=False)
         or 1D Tensor
             [U] (singular input, training=True)
-        or 2D np.ndarry
+        or 2D array
             [N, U] (batch input, training=False)
         or 2D Tensor
             [N, U] (batch input, training=True)
@@ -333,22 +333,22 @@ class Visual(Network):
         """
         Parameters
         ----------
-        stimulus : Iterable[ 2D|3D|4D np.ndarray ]
-            [H, W] | [H, W, C] | [N, H, W, C] x T --- dtype=uint8
-        perspective : Iterable[ 1D|2D np.ndarray ] | None
-            [P] | [N, P] x T --- dtype=float
-        modulations : Iterable[ 1D|2D np.ndarray ] | None
-            [M] | [N, M] x T --- dtype=float
+        stimulus : Iterable[2D|3D|4D array]
+            T x [H, W] | T x [H, W, C] | T x [N, H, W, C] --- dtype=uint8
+        perspective : Iterable[1D|2D array] | None
+            T x [P] | T x [N, P] --- dtype=float
+        modulations : Iterable[1D|2D array] | None
+            T x [M] | T x [N, M] --- dtype=float
         training : bool
             training or inference
 
         Yields
         ------
-        either 1D np.ndarry
+        either 1D array
             [U] (singular input, training=False)
         or 1D Tensor
             [U] (singular input, training=True)
-        or 2D np.ndarry
+        or 2D array
             [N, U] (batch input, training=False)
         or 2D Tensor
             [N, U] (batch input, training=True)
@@ -390,14 +390,14 @@ class Visual(Network):
         """
         Parameters
         ----------
-        units : Iterable[ 1D|2D np.narray ]
-            [U] | [N, U] x T -- dtype=float
-        stimulus : Iterable[ 2D|3D|4D np.ndarray ]
-            [H, W] | [H, W, C] | [N, H, W, C] x T --- dtype=uint8
-        perspective : Iterable[ 1D|2D np.ndarray] | None
-            [P] | [N, P] x T --- dtype=float
-        modulations : Iterable[ 1D|2D np.ndarray ] | None
-            [M] | [N, M] x T --- dtype=float
+        units : Iterable[1D|2D array]
+            T x [U] | T x [N, U] -- dtype=float
+        stimulus : Iterable[2D|3D|4D array]
+            T x [H, W] | T x [H, W, C] | T x [N, H, W, C] --- dtype=uint8
+        perspective : Iterable[1D|2D array] | None
+            T x [P] | T x [N, P] --- dtype=float
+        modulations : Iterable[1D|2D array] | None
+            T x [M] | T x [N, M] --- dtype=float
         stream : int | None
             specific stream | all streams
         training : bool
@@ -405,11 +405,11 @@ class Visual(Network):
 
         Yields
         ------
-        either 1D np.ndarry
+        either 1D array
             [U] (singular input, training=False)
         or 1D Tensor
             [U] (singular input, training=True)
-        or 2D np.ndarry
+        or 2D array
             [N, U] (batch input, training=False)
         or 2D Tensor
             [N, U] (batch input, training=True)
