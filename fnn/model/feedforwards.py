@@ -113,8 +113,13 @@ class Block(Module):
 
         def layer_conv(layer):
             conv = new_conv()
+
             for _ in range(layer):
-                conv.add_input(channels=self.channels)
+                conv.add_input(
+                    channels=self.channels,
+                    groups=self.groups,
+                )
+
             conv.add_input(
                 channels=self.channels,
                 groups=self.groups,
