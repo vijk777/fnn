@@ -288,7 +288,7 @@ class Dense(Feedforward):
             mix = groups > 1
 
     def _restart(self):
-        self.drop.dropout(p=self._drop)
+        self.dropout(p=self._drop)
 
     @property
     def channels(self):
