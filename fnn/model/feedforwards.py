@@ -119,7 +119,7 @@ class Block(Module):
                 kernel_size=self.kernel_size,
                 dynamic_size=self.dynamic_size,
             )
-            for _ in range(layer + 1):
+            for _ in range(layer):
                 conv.add_input(channels=self.channels)
             return conv
 
@@ -154,14 +154,11 @@ class Block(Module):
         if self.proj is not None:
             x = self.proj([x], stream=stream)
 
-        y = [x]
-
+        y = []
         for conv in self.convs:
-
-            x = conv([x] + y, stream=stream)
-            x = self.nonlinear(x) * self.gamma
-
-            y.append(x)
+            y.insert(0, x)
+            c = conv(y, stream=stream)
+            x = self.nonlinear(c) * self.gamma
 
         return x
 
