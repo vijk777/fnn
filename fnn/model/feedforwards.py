@@ -1,5 +1,5 @@
-import math
-import torch
+from torch.nn.functional import avg_pool2d
+from .utils import cat_groups_2d
 from .modules import Module, ModuleList
 from .elements import Conv, StreamDropout, nonlinearity
 
@@ -56,14 +56,14 @@ class Feedforward(Module):
 
 
 class Block(Module):
-    """Dense Block"""
+    """Dense Connection Block"""
 
     def __init__(self, channels, groups, layers, pool_size, kernel_size, dynamic_size, nonlinear=None):
         """
         Parameters
         ----------
         channels : int
-            dense channels per stream
+            channels per stream (C)
         groups : int
             groups per stream
         layers : int
@@ -84,90 +84,102 @@ class Block(Module):
         self.pool_size = int(pool_size)
         self.kernel_size = int(kernel_size)
         self.dynamic_size = int(dynamic_size)
-        self.nonlinear, self.gamma = nonlinearity(nonlinear)
-        self.pool = None if self.pool_size == 1 else torch.nn.AvgPool2d(self.pool_size)
 
-    def _init(self, mix, inputs, streams):
+        self.nonlinear, self.gamma = nonlinearity(nonlinear)
+
+        if self.pool_size == 1:
+            self.pool = lambda x: x
+        else:
+            self.pool = lambda x: [avg_pool2d(_, self.pool_size) * self.pool_size for _ in x]
+
+    def _init(self, inputs, streams):
         """
         Parameters
         ----------
-        mix : bool
-            mix input channels
-        inputs : int
-            input channels per stream
+        inputs : Sequence[int]
+            [input channels per stream (I), ...]
         streams : int
-            number of streams
+            number of streams (S)
         """
-        self.mix = bool(mix)
-        self.inputs = int(inputs)
+        self.inputs = list(map(int, inputs))
         self.streams = int(streams)
 
-        def new_conv():
+        def _conv():
             return Conv(channels=self.channels, streams=self.streams, groups=self.groups)
 
-        def layer_conv(layer):
-            conv = new_conv()
+        def conn(l):
+            if l:
+                inputs = [self.channels] * (l + 1)
 
-            for _ in range(layer):
-                conv.add_input(
-                    channels=self.channels,
-                    groups=self.groups,
-                )
+            elif len(self.inputs) > 1 or self.inputs[0] != self.channels:
+                inputs = self.inputs
 
-            conv.add_input(
+            else:
+                return
+
+            c = _conv()
+            for channels in inputs:
+                c.add_input(channels=channels)
+
+            return c
+
+        def conv():
+            return _conv().add_input(
                 channels=self.channels,
                 groups=self.groups,
                 kernel_size=self.kernel_size,
                 dynamic_size=self.dynamic_size,
             )
-            return conv
 
-        if self.mix or self.inputs != self.channels:
-            self.proj = new_conv().add_input(channels=self.inputs)
-        else:
-            self.proj = None
-
-        self.convs = ModuleList([layer_conv(layer) for layer in range(self.layers)])
+        self.conns = ModuleList([conn(l) for l in range(self.layers)])
+        self.convs = ModuleList([conv() for _ in range(self.layers)])
 
     def forward(self, x, stream=None):
         """
         Parameters
         ----------
-        x : Tensor
-            [N, S*I, H, W] -- stream is None
+        inputs : Sequence[Tensor]
+            [[N, S*I, H, W] ...] -- stream is None
                 or
-            [N, I, H, W] -- stream is int
+            [[N, I, H, W] ...] -- stream is int
         stream : int | None
             specific stream | all streams
 
         Returns
         -------
-        Tensor
-            [N, S*F, H, W] -- stream is None
+        List[Tensor]
+            [[N, S*C, H', W'], ... x (layers + 1)] -- stream is None
                 or
-            [N, F, H, W] -- stream is int
+            [[N, C, H', W'], ... x (layers + 1)] -- stream is int
         """
-        if self.pool is not None:
-            x = self.pool(x)
+        x = self.pool(x)
+        z = []
 
-        if self.proj is not None:
-            x = self.proj([x], stream=stream)
+        for l, (conn, conv) in enumerate(zip(self.conns, self.convs)):
 
-        y = []
-        for conv in self.convs:
-            y.append(x)
-            x = conv(y, stream=stream)
-            x = self.nonlinear(x) * self.gamma
+            if l == 0:
+                if conn is None:
+                    y = x[0]
+                else:
+                    y = conn(x, stream=stream)
+                z.append(y)
 
-        return x
+            else:
+                y = conn(z, stream=stream)
+
+            y = conv([y], stream=stream)
+            y = self.nonlinear(y) * self.gamma
+
+            z.append(y)
+
+        return z
 
 
 class Dense(Feedforward):
-    """Dense Network"""
+    """Dense Connection Network"""
 
     def __init__(
         self,
-        pre_channels,
         pre_kernel,
         pre_stride,
         block_channels,
@@ -182,8 +194,6 @@ class Dense(Feedforward):
         """
         Parameters
         ----------
-        pre_channels : int
-            pre channels per stream
         pre_kernel : int
             pre kernel size
         pre_stride : int
@@ -215,17 +225,14 @@ class Dense(Feedforward):
         )
         super().__init__()
 
-        self.pre_channels = int(pre_channels)
         self.pre_kernel = int(pre_kernel)
         self.pre_stride = int(pre_stride)
-
         self.block_channels = list(map(int, block_channels))
         self.block_groups = list(map(int, block_groups))
         self.block_layers = list(map(int, block_layers))
         self.block_pools = list(map(int, block_pools))
         self.block_kernels = list(map(int, block_kernels))
         self.block_dynamics = list(map(int, block_dynamics))
-
         self.nonlinear = str(nonlinear)
         self._drop = float(dropout)
 
@@ -236,24 +243,22 @@ class Dense(Feedforward):
         inputs : Sequence[int]
             [input channels per stream (I), ...]
         streams : int
-            number of streams, S
+            number of streams (S)
         """
         self.inputs = list(map(int, inputs))
         self.streams = int(streams)
 
-        self.pre = Conv(channels=self.pre_channels, groups=self.block_groups[0], streams=self.streams)
+        self.pre = Conv(channels=self.block_channels[0], groups=self.block_groups[0], streams=self.streams)
         for channels in self.inputs:
             self.pre.add_input(
                 channels=channels,
                 kernel_size=self.pre_kernel,
                 stride=self.pre_stride,
+                pad_mode="replicate",
             )
 
         self.blocks = ModuleList([])
-        self.drops = ModuleList([])
-
-        inputs = self.pre_channels
-        mix = False
+        inputs = [self.block_channels[0]]
 
         for channels, groups, layers, pool, kernel, dynamic in zip(
             self.block_channels,
@@ -273,17 +278,14 @@ class Dense(Feedforward):
                 nonlinear=self.nonlinear,
             )
             block._init(
-                mix=mix,
                 inputs=inputs,
                 streams=self.streams,
             )
-            drop = StreamDropout(p=self._drop, streams=self.streams)
 
             self.blocks.append(block)
-            self.drops.append(drop)
+            inputs = [channels] * (layers + 1)
 
-            inputs = channels
-            mix = groups > 1
+        self.drop = StreamDropout(p=self._drop, streams=self.streams)
 
     def _restart(self):
         self.dropout(p=self._drop)
@@ -296,7 +298,7 @@ class Dense(Feedforward):
         int
             feedforward channels per stream (F)
         """
-        return self.block_channels[-1]
+        return self.block_channels[-1] * (self.block_layers[-1] + 1)
 
     def forward(self, inputs, stream=None):
         """
@@ -316,10 +318,14 @@ class Dense(Feedforward):
                 or
             [N, F, H//D, W//D] -- stream is int
         """
-        x = self.pre(inputs, stream=stream)
+        x = [self.pre(inputs, stream=stream)]
 
-        for block, drop in zip(self.blocks, self.drops):
+        for block in self.blocks:
             x = block(x, stream=stream)
-            x = drop(x, stream=stream)
 
-        return x
+        if stream is None:
+            x = cat_groups_2d(x, groups=self.streams)
+        else:
+            x = cat_groups_2d(x, groups=1)
+
+        return self.drop(x, stream=stream)

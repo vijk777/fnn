@@ -162,6 +162,7 @@ class Input(Module):
         dynamic_size=1,
         stride=1,
         pad=True,
+        pad_mode="zero",
         mask=None,
     ):
         """
@@ -183,17 +184,22 @@ class Input(Module):
             spatial stride
         pad : bool
             spatial padding to preserve height and width
+        pad_mode : str
+            spatial padding mode -- 'zero' | 'replicate'
         mask : Tensor | None
             dtype=torch.bool, shape must be broadcastable with the kernel
         """
         if in_channels % groups != 0:
-            raise ValueError("in_channels must be divisible by groups")
+            raise ValueError("In channels must be divisible by groups")
 
         if out_channels % groups != 0:
-            raise ValueError("in_channels must be divisible by groups")
+            raise ValueError("Out channels must be divisible by groups")
 
         if (kernel_size - stride) % 2 != 0:
-            raise ValueError("incompatible kernel_size and stride")
+            raise ValueError("Incompatible kernel_size and stride")
+
+        if pad_mode not in ("zero", "replicate"):
+            raise ValueError("Invalid pad mode")
 
         super().__init__()
 
@@ -205,7 +211,20 @@ class Input(Module):
         self.dynamic_size = int(dynamic_size)
         self.past_size = self.dynamic_size - 1
         self.stride = int(stride)
+        self.pad_mode = str(pad_mode)
         self.pad = (self.kernel_size - self.stride) // 2 if pad else 0
+
+        if not self.pad:
+            self.pad_fn = lambda x: x
+
+        elif self.pad_mode == "zero":
+            self.pad_fn = lambda x: functional.pad(x, pad=[self.pad] * 4)
+
+        elif self.pad_mode == "replicate":
+            self.pad_fn = lambda x: functional.pad(x, pad=[self.pad] * 4, mode="replicate")
+
+        else:
+            raise ValueError("Invalid pad mode")
 
         shape = [
             self.out_channels,
@@ -266,8 +285,7 @@ class Input(Module):
         else:
             assert x.size(1) == self.in_channels
 
-        if self.pad:
-            x = functional.pad(x, pad=[self.pad] * 4)
+        x = self.pad_fn(x)
 
         if self.past_size:
             past = self._past[stream]
@@ -285,7 +303,7 @@ class Input(Module):
 
     def extra_repr(self):
         s = "({inp}->{out})x{streams}: groups={groups}, stride={stride}, pad={pad}"
-        return s.format(
+        s = s.format(
             inp=self.in_channels,
             out=self.out_channels,
             streams=self.streams,
@@ -293,6 +311,9 @@ class Input(Module):
             stride=self.stride,
             pad=self.pad,
         )
+        if self.pad:
+            s += f", pad_mode={self.pad_mode}"
+        return s
 
 
 class Conv(Module):
@@ -396,7 +417,7 @@ class Conv(Module):
         self._weights[stream] = weights
         return weights
 
-    def add_input(self, channels, groups=1, kernel_size=1, dynamic_size=1, stride=1, pad=True):
+    def add_input(self, channels, groups=1, kernel_size=1, dynamic_size=1, stride=1, pad=True, pad_mode="zero"):
         """
         Parameters
         ----------
@@ -412,6 +433,8 @@ class Conv(Module):
             spatial stride
         pad : bool
             spatial padding to preserve height and width
+        pad_mode : str
+            spatial padding mode -- 'zero' | 'replicate'
         """
         module = Input(
             in_channels=channels,
@@ -422,6 +445,7 @@ class Conv(Module):
             dynamic_size=dynamic_size,
             stride=stride,
             pad=pad,
+            pad_mode=pad_mode,
         )
         self.inputs.append(module)
         return self

@@ -36,8 +36,11 @@ def cat_groups_2d(tensors, groups):
     Tensor
         [N, C', H, W]
     """
-    tensors = [to_groups_2d(tensor, groups) for tensor in groups]
-    return torch.cat(tensors, 2).flatten(1, 2)
+    if groups == 1:
+        return torch.cat(tensors, 1)
+    else:
+        tensors = [to_groups_2d(_, groups) for _ in tensors]
+        return torch.cat(tensors, 2).flatten(1, 2)
 
 
 def rmat_3d(x, y, z):
