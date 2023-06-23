@@ -76,7 +76,7 @@ class Raw(Pixel):
 class StaticPower(Pixel):
     """Static Power Transform"""
 
-    def __init__(self, power=1, scale=1, offset=1e-3):
+    def __init__(self, power=1, scale=1, offset=0):
         """
         Parameters
         ----------
@@ -127,7 +127,7 @@ class StaticPower(Pixel):
 class SigmoidPower(Pixel):
     """Learned (Sigmoid) Power Transform"""
 
-    def __init__(self, max_power=1, init_scale=1, init_offset=1e-3):
+    def __init__(self, max_power=1, init_scale=1, init_offset=0, eps=1e-3):
         """
         Parameters
         ----------
@@ -137,11 +137,14 @@ class SigmoidPower(Pixel):
             initial pixel scale
         init_offset : float
             initial pixel offset
+        eps : float
+            small number for numerical stability
         """
         super().__init__()
         self.max_power = float(max_power)
         self.init_scale = float(init_scale)
         self.init_offset = float(init_offset)
+        self.eps = float(eps)
 
         self.logit = Parameter(torch.zeros(1))
         self.scale = Parameter(torch.full([1], self.init_scale))
@@ -163,7 +166,7 @@ class SigmoidPower(Pixel):
         Tensor
             [N, C, H, W]
         """
-        return pixels.pow(self.power).mul(self.scale).add(self.offset)
+        return pixels.add(self.eps).pow(self.power).mul(self.scale).add(self.offset)
 
     def inverse(self, pixels):
         """
@@ -177,8 +180,8 @@ class SigmoidPower(Pixel):
         Tensor
             [N, C, H, W]
         """
-        return pixels.sub(self.offset).div(self.scale).pow(1 / self.power)
+        return pixels.sub(self.offset).div(self.scale).pow(1 / self.power).sub(self.eps)
 
     @torch.no_grad()
     def extra_repr(self):
-        return f"power={self.power.item():.3g}, scale={self.scale.item():.3g}, offset={self.offset.item():.3g}"
+        return f"power={self.power.item():.3g}, scale={self.scale.item():.3g}, offset={self.offset.item():.3g}, eps={self.eps:.3g}"

@@ -84,7 +84,16 @@ class MonitorRetina(Perspective):
     """Monitor & Retina Perspective"""
 
     def __init__(
-        self, monitor, monitor_pixel, retina, retina_pixel, height, width, features, nonlinear=None, dropout=0
+        self,
+        monitor,
+        monitor_pixel,
+        retina,
+        retina_pixel,
+        height,
+        width,
+        features,
+        nonlinear=None,
+        dropout=0,
     ):
         """
         Parameters
