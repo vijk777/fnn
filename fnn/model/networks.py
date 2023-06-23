@@ -173,7 +173,7 @@ class Visual(Network):
             keepdim=False,
         )
 
-    def _raw(self, stimulus, perspective, modulation, stream=None):
+    def _raw(self, stimulus, perspective, modulation, stream=None, periphery="dark"):
         """
         Parameters
         ----------
@@ -185,16 +185,30 @@ class Visual(Network):
             [N, M]
         stream : int | None
             specific stream | all streams
+        periphery : str
+            "dark" | "extend"
 
         Returns
         -------
         Tensor
             [N, U, R] -- raw output
         """
-        p = self.perspective(
-            stimulus=stimulus,
-            perspective=perspective,
-        )
+        if periphery == "dark":
+            p = self.perspective(
+                stimulus=stimulus,
+                perspective=perspective,
+                pad_mode="constant",
+                pad_value=0,
+            )
+        elif periphery == "extend":
+            p = self.perspective(
+                stimulus=stimulus,
+                perspective=perspective,
+                pad_mode="replicate",
+            )
+        else:
+            raise ValueError(f"Invalid periphery -- {periphery}")
+
         m = self.modulation(
             modulation=modulation,
         )
@@ -212,7 +226,7 @@ class Visual(Network):
         else:
             return r
 
-    def forward(self, stimulus, perspective, modulation, stream=None):
+    def forward(self, stimulus, perspective, modulation, stream=None, periphery="dark"):
         """
         Parameters
         ----------
@@ -224,6 +238,8 @@ class Visual(Network):
             [N, M]
         stream : int | None
             specific stream | all streams
+        periphery : str
+            "dark" | "extend"
 
         Returns
         -------
@@ -235,10 +251,11 @@ class Visual(Network):
             perspective=perspective,
             modulation=modulation,
             stream=stream,
+            periphery=periphery,
         )
         return self.unit(readout=r)
 
-    def loss(self, stimulus, perspective, modulation, unit, stream=None):
+    def loss(self, stimulus, perspective, modulation, unit, stream=None, periphery="dark"):
         """
         Parameters
         ----------
@@ -252,6 +269,8 @@ class Visual(Network):
             [N, U]
         stream : int | None
             specific stream | all streams
+        periphery : str
+            "dark" | "extend"
 
         Returns
         -------
@@ -263,6 +282,7 @@ class Visual(Network):
             perspective=perspective,
             modulation=modulation,
             stream=stream,
+            periphery=periphery,
         )
         return self.unit.loss(readout=r, unit=unit)
 
@@ -329,7 +349,14 @@ class Visual(Network):
 
         return stimulus, perspective, modulation, squeeze
 
-    def generate_responses(self, stimuli, perspectives=None, modulations=None, training=False):
+    def generate_responses(
+        self,
+        stimuli,
+        perspectives=None,
+        modulations=None,
+        training=False,
+        periphery="dark",
+    ):
         """
         Parameters
         ----------
@@ -341,6 +368,8 @@ class Visual(Network):
             T x [M] | T x [N, M] --- dtype=float
         training : bool
             training or inference
+        periphery : str
+            "dark" | "extend"
 
         Yields
         ------
@@ -374,7 +403,8 @@ class Visual(Network):
             for stimulus, perspective, modulation in zip(stimuli, perspectives, modulations):
 
                 *tensors, squeeze = self.to_tensor(stimulus, perspective, modulation)
-                response = self(*tensors)
+
+                response = self(*tensors, periphery=periphery)
 
                 if squeeze:
                     response = response.squeeze(0)
@@ -386,7 +416,16 @@ class Visual(Network):
 
         self.train(_training)
 
-    def generate_losses(self, units, stimuli, perspectives=None, modulations=None, stream=None, training=False):
+    def generate_losses(
+        self,
+        units,
+        stimuli,
+        perspectives=None,
+        modulations=None,
+        stream=None,
+        training=False,
+        periphery="dark",
+    ):
         """
         Parameters
         ----------
@@ -402,6 +441,8 @@ class Visual(Network):
             specific stream | all streams
         training : bool
             training or inference
+        periphery : str
+            "dark" | "extend"
 
         Yields
         ------
@@ -443,7 +484,7 @@ class Visual(Network):
                 else:
                     assert not squeeze
 
-                loss = self.loss(*tensors, unit=unit, stream=stream)
+                loss = self.loss(*tensors, unit=unit, stream=stream, periphery=periphery)
 
                 if squeeze:
                     loss = loss.squeeze(0)
