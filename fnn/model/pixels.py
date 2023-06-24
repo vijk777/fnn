@@ -127,7 +127,7 @@ class StaticPower(Pixel):
 class SigmoidPower(Pixel):
     """Learned (Sigmoid) Power Transform"""
 
-    def __init__(self, max_power=1, init_scale=1, init_offset=0, eps=1e-3):
+    def __init__(self, max_power=1, init_scale=1, init_offset=0, eps=1e-5):
         """
         Parameters
         ----------
