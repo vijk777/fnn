@@ -32,7 +32,7 @@ class Perspective(Module):
         """
         raise NotImplementedError()
 
-    def forward(self, stimulus, perspective, pad_mode="constant", pad_value=0):
+    def forward(self, stimulus, perspective, pad_mode="zeros"):
         """
         Parameters
         ----------
@@ -41,9 +41,7 @@ class Perspective(Module):
         perspective : Tensor
             [N, F]
         pad_mode : str
-            "constant" | "replicate"
-        pad_value : float
-            value of padding when pad_mode=="constant"
+            "zeros" | "replicate"
 
         Returns
         -------
@@ -52,7 +50,7 @@ class Perspective(Module):
         """
         raise NotImplementedError()
 
-    def inverse(self, stimulus, perspective, height=144, width=256, pad_mode="constant", pad_value=0):
+    def inverse(self, stimulus, perspective, height=144, width=256, pad_mode="zeros"):
         """
         Parameters
         ----------
@@ -65,9 +63,7 @@ class Perspective(Module):
         width : int
             output width (W')
         pad_mode : str
-            "constant" | "replicate"
-        pad_value : float
-            value of padding when pad_mode=="constant"
+            "zeros" | "replicate"
 
         Returns
         -------
@@ -185,7 +181,7 @@ class MonitorRetina(Perspective):
         x = self.proj([x])
         return rmat_3d(*x.unbind(1))
 
-    def forward(self, stimulus, perspective, pad_mode="constant", pad_value=0):
+    def forward(self, stimulus, perspective, pad_mode="zeros"):
         """
         Parameters
         ----------
@@ -194,9 +190,7 @@ class MonitorRetina(Perspective):
         perspective : Tensor
             [N, F]
         pad_mode : str
-            "constant" | "replicate"
-        pad_value : float
-            value of padding when pad_mode=="constant"
+            "zeros" | "replicate"
 
         Returns
         -------
@@ -210,12 +204,12 @@ class MonitorRetina(Perspective):
         grid = self.monitor.project(rays)
 
         pixels = self.monitor_pixel(stimulus).expand(size, -1, -1, -1)
-        pixels = isotropic_grid_sample_2d(pixels, grid=grid, pad_mode=pad_mode, pad_value=pad_value)
+        pixels = isotropic_grid_sample_2d(pixels, grid=grid, pad_mode=pad_mode)
         pixels = self.retina_pixel(pixels)
 
         return pixels
 
-    def inverse(self, stimulus, perspective, height=144, width=256, pad_mode="constant", pad_value=0):
+    def inverse(self, stimulus, perspective, height=144, width=256, pad_mode="zeros"):
         """
         Parameters
         ----------
@@ -228,9 +222,7 @@ class MonitorRetina(Perspective):
         width : int
             output width (W')
         pad_mode : str
-            "constant" | "replicate"
-        pad_value : float
-            value of padding when pad_mode=="constant"
+            "zeros" | "replicate"
 
         Returns
         -------
@@ -244,7 +236,7 @@ class MonitorRetina(Perspective):
         grid = self.retina.project(rays, rmat)
 
         pixels = self.retina_pixel.inverse(stimulus).expand(size, -1, -1, -1)
-        pixels = isotropic_grid_sample_2d(pixels, grid=grid, pad_mode=pad_mode, pad_value=pad_value)
+        pixels = isotropic_grid_sample_2d(pixels, grid=grid, pad_mode=pad_mode)
         pixels = self.monitor_pixel.inverse(pixels)
 
         return pixels

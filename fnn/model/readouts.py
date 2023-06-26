@@ -35,7 +35,7 @@ class Readout(Module):
                 or
             [N, C, H, W] -- stream is int
         stream : int | None
-            specific stream | all streams
+            specific stream (int) or all streams (None)
 
         Returns
         -------
@@ -111,7 +111,7 @@ class PositionFeature(Readout):
                 or
             [N, C, H, W] -- stream is int
         stream : int | None
-            specific stream | all streams
+            specific stream (int) or all streams (None)
 
         Returns
         -------

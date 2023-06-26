@@ -2,8 +2,49 @@ import torch
 from torch.nn import functional
 
 
+def to_groups(tensor, groups):
+    """Reshapes a flat (N, C) tensor to channel groups
+
+    Parameters
+    ----------
+    tensor : Tensor
+        [N, C]
+    groups : int
+        channel groups (G)
+
+    Returns
+    -------
+    Tensor
+        [N, G, C//G]
+    """
+    N, _ = tensor.shape
+    return tensor.view(N, groups, -1)
+
+
+def cat_groups(tensors, groups):
+    """Groupwise concatenation of flat (N, C) tensors along the channel dimension (C)
+
+    Parameters
+    ----------
+    tensors : Sequence[Tensor]
+        [[N, C], ...]
+    groups : int
+        channel groups (G)
+
+    Returns
+    -------
+    Tensor
+        [N, C']
+    """
+    if groups == 1:
+        return torch.cat(tensors, 1)
+    else:
+        tensors = [to_groups(_, groups) for _ in tensors]
+        return torch.cat(tensors, 2).flatten(1, 2)
+
+
 def to_groups_2d(tensor, groups):
-    """Reshapes a 2D (H, W) tensor to channel groups
+    """Reshapes a 2D (N, C, H, W) tensor to channel groups
 
     Parameters
     ----------
@@ -22,7 +63,7 @@ def to_groups_2d(tensor, groups):
 
 
 def cat_groups_2d(tensors, groups):
-    """Groupwise concatenation of 2D (H, W) tensors along the channel dimension (C)
+    """Groupwise concatenation of 2D (N, C, H, W) tensors along the channel dimension (C)
 
     Parameters
     ----------
@@ -137,7 +178,7 @@ def isotropic_grid_2d(height, width, major="x", dtype=None, device=None):
     return torch.stack(grid, dim=2)
 
 
-def isotropic_grid_sample_2d(x, grid, major="x", pad_mode="constant", pad_value=0):
+def isotropic_grid_sample_2d(x, grid, major="x", pad_mode="zeros", pad_value=0):
     """Isotropic 2D sampling
 
     Parameters
@@ -149,32 +190,37 @@ def isotropic_grid_sample_2d(x, grid, major="x", pad_mode="constant", pad_value=
     major : str
         "x" | "y" , axis by which sampling is scaled
     pad_mode : str
-        "constant" | "replicate" , padding mode for out-of-bounds grid values
+        "zeros" | "replicate" | "constant" -- padding mode for out-of-bounds grid values
     pad_value : float
-        value of padding when pad_mode=="constant"
+        value of padding when pad_mode == "constant"
 
     Returns
     -------
     Tensor
         [N, C, H', W']
     """
+    if pad_mode != "constant" and pad_value:
+        raise ValueError("can only specify pad_value when pad_mode == 'constant'")
+
+    if pad_mode == "zeros":
+        finalize = lambda x: x
+        padding_mode = "zeros"
+
+    elif pad_mode == "replicate":
+        finalize = lambda x: x
+        padding_mode = "border"
+
     if pad_mode == "constant":
         x = x - pad_value
         finalize = lambda x: x + pad_value
         padding_mode = "zeros"
 
-    elif pad_mode == "replicate":
-        if pad_value:
-            raise ValueError("cannot specify pad_value with pad_mode='constant'")
-        finalize = lambda x: x
-        padding_mode = "border"
-
     else:
-        raise ValueError("pad_mode must either be 'constant' or 'replicate'")
-
-    grid_x, grid_y = grid.unbind(dim=3)
+        raise ValueError("pad_mode must either be 'zeros', 'replicate', or 'constant'")
 
     _, _, height, width = x.shape
+    grid_x, grid_y = grid.unbind(dim=3)
+
     if major == "x":
         grid_y = grid_y * width / height
         scale = width / (width - 1)

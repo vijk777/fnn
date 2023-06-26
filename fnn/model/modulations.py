@@ -1,6 +1,7 @@
 import torch
 from .modules import Module
-from .elements import Linear, FlatDropout, nonlinearity
+from .elements import Linear, StreamFlatDropout, nonlinearity
+from .utils import cat_groups
 
 
 # -------------- Modulation Prototype --------------
@@ -9,12 +10,14 @@ from .elements import Linear, FlatDropout, nonlinearity
 class Modulation(Module):
     """Modulation Model"""
 
-    def _init(self, modulations):
+    def _init(self, modulations, streams):
         """
         Parameters
         ----------
         modulations : int
-            modulation inputs (I)
+            modulation inputs per stream (I)
+        streams : int
+            number of streams (S)
         """
         raise NotImplementedError()
 
@@ -24,21 +27,27 @@ class Modulation(Module):
         Returns
         -------
         int
-            modulation features (M)
+            modulation features per stream (M)
         """
         raise NotImplementedError()
 
-    def forward(self, modulation):
+    def forward(self, modulation, stream=None):
         """
         Parameters
         ----------
         modulation : Tensor
-            [N, I]
+            [N, S*I] -- stream is None
+                or
+            [N, I] -- stream is int
+        stream : int | None
+            specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            [N, M]
+            [N, S*M] -- stream is None
+                or
+            [N, M] -- stream is int
         """
         raise NotImplementedError()
 
@@ -66,31 +75,35 @@ class LnLstm(Modulation):
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
         self._dropout = float(dropout)
 
-    def _init(self, modulations):
+    def _init(self, modulations, streams):
         """
         Parameters
         ----------
         modulations : int
-            number of inputs (I)
+            modulation inputs per stream (I)
+        streams : int
+            number of streams (S)
         """
         self.modulations = int(modulations)
+        self.streams = int(streams)
 
-        self.proj_x = Linear(features=self.features).add_input(features=self.modulations)
-        self.proj_i = Linear(features=self.features).add_input(features=self.features * 2)
-        self.proj_f = Linear(features=self.features).add_input(features=self.features * 2)
-        self.proj_g = Linear(features=self.features).add_input(features=self.features * 2)
-        self.proj_o = Linear(features=self.features).add_input(features=self.features * 2)
+        self.proj_x = Linear(features=self.features, streams=self.streams).add_input(features=self.modulations)
+        self.proj_i = Linear(features=self.features, streams=self.streams).add_input(features=self.features * 2)
+        self.proj_f = Linear(features=self.features, streams=self.streams).add_input(features=self.features * 2)
+        self.proj_g = Linear(features=self.features, streams=self.streams).add_input(features=self.features * 2)
+        self.proj_o = Linear(features=self.features, streams=self.streams).add_input(features=self.features * 2)
 
-        self.drop_x = FlatDropout(p=self._dropout)
-        self.drop_h = FlatDropout(p=self._dropout)
+        self.drop_x = StreamFlatDropout(p=self._dropout, streams=self.streams)
+        self.drop_h = StreamFlatDropout(p=self._dropout, streams=self.streams)
 
-        self._past = dict()
+        self._past = [dict() for _ in range(self.streams + 1)]
 
     def _restart(self):
         self.dropout(p=self._dropout)
 
     def _reset(self):
-        self._past.clear()
+        for past in self._past:
+            past.clear()
 
     @property
     def features(self):
@@ -98,44 +111,59 @@ class LnLstm(Modulation):
         Returns
         -------
         int
-            modulation features (M)
+            modulation features per stream (M)
         """
         return self._features
 
-    def forward(self, modulation):
+    def forward(self, modulation, stream=None):
         """
         Parameters
         ----------
         modulation : Tensor
-            [N, I]
+            [N, S*I] -- stream is None
+                or
+            [N, I] -- stream is int
+        stream : int | None
+            specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            [N, M]
+            [N, S*M] -- stream is None
+                or
+            [N, M] -- stream is int
         """
-        if self._past:
-            h = self._past["h"]
-            c = self._past["c"]
+        if stream is None:
+            past = self._past[self.streams]
+            features = self.features * self.streams
+            groups = self.streams
         else:
-            h = c = torch.zeros(modulation.size(0), self.features, device=self.device)
+            past = self._past[stream]
+            features = self.features
+            groups = 1
 
-        x = self.proj_x([modulation])
+        if past:
+            h = past["h"]
+            c = past["c"]
+        else:
+            h = c = torch.zeros(modulation.size(0), features, device=self.device)
+
+        x = self.proj_x([modulation], stream=stream)
         x = self.nonlinear(x) * self.gamma
-        x = self.drop_x(x)
+        x = self.drop_x(x, stream=stream)
 
-        xh = torch.cat([x, h], dim=1)
+        xh = cat_groups([x, h], groups=groups)
 
-        i = torch.sigmoid(self.proj_i([xh]))
-        f = torch.sigmoid(self.proj_f([xh]))
-        g = torch.tanh(self.proj_g([xh]))
-        o = torch.sigmoid(self.proj_o([xh]))
+        i = torch.sigmoid(self.proj_i([xh], stream=stream))
+        f = torch.sigmoid(self.proj_f([xh], stream=stream))
+        g = torch.tanh(self.proj_g([xh], stream=stream))
+        o = torch.sigmoid(self.proj_o([xh], stream=stream))
 
         c = f * c + i * g
         h = o * torch.tanh(c)
-        h = self.drop_h(h)
+        h = self.drop_h(h, stream=stream)
 
-        self._past["c"] = c
-        self._past["h"] = h
+        past["c"] = c
+        past["h"] = h
 
         return h

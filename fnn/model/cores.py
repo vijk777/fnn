@@ -42,7 +42,7 @@ class Core(Module):
         modulation : Tensor
             [N, M]
         stream : int | None
-            specific stream | all streams
+            specific stream (int) or all streams (None)
 
         Returns
         -------
@@ -121,7 +121,7 @@ class FeedforwardRecurrent(Core):
         modulation : Tensor
             [N, M]
         stream : int | None
-            specific stream | all streams
+            specific stream (int) or all streams (None)
 
         Returns
         -------

@@ -29,7 +29,7 @@ class Feature(Module):
         Parameters
         ----------
         stream : int | None
-            specific stream | all streams
+            specific stream (int) or all streams (None)
 
         Returns
         -------
@@ -121,7 +121,7 @@ class Norm(Feature):
         Parameters
         ----------
         stream : int | None
-            specific stream | all streams
+            specific stream (int) or all streams (None)
 
         Returns
         -------

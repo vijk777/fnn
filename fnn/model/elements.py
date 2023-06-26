@@ -151,6 +151,43 @@ class StreamDropout(ModuleList):
         return drop(x)
 
 
+class StreamFlatDropout(ModuleList):
+    def __init__(self, p=0, streams=1):
+        """
+        Parameters
+        ----------
+        p : float
+            dropout probability between 0 and 1
+        streams : int
+            number of streams
+        """
+        super().__init__()
+
+        self.streams = int(streams)
+
+        for _ in range(self.streams + 1):
+            dropout = FlatDropout(p=p)
+            self.append(dropout)
+
+    def forward(self, x, stream=None):
+        """
+        Parameters
+        ----------
+        x : Tensor
+            [N, C]
+        stream : int | None
+            specific stream (int) or all streams (None)
+
+        Returns
+        -------
+        Tensor
+            [N, C]
+        """
+        drop = self[self.streams] if stream is None else self[stream]
+
+        return drop(x)
+
+
 class Input(Module):
     def __init__(
         self,
@@ -162,7 +199,7 @@ class Input(Module):
         dynamic_size=1,
         stride=1,
         pad=True,
-        pad_mode="zero",
+        pad_mode="zeros",
         mask=None,
     ):
         """
@@ -198,7 +235,7 @@ class Input(Module):
         if (kernel_size - stride) % 2 != 0:
             raise ValueError("Incompatible kernel_size and stride")
 
-        if pad_mode not in ("zero", "replicate"):
+        if pad_mode not in ("zeros", "replicate"):
             raise ValueError("Invalid pad mode")
 
         super().__init__()
@@ -217,7 +254,7 @@ class Input(Module):
         if not self.pad:
             self.pad_fn = lambda x: x
 
-        elif self.pad_mode == "zero":
+        elif self.pad_mode == "zeros":
             self.pad_fn = lambda x: functional.pad(x, pad=[self.pad] * 4)
 
         elif self.pad_mode == "replicate":
@@ -417,7 +454,7 @@ class Conv(Module):
         self._weights[stream] = weights
         return weights
 
-    def add_input(self, channels, groups=1, kernel_size=1, dynamic_size=1, stride=1, pad=True, pad_mode="zero"):
+    def add_input(self, channels, groups=1, kernel_size=1, dynamic_size=1, stride=1, pad=True, pad_mode="zeros"):
         """
         Parameters
         ----------

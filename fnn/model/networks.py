@@ -67,7 +67,7 @@ class Network(Module):
         modulations : Iterable[ND array] | None
             either singular or batch
         stream : int | None
-            specific stream | all streams
+            specific stream (int) or all streams (None)
         training : bool
             training or inference
 
@@ -184,7 +184,7 @@ class Visual(Network):
         modulations : Tensor
             [N, M]
         stream : int | None
-            specific stream | all streams
+            specific stream (int) or all streams (None)
         periphery : str
             "dark" | "extend"
 
@@ -197,8 +197,7 @@ class Visual(Network):
             p = self.perspective(
                 stimulus=stimulus,
                 perspective=perspective,
-                pad_mode="constant",
-                pad_value=0,
+                pad_mode="zeros",
             )
         elif periphery == "extend":
             p = self.perspective(
@@ -237,7 +236,7 @@ class Visual(Network):
         modulations : Tensor
             [N, M]
         stream : int | None
-            specific stream | all streams
+            specific stream (int) or all streams (None)
         periphery : str
             "dark" | "extend"
 
@@ -255,7 +254,7 @@ class Visual(Network):
         )
         return self.unit(readout=r)
 
-    def loss(self, stimulus, perspective, modulation, unit, stream=None, periphery="dark"):
+    def loss(self, stimulus, perspective, modulation, unit, stream=None):
         """
         Parameters
         ----------
@@ -268,9 +267,7 @@ class Visual(Network):
         unit : Tensor
             [N, U]
         stream : int | None
-            specific stream | all streams
-        periphery : str
-            "dark" | "extend"
+            specific stream (int) or all streams (None)
 
         Returns
         -------
@@ -282,7 +279,6 @@ class Visual(Network):
             perspective=perspective,
             modulation=modulation,
             stream=stream,
-            periphery=periphery,
         )
         return self.unit.loss(readout=r, unit=unit)
 
@@ -349,14 +345,7 @@ class Visual(Network):
 
         return stimulus, perspective, modulation, squeeze
 
-    def generate_responses(
-        self,
-        stimuli,
-        perspectives=None,
-        modulations=None,
-        training=False,
-        periphery="dark",
-    ):
+    def generate_responses(self, stimuli, perspectives=None, modulations=None, training=False):
         """
         Parameters
         ----------
@@ -368,8 +357,6 @@ class Visual(Network):
             T x [M] | T x [N, M] --- dtype=float
         training : bool
             training or inference
-        periphery : str
-            "dark" | "extend"
 
         Yields
         ------
@@ -404,7 +391,7 @@ class Visual(Network):
 
                 *tensors, squeeze = self.to_tensor(stimulus, perspective, modulation)
 
-                response = self(*tensors, periphery=periphery)
+                response = self(*tensors)
 
                 if squeeze:
                     response = response.squeeze(0)
@@ -416,16 +403,7 @@ class Visual(Network):
 
         self.train(_training)
 
-    def generate_losses(
-        self,
-        units,
-        stimuli,
-        perspectives=None,
-        modulations=None,
-        stream=None,
-        training=False,
-        periphery="dark",
-    ):
+    def generate_losses(self, units, stimuli, perspectives=None, modulations=None, stream=None, training=False):
         """
         Parameters
         ----------
@@ -438,11 +416,9 @@ class Visual(Network):
         modulations : Iterable[1D|2D array] | None
             T x [M] | T x [N, M] --- dtype=float
         stream : int | None
-            specific stream | all streams
+            specific stream (int) or all streams (None)
         training : bool
             training or inference
-        periphery : str
-            "dark" | "extend"
 
         Yields
         ------
@@ -484,7 +460,7 @@ class Visual(Network):
                 else:
                     assert not squeeze
 
-                loss = self.loss(*tensors, unit=unit, stream=stream, periphery=periphery)
+                loss = self.loss(*tensors, unit=unit, stream=stream)
 
                 if squeeze:
                     loss = loss.squeeze(0)

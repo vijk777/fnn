@@ -17,7 +17,7 @@ class Feedforward(Module):
         channels : Sequence[int]
             [input channels per stream (I), ...]
         streams : int
-            number of streams, S
+            number of streams (S)
         """
         raise NotImplementedError()
 
@@ -40,7 +40,7 @@ class Feedforward(Module):
                 or
             [[N, I, H, W] ...] -- stream is int
         stream : int | None
-            specific stream | all streams
+            specific stream (int) or all streams (None)
 
         Returns
         -------
@@ -143,7 +143,7 @@ class Block(Module):
                 or
             [[N, I, H, W] ...] -- stream is int
         stream : int | None
-            specific stream | all streams
+            specific stream (int) or all streams (None)
 
         Returns
         -------
@@ -309,7 +309,7 @@ class Dense(Feedforward):
                 or
             [[N, I, H, W] ...] -- stream is int
         stream : int | None
-            specific stream | all streams
+            specific stream (int) or all streams (None)
 
         Returns
         -------

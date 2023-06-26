@@ -2,7 +2,7 @@ import torch
 from .parameters import Parameter, ParameterList
 from .modules import Module
 from .elements import Conv, StreamDropout
-from .utils import to_groups_2d
+from .utils import to_groups_2d, cat_groups_2d
 
 
 # -------------- Recurrent Prototype --------------
@@ -41,7 +41,7 @@ class Recurrent(Module):
                 or
             [[N, I, H, W] ...] -- stream is int
         stream : int | None
-            specific stream | all streams
+            specific stream (int) or all streams (None)
 
         Returns
         -------
@@ -171,13 +171,15 @@ class Rvt(Recurrent):
         )
 
         self.drop = StreamDropout(p=self._dropout, streams=self.streams)
-        self._past = dict()
+
+        self._past = [dict() for _ in range(self.streams + 1)]
 
     def _restart(self):
         self.dropout(p=self._dropout)
 
     def _reset(self):
-        self._past.clear()
+        for past in self._past:
+            past.clear()
 
     @property
     def channels(self):
@@ -198,7 +200,7 @@ class Rvt(Recurrent):
                 or
             [[N, I, H, W] ...] -- stream is int
         stream : int | None
-            specific stream | all streams
+            specific stream (int) or all streams (None)
 
         Returns
         -------
@@ -208,18 +210,18 @@ class Rvt(Recurrent):
             [N, R, H//D, W//D] -- stream is int
         """
         if stream is None:
+            past = self._past[self.streams]
             channels = self.channels * self.streams
             groups = self.groups * self.streams
         else:
+            past = self._past[stream]
             channels = self.channels
             groups = self.groups
 
-        if self._past:
-            assert self._past["stream"] == stream
-            h = self._past["h"]
-            c = self._past["c"]
+        if past:
+            h = past["h"]
+            c = past["c"]
         else:
-            self._past["stream"] = stream
             N, _, H, W = inputs[0].shape
             h = c = torch.zeros(N, channels, H, W, device=self.device)
 
@@ -228,8 +230,7 @@ class Rvt(Recurrent):
         else:
             x = self.proj_x(inputs, stream=stream)
 
-        xh = [to_groups_2d(_, groups) for _ in [x, h]]
-        xh = torch.cat(xh, 2).flatten(1, 2)
+        xh = cat_groups_2d([x, h], groups=groups)
 
         q = to_groups_2d(self.proj_q([xh], stream=stream), groups).flatten(3, 4)
         k = to_groups_2d(self.proj_k([xh], stream=stream), groups).flatten(3, 4)
@@ -247,7 +248,7 @@ class Rvt(Recurrent):
         h = o * torch.tanh(c)
         h = self.drop(h, stream=stream)
 
-        self._past["c"] = c
-        self._past["h"] = h
+        past["c"] = c
+        past["h"] = h
 
         return h
