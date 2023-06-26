@@ -84,7 +84,7 @@ class Gaussian(Position):
             self.sigma.copy_(torch.eye(2).mul(self.init_std))
 
     def _reset(self):
-        self._position = None
+        self.position = None
 
     def sample(self, batch_size=1):
         """
@@ -98,15 +98,15 @@ class Gaussian(Position):
         Tensor
             [N, U, 2], 2D spatial positions
         """
-        if self._position is None:
+        if self.position is None:
             x = self.mu.repeat(batch_size, 1, 1)
             x = x + torch.einsum("U C D , N U D -> N U C", self.sigma, torch.randn_like(x))
-            self._position = x
+            self.position = x
 
         else:
-            assert batch_size == self._position.size(0)
+            assert batch_size == self.position.size(0)
 
-        return self._position
+        return self.position
 
     @property
     def mean(self):
