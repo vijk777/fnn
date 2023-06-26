@@ -96,13 +96,13 @@ class LnLstm(Modulation):
         self.drop_x = StreamFlatDropout(p=self._dropout, streams=self.streams)
         self.drop_h = StreamFlatDropout(p=self._dropout, streams=self.streams)
 
-        self._past = [dict() for _ in range(self.streams + 1)]
+        self.past = [dict() for _ in range(self.streams + 1)]
 
     def _restart(self):
         self.dropout(p=self._dropout)
 
     def _reset(self):
-        for past in self._past:
+        for past in self.past:
             past.clear()
 
     @property
@@ -134,11 +134,11 @@ class LnLstm(Modulation):
             [N, M] -- stream is int
         """
         if stream is None:
-            past = self._past[self.streams]
+            past = self.past[self.streams]
             features = self.features * self.streams
             groups = self.streams
         else:
-            past = self._past[stream]
+            past = self.past[stream]
             features = self.features
             groups = 1
 

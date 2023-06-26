@@ -15,7 +15,7 @@ class Core(Module):
         Parameters
         ----------
         perspectives : int
-            perspective channels (P)
+            perspective channels per stream (P)
         modulations : int
             modulation features per stream (M)
         streams : int
@@ -38,9 +38,13 @@ class Core(Module):
         Parameters
         ----------
         perspective : Tensor
-            [N, P, H, W]
+            [N, S*P, H, W] -- stream is None
+                or
+            [N, P, H, W] -- stream is int
         modulation : Tensor
-            [N, M]
+            [N, S*M] -- stream is None
+                or
+            [N, M] -- stream is int
         stream : int | None
             specific stream (int) or all streams (None)
 
@@ -117,9 +121,13 @@ class FeedforwardRecurrent(Core):
         Parameters
         ----------
         perspective : Tensor
-            [N, P, H, W]
+            [N, S*P, H, W] -- stream is None
+                or
+            [N, P, H, W] -- stream is int
         modulation : Tensor
-            [N, M]
+            [N, S*M] -- stream is None
+                or
+            [N, M] -- stream is int
         stream : int | None
             specific stream (int) or all streams (None)
 
@@ -130,10 +138,6 @@ class FeedforwardRecurrent(Core):
                 or
             [N, C, H', W'] -- stream is int
         """
-        if stream is None:
-            perspective = perspective.repeat(1, self.streams, 1, 1)
-            modulation = modulation.repeat(1, self.streams)
-
         f = self.feedforward([perspective], stream=stream)
         m = modulation[:, :, None, None]
         g = self._grid

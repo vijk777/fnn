@@ -172,13 +172,13 @@ class Rvt(Recurrent):
 
         self.drop = StreamDropout(p=self._dropout, streams=self.streams)
 
-        self._past = [dict() for _ in range(self.streams + 1)]
+        self.past = [dict() for _ in range(self.streams + 1)]
 
     def _restart(self):
         self.dropout(p=self._dropout)
 
     def _reset(self):
-        for past in self._past:
+        for past in self.past:
             past.clear()
 
     @property
@@ -210,11 +210,11 @@ class Rvt(Recurrent):
             [N, R, H//D, W//D] -- stream is int
         """
         if stream is None:
-            past = self._past[self.streams]
+            past = self.past[self.streams]
             channels = self.channels * self.streams
             groups = self.groups * self.streams
         else:
-            past = self._past[stream]
+            past = self.past[stream]
             channels = self.channels
             groups = self.groups
 

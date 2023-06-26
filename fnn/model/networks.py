@@ -156,6 +156,7 @@ class Visual(Network):
         )
         self.modulation._init(
             modulations=self.modulations,
+            streams=self.streams,
         )
         self.core._init(
             perspectives=self.perspective.channels,
@@ -194,13 +195,13 @@ class Visual(Network):
             [N, U, R] -- raw output
         """
         if periphery == "dark":
-            p = self.perspective(
+            perspective = self.perspective(
                 stimulus=stimulus,
                 perspective=perspective,
                 pad_mode="zeros",
             )
         elif periphery == "extend":
-            p = self.perspective(
+            perspective = self.perspective(
                 stimulus=stimulus,
                 perspective=perspective,
                 pad_mode="replicate",
@@ -208,22 +209,27 @@ class Visual(Network):
         else:
             raise ValueError(f"Invalid periphery -- {periphery}")
 
-        m = self.modulation(
+        if stream is None:
+            perspective = perspective.repeat(1, self.streams, 1, 1)
+            modulation = modulation.repeat(1, self.streams)
+
+        modulation = self.modulation(
             modulation=modulation,
-        )
-        c = self.core(
-            perspective=p,
-            modulation=m,
             stream=stream,
         )
-        r = self.readout(
-            core=c,
+        core = self.core(
+            perspective=perspective,
+            modulation=modulation,
+            stream=stream,
+        )
+        readout = self.readout(
+            core=core,
             stream=stream,
         )
         if stream is None:
-            return self.reduce(r)
+            return self.reduce(readout)
         else:
-            return r
+            return readout
 
     def forward(self, stimulus, perspective, modulation, stream=None, periphery="dark"):
         """

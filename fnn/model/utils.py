@@ -210,7 +210,7 @@ def isotropic_grid_sample_2d(x, grid, major="x", pad_mode="zeros", pad_value=0):
         finalize = lambda x: x
         padding_mode = "border"
 
-    if pad_mode == "constant":
+    elif pad_mode == "constant":
         x = x - pad_value
         finalize = lambda x: x + pad_value
         padding_mode = "zeros"
