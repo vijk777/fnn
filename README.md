@@ -1,1 +1,1 @@
-# Foundation Nerual Networks of the Visual Cortex
+# Foundation Neural Networks of the Visual Cortex
