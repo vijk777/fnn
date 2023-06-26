@@ -28,7 +28,7 @@ class Network(Module):
         """
         raise NotImplementedError()
 
-    def generate_responses(self, stimuli, perspectives=None, modulations=None, training=False):
+    def generate_response(self, stimuli, perspectives=None, modulations=None, training=False):
         """
         Parameters
         ----------
@@ -54,7 +54,7 @@ class Network(Module):
         """
         raise NotImplementedError()
 
-    def generate_losses(self, units, stimuli, perspectives=None, modulations=None, stream=None, training=False):
+    def generate_loss(self, units, stimuli, perspectives=None, modulations=None, stream=None, training=False):
         """
         Parameters
         ----------
@@ -351,7 +351,7 @@ class Visual(Network):
 
         return stimulus, perspective, modulation, squeeze
 
-    def generate_responses(self, stimuli, perspectives=None, modulations=None, training=False):
+    def generate_response(self, stimuli, perspectives=None, modulations=None, training=False):
         """
         Parameters
         ----------
@@ -409,7 +409,7 @@ class Visual(Network):
 
         self.train(_training)
 
-    def generate_losses(self, units, stimuli, perspectives=None, modulations=None, stream=None, training=False):
+    def generate_loss(self, units, stimuli, perspectives=None, modulations=None, stream=None, training=False):
         """
         Parameters
         ----------

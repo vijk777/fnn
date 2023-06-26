@@ -77,7 +77,7 @@ class NetworkLoss(Objective):
         else:
             stream = None
 
-        losses = self.module.generate_losses(
+        losses = self.module.generate_loss(
             units=units,
             stimuli=stimuli,
             perspectives=perspectives,
