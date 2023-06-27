@@ -296,10 +296,10 @@ class Input(Module):
         self.weights = ParameterList([param() for _ in range(self.streams)])
         self.weights.norm_dim = [1, 2, 3, 4]
 
-        self._past = [deque(maxlen=self.past_size) for _ in range(self.streams)]
+        self.past = [deque(maxlen=self.past_size) for _ in range(self.streams)]
 
     def _reset(self):
-        for past in self._past:
+        for past in self.past:
             past.clear()
 
     def forward(self, x, stream=None):
@@ -325,7 +325,7 @@ class Input(Module):
         x = self.pad_fn(x)
 
         if self.past_size:
-            past = self._past[stream]
+            past = self.past[stream]
             if past:
                 assert len(past) == self.past_size
             else:
@@ -354,7 +354,19 @@ class Input(Module):
 
 
 class Conv(Module):
-    def __init__(self, channels, groups=1, streams=1, gain=True, bias=True, eps=1e-5, init_gain=1, init_bias=0):
+    def __init__(
+        self,
+        channels,
+        groups=1,
+        streams=1,
+        gain=True,
+        bias=True,
+        eps=1e-5,
+        init_gain=1,
+        init_bias=0,
+        decay_gain=False,
+        decay_bias=False,
+    ):
         """
         Parameters
         ----------
@@ -374,6 +386,10 @@ class Conv(Module):
             initial gain
         init_bias : float
             initial bias
+        decay_gain : bool
+            decay gain
+        decay_bias : bool
+            decay bias
         """
         if channels % groups != 0:
             raise ValueError("channels must be divisible by groups")
@@ -388,6 +404,8 @@ class Conv(Module):
         self.eps = float(eps)
         self.init_gain = float(init_gain)
         self.init_bias = float(init_bias)
+        self.decay_gain = bool(decay_gain)
+        self.decay_bias = bool(decay_bias)
 
         self.inputs = ModuleList()
         self.gains = ParameterList()
@@ -399,13 +417,13 @@ class Conv(Module):
         if self.gain:
             gain = lambda: Parameter(torch.full([self.groups, self.fan_out], self.init_gain))
             self.gains = ParameterList([gain() for _ in range(streams)])
-            self.gains.decay = False
+            self.gains.decay = self.decay_gain
             self.gains.norm_dim = 1
 
         if self.bias:
             bias = lambda: Parameter(torch.full([self.groups, self.fan_out], self.init_bias))
             self.biases = ParameterList([bias() for _ in range(streams)])
-            self.biases.decay = False
+            self.biases.decay = self.decay_bias
             self.biases.norm_dim = 1
 
         self._weights = dict()
@@ -423,13 +441,7 @@ class Conv(Module):
         Returns
         -------
         List[Tensor]
-            [
-                output channels,
-                input channels // input groups,
-                dynamic size,
-                kernel size,
-                kernel size
-            ]
+            [[O, I, D, K, K], ...] -- (O : output channels, I : input channels // groups, D : dynamic size, K : kernel size)
         """
         weights = self._weights.get(stream)
 

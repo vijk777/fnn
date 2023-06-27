@@ -28,7 +28,7 @@ class Recurrent(Module):
         Returns
         -------
         int
-            recurrent channels per stream (R)
+            output channels per stream (O)
         """
         raise NotImplementedError()
 
@@ -46,9 +46,9 @@ class Recurrent(Module):
         Returns
         -------
         Tensor
-            [N, S*R, H//D, W//D] -- stream is None
+            [N, S*O, H, W] -- stream is None
                 or
-            [N, R, H//D, W//D] -- stream is int
+            [N, O, H, W] -- stream is int
         """
         raise NotImplementedError()
 
@@ -59,26 +59,44 @@ class Recurrent(Module):
 class Rvt(Recurrent):
     """Recurrent Vision Transformer"""
 
-    def __init__(self, channels, groups, kernel_size, dropout=0):
+    def __init__(
+        self,
+        recurrent_channels,
+        attention_channels,
+        out_channels,
+        groups=1,
+        heads=1,
+        kernel_size=3,
+        dropout=0,
+    ):
         """
         Parameters
         ----------
-        channels : int
-            rvt channels per stream
+        recurrent_channels : int
+            recurrent channels per stream
+        attention_channels : int
+            attention channels per stream
+        out_channels : int
+            out channels per stream
         groups : int
             groups per stream
+        heads : int
+            heads per stream
         kernel_size : int
             kernel size
         dropout : float
             dropout probability -- [0, 1)
         """
-        if channels % groups != 0:
+        if recurrent_channels % groups != 0:
             raise ValueError("channels must be divisible by groups")
 
         super().__init__()
 
-        self._channels = int(channels)
+        self.recurrent_channels = int(recurrent_channels)
+        self.attention_channels = int(attention_channels)
+        self.out_channels = int(out_channels)
         self.groups = int(groups)
+        self.heads = int(heads)
         self.kernel_size = int(kernel_size)
         self._dropout = float(dropout)
 
@@ -94,83 +112,129 @@ class Rvt(Recurrent):
         self.inputs = list(map(int, inputs))
         self.streams = int(streams)
 
-        self.proj_x = Conv(channels=self.channels, groups=self.groups, streams=self.streams)
+        self.drop_h = StreamDropout(p=self._dropout, streams=self.streams)
+
+        self.proj_x = Conv(
+            channels=self.recurrent_channels,
+            groups=self.groups,
+            streams=self.streams,
+        )
         for _channels in inputs:
             self.proj_x.add_input(channels=_channels)
 
         if self.groups > 1:
             self.proj_x.add_intergroup()
 
-        gain = (self.channels / self.groups) ** -0.5
-        self.proj_q = Conv(channels=self.channels, groups=self.groups, streams=self.streams, init_gain=gain, bias=False)
+        self.proj_q = Conv(
+            channels=self.attention_channels,
+            groups=self.heads,
+            streams=self.streams,
+            init_gain=(self.attention_channels / self.heads) ** -0.5,
+            decay_gain=True,
+            bias=False,
+        )
         self.proj_q.add_input(
-            channels=self.channels * 2,
+            channels=self.recurrent_channels * 2,
             groups=self.groups,
             kernel_size=self.kernel_size,
         )
-        self.proj_q.gains.decay = True
 
-        self.proj_k = Conv(channels=self.channels, groups=self.groups, streams=self.streams, gain=False, bias=False)
+        self.proj_k = Conv(
+            channels=self.attention_channels,
+            groups=self.heads,
+            streams=self.streams,
+            gain=False,
+            bias=False,
+        )
         self.proj_k.add_input(
-            channels=self.channels * 2,
+            channels=self.recurrent_channels * 2,
             groups=self.groups,
             kernel_size=self.kernel_size,
             pad=False,
         )
 
-        self.proj_v = Conv(channels=self.channels, groups=self.groups, streams=self.streams)
+        self.proj_v = Conv(
+            channels=self.attention_channels,
+            groups=self.heads,
+            streams=self.streams,
+        )
         self.proj_v.add_input(
-            channels=self.channels * 2,
+            channels=self.recurrent_channels * 2,
             groups=self.groups,
             kernel_size=self.kernel_size,
             pad=False,
         )
 
-        self.proj_i = Conv(channels=self.channels, groups=self.groups, streams=self.streams)
-        self.proj_i.add_input(
-            channels=self.channels,
+        self.proj_i = Conv(
+            channels=self.recurrent_channels,
             groups=self.groups,
+            streams=self.streams,
         )
         self.proj_i.add_input(
-            channels=self.channels * 2,
+            channels=self.attention_channels,
+            groups=self.groups,
+        )
+        self.proj_i.add_input(
+            channels=self.recurrent_channels * 2,
             groups=self.groups,
             kernel_size=self.kernel_size,
         )
 
-        self.proj_f = Conv(channels=self.channels, groups=self.groups, streams=self.streams)
+        self.proj_f = Conv(
+            channels=self.recurrent_channels,
+            groups=self.groups,
+            streams=self.streams,
+        )
         self.proj_f.add_input(
-            channels=self.channels,
+            channels=self.attention_channels,
             groups=self.groups,
         )
         self.proj_f.add_input(
-            channels=self.channels * 2,
+            channels=self.recurrent_channels * 2,
             groups=self.groups,
             kernel_size=self.kernel_size,
         )
 
-        self.proj_g = Conv(channels=self.channels, groups=self.groups, streams=self.streams)
+        self.proj_g = Conv(
+            channels=self.recurrent_channels,
+            groups=self.groups,
+            streams=self.streams,
+        )
         self.proj_g.add_input(
-            channels=self.channels,
+            channels=self.attention_channels,
             groups=self.groups,
         )
         self.proj_g.add_input(
-            channels=self.channels * 2,
+            channels=self.recurrent_channels * 2,
             groups=self.groups,
             kernel_size=self.kernel_size,
         )
 
-        self.proj_o = Conv(channels=self.channels, groups=self.groups, streams=self.streams)
+        self.proj_o = Conv(
+            channels=self.recurrent_channels,
+            groups=self.groups,
+            streams=self.streams,
+        )
         self.proj_o.add_input(
-            channels=self.channels,
+            channels=self.attention_channels,
             groups=self.groups,
         )
         self.proj_o.add_input(
-            channels=self.channels * 2,
+            channels=self.recurrent_channels * 2,
             groups=self.groups,
             kernel_size=self.kernel_size,
         )
 
-        self.drop = StreamDropout(p=self._dropout, streams=self.streams)
+        if self.recurrent_channels == self.out_channels and self.groups == 1:
+            self.proj_y = None
+        else:
+            self.proj_y = Conv(
+                channels=self.out_channels,
+                streams=self.streams,
+            )
+            self.proj_y.add_input(
+                channels=self.recurrent_channels,
+            )
 
         self.past = [dict() for _ in range(self.streams + 1)]
 
@@ -187,9 +251,9 @@ class Rvt(Recurrent):
         Returns
         -------
         int
-            recurrent channels per stream (R)
+            output channels per stream (O)
         """
-        return self._channels
+        return self.out_channels
 
     def forward(self, inputs, stream=None):
         """
@@ -205,24 +269,27 @@ class Rvt(Recurrent):
         Returns
         -------
         Tensor
-            [N, S*R, H//D, W//D] -- stream is None
+            [N, S*O, H, W] -- stream is None
                 or
-            [N, R, H//D, W//D] -- stream is int
+            [N, O, H, W] -- stream is int
         """
+        N, _, H, W = inputs[0].shape
+
         if stream is None:
             past = self.past[self.streams]
-            channels = self.channels * self.streams
+            channels = self.recurrent_channels * self.streams
             groups = self.groups * self.streams
+            heads = self.heads * self.streams
         else:
             past = self.past[stream]
-            channels = self.channels
+            channels = self.recurrent_channels
             groups = self.groups
+            heads = self.heads
 
         if past:
             h = past["h"]
             c = past["c"]
         else:
-            N, _, H, W = inputs[0].shape
             h = c = torch.zeros(N, channels, H, W, device=self.device)
 
         if self.groups > 1:
@@ -232,12 +299,12 @@ class Rvt(Recurrent):
 
         xh = cat_groups_2d([x, h], groups=groups)
 
-        q = to_groups_2d(self.proj_q([xh], stream=stream), groups).flatten(3, 4)
-        k = to_groups_2d(self.proj_k([xh], stream=stream), groups).flatten(3, 4)
-        v = to_groups_2d(self.proj_v([xh], stream=stream), groups).flatten(3, 4)
+        q = to_groups_2d(self.proj_q([xh], stream=stream), groups=heads).flatten(3, 4)
+        k = to_groups_2d(self.proj_k([xh], stream=stream), groups=heads).flatten(3, 4)
+        v = to_groups_2d(self.proj_v([xh], stream=stream), groups=heads).flatten(3, 4)
 
         w = torch.einsum("N G C Q , N G C D -> N G Q D", q, k).softmax(dim=3)
-        a = torch.einsum("N G C D , N G Q D -> N G C Q", v, w).view_as(x)
+        a = torch.einsum("N G C D , N G Q D -> N G C Q", v, w).view(N, -1, H, W)
 
         i = torch.sigmoid(self.proj_i([a, xh], stream=stream))
         f = torch.sigmoid(self.proj_f([a, xh], stream=stream))
@@ -246,9 +313,14 @@ class Rvt(Recurrent):
 
         c = f * c + i * g
         h = o * torch.tanh(c)
-        h = self.drop(h, stream=stream)
+        h = self.drop_h(h, stream=stream)
 
         past["c"] = c
         past["h"] = h
 
-        return h
+        if self.proj_y is None:
+            y = h
+        else:
+            y = self.proj_y([h], stream=stream)
+
+        return y

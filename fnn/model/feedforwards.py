@@ -27,7 +27,7 @@ class Feedforward(Module):
         Returns
         -------
         int
-            feedforward channels per stream (F)
+            output channels per stream (O)
         """
         raise NotImplementedError()
 
@@ -45,9 +45,9 @@ class Feedforward(Module):
         Returns
         -------
         Tensor
-            [N, S*F, H//D, W//D] -- stream is None
+            [N, S*O, H//D, W//D] -- stream is None
                 or
-            [N, F, H//D, W//D] -- stream is int
+            [N, O, H//D, W//D] -- stream is int
         """
         raise NotImplementedError()
 
@@ -296,7 +296,7 @@ class Dense(Feedforward):
         Returns
         -------
         int
-            feedforward channels per stream (F)
+            output channels per stream (O)
         """
         return self.block_channels[-1] * (self.block_layers[-1] + 1)
 
@@ -314,9 +314,9 @@ class Dense(Feedforward):
         Returns
         -------
         Tensor
-            [N, S*F, H//D, W//D] -- stream is None
+            [N, S*O, H', W'] -- stream is None
                 or
-            [N, F, H//D, W//D] -- stream is int
+            [N, O, H', W'] -- stream is int
         """
         x = [self.pre(inputs, stream=stream)]
 
