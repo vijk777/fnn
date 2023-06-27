@@ -90,11 +90,14 @@ class LnLstm(Modulation):
         self.drop_x = StreamFlatDropout(p=self._dropout, streams=self.streams)
         self.drop_h = StreamFlatDropout(p=self._dropout, streams=self.streams)
 
-        self.proj_x = Linear(features=self.features, streams=self.streams).add_input(features=self.modulations)
-        self.proj_i = Linear(features=self.features, streams=self.streams).add_input(features=self.features * 2)
-        self.proj_f = Linear(features=self.features, streams=self.streams).add_input(features=self.features * 2)
-        self.proj_g = Linear(features=self.features, streams=self.streams).add_input(features=self.features * 2)
-        self.proj_o = Linear(features=self.features, streams=self.streams).add_input(features=self.features * 2)
+        def linear(inputs):
+            return Linear(features=self.features, streams=self.streams).add_input(features=inputs)
+
+        self.proj_x = linear(self.modulations)
+        self.proj_i = linear(self.features * 2)
+        self.proj_f = linear(self.features * 2)
+        self.proj_g = linear(self.features * 2)
+        self.proj_o = linear(self.features * 2)
 
         self.past = [dict() for _ in range(self.streams + 1)]
 

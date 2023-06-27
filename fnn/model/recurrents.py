@@ -119,11 +119,24 @@ class Rvt(Recurrent):
             groups=self.groups,
             streams=self.streams,
         )
+
         for _channels in inputs:
             self.proj_x.add_input(channels=_channels)
 
         if self.groups > 1:
             self.proj_x.add_intergroup()
+
+        if self.recurrent_channels == self.out_channels and self.groups == 1:
+            self.proj_y = None
+
+        else:
+            self.proj_y = Conv(
+                channels=self.out_channels,
+                streams=self.streams,
+            )
+            self.proj_y.add_input(
+                channels=self.recurrent_channels,
+            )
 
         self.proj_q = Conv(
             channels=self.attention_channels,
@@ -165,76 +178,27 @@ class Rvt(Recurrent):
             pad=False,
         )
 
-        self.proj_i = Conv(
-            channels=self.recurrent_channels,
-            groups=self.groups,
-            streams=self.streams,
-        )
-        self.proj_i.add_input(
-            channels=self.attention_channels,
-            groups=self.groups,
-        )
-        self.proj_i.add_input(
-            channels=self.recurrent_channels * 2,
-            groups=self.groups,
-            kernel_size=self.kernel_size,
-        )
-
-        self.proj_f = Conv(
-            channels=self.recurrent_channels,
-            groups=self.groups,
-            streams=self.streams,
-        )
-        self.proj_f.add_input(
-            channels=self.attention_channels,
-            groups=self.groups,
-        )
-        self.proj_f.add_input(
-            channels=self.recurrent_channels * 2,
-            groups=self.groups,
-            kernel_size=self.kernel_size,
-        )
-
-        self.proj_g = Conv(
-            channels=self.recurrent_channels,
-            groups=self.groups,
-            streams=self.streams,
-        )
-        self.proj_g.add_input(
-            channels=self.attention_channels,
-            groups=self.groups,
-        )
-        self.proj_g.add_input(
-            channels=self.recurrent_channels * 2,
-            groups=self.groups,
-            kernel_size=self.kernel_size,
-        )
-
-        self.proj_o = Conv(
-            channels=self.recurrent_channels,
-            groups=self.groups,
-            streams=self.streams,
-        )
-        self.proj_o.add_input(
-            channels=self.attention_channels,
-            groups=self.groups,
-        )
-        self.proj_o.add_input(
-            channels=self.recurrent_channels * 2,
-            groups=self.groups,
-            kernel_size=self.kernel_size,
-        )
-
-        if self.recurrent_channels == self.out_channels and self.groups == 1:
-            self.proj_y = None
-        else:
-            self.proj_y = Conv(
-                channels=self.out_channels,
+        def proj():
+            p = Conv(
+                channels=self.recurrent_channels,
+                groups=self.groups,
                 streams=self.streams,
             )
-            self.proj_y.add_input(
-                channels=self.recurrent_channels,
+            p.add_input(
+                channels=self.attention_channels,
+                groups=self.groups,
             )
+            p.add_input(
+                channels=self.recurrent_channels * 2,
+                groups=self.groups,
+                kernel_size=self.kernel_size,
+            )
+            return p
+
+        self.proj_i = proj()
+        self.proj_f = proj()
+        self.proj_g = proj()
+        self.proj_o = proj()
 
         self.past = [dict() for _ in range(self.streams + 1)]
 
