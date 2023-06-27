@@ -149,13 +149,13 @@ class LnLstm(Modulation):
             h = past["h"]
             c = past["c"]
         else:
-            h = c = torch.zeros(modulation.size(0), features, device=self.device)
+            h = c = torch.zeros(1, features, device=self.device)
 
         x = self.proj_x([modulation], stream=stream)
         x = self.nonlinear(x) * self.gamma
         x = self.drop_x(x, stream=stream)
 
-        xh = cat_groups([x, h], groups=groups)
+        xh = cat_groups([x, h.expand_as(x)], groups=groups)
 
         i = torch.sigmoid(self.proj_i([xh], stream=stream))
         f = torch.sigmoid(self.proj_f([xh], stream=stream))

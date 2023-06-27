@@ -88,12 +88,16 @@ class Rvt(Recurrent):
             dropout probability -- [0, 1)
         """
         if recurrent_channels % groups != 0:
-            raise ValueError("channels must be divisible by groups")
+            raise ValueError("Recurrent channels must be divisible by groups")
+
+        if attention_channels % heads != 0:
+            raise ValueError("Attention channels must be divisible by heads")
 
         super().__init__()
 
         self.recurrent_channels = int(recurrent_channels)
         self.attention_channels = int(attention_channels)
+        self.head_channels = int(attention_channels // heads)
         self.out_channels = int(out_channels)
         self.groups = int(groups)
         self.heads = int(heads)
@@ -237,13 +241,11 @@ class Rvt(Recurrent):
                 or
             [N, O, H, W] -- stream is int
         """
-        N, _, H, W = inputs[0].shape
-
         if stream is None:
             past = self.past[self.streams]
-            channels = self.recurrent_channels * self.streams
-            groups = self.groups * self.streams
-            heads = self.heads * self.streams
+            channels = self.streams * self.recurrent_channels
+            groups = self.streams * self.groups
+            heads = self.streams * self.heads
         else:
             past = self.past[stream]
             channels = self.recurrent_channels
@@ -254,18 +256,19 @@ class Rvt(Recurrent):
             h = past["h"]
             c = past["c"]
         else:
-            h = c = torch.zeros(N, channels, H, W, device=self.device)
+            h = c = torch.zeros(1, channels, 1, 1, device=self.device)
 
         if self.groups > 1:
             x = self.proj_x([*inputs, h], stream=stream)
         else:
             x = self.proj_x(inputs, stream=stream)
 
-        xh = cat_groups_2d([x, h], groups=groups)
+        xh = cat_groups_2d([x, h.expand_as(x)], groups=groups)
+        N, _, H, W = xh.shape
 
-        q = to_groups_2d(self.proj_q([xh], stream=stream), groups=heads).flatten(3, 4)
-        k = to_groups_2d(self.proj_k([xh], stream=stream), groups=heads).flatten(3, 4)
-        v = to_groups_2d(self.proj_v([xh], stream=stream), groups=heads).flatten(3, 4)
+        q = self.proj_q([xh], stream=stream).view(N, heads, self.head_channels, -1)
+        k = self.proj_k([xh], stream=stream).view(N, heads, self.head_channels, -1)
+        v = self.proj_v([xh], stream=stream).view(N, heads, self.head_channels, -1)
 
         w = torch.einsum("N G C Q , N G C D -> N G Q D", q, k).softmax(dim=3)
         a = torch.einsum("N G C D , N G Q D -> N G C Q", v, w).view(N, -1, H, W)
