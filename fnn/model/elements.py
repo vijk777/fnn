@@ -40,7 +40,7 @@ def nonlinearity(nonlinear=None):
         return Identity(), 1.0
 
     else:
-        raise NotImplementedError('"{}" not implemented'.format(nonlinear))
+        raise NotImplementedError(f'"{nonlinear}" not implemented')
 
 
 class Dropout(Module):
