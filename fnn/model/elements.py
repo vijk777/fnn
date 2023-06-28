@@ -15,7 +15,7 @@ def nonlinearity(nonlinear=None):
     Parameters
     ----------
     nonlinear : str | None
-        "tanh" | "elu" | "silu" | "gelu" | None
+        "gelu" | "silu" | "elu" | "tanh" | None
 
     Returns
     -------
@@ -24,8 +24,11 @@ def nonlinearity(nonlinear=None):
     float
         scaling factor to preserve variance
     """
-    if nonlinear is None:
-        return Identity(), 1.0
+    if nonlinear == "gelu":
+        return GELU(approximate="none"), 1.7015043497085571
+
+    elif nonlinear == "silu":
+        return SiLU(inplace=False), 1.7881293296813965
 
     elif nonlinear == "tanh":
         return Tanh(), 1.5939117670059204
@@ -33,11 +36,8 @@ def nonlinearity(nonlinear=None):
     elif nonlinear == "elu":
         return ELU(alpha=1.0, inplace=False), 1.2716004848480225
 
-    elif nonlinear == "silu":
-        return SiLU(inplace=False), 1.7881293296813965
-
-    elif nonlinear == "gelu":
-        return GELU(approximate="none"), 1.7015043497085571
+    elif nonlinear is None:
+        return Identity(), 1.0
 
     else:
         raise NotImplementedError('"{}" not implemented'.format(nonlinear))
