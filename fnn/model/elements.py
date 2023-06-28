@@ -9,28 +9,35 @@ from .modules import Module, ModuleList
 
 
 def nonlinearity(nonlinear=None):
-    """
+    """Adapted from:
+    https://github.com/deepmind/deepmind-research/blob/cb555c241b20c661a3e46e5d1eb722a0a8b0e8f4/nfnets/base.py#L101
+
     Parameters
     ----------
     nonlinear : str | None
         "elu" | "silu" | "gelu" | "tanh" | None
 
-    Adapted from: https://github.com/deepmind/deepmind-research/blob/cb555c241b20c661a3e46e5d1eb722a0a8b0e8f4/nfnets/base.py#L101
+    Returns
+    -------
+    Callable[[Tensor], Tensor]
+        nonlinear transform
+    float
+        scaling factor to preserve variance
     """
     if nonlinear is None:
         return Identity(), 1.0
 
-    elif nonlinear == "elu":
-        return ELU(alpha=1.0), 1.2716004848480225
-
-    elif nonlinear == "silu":
-        return SiLU(), 1.7881293296813965
-
-    elif nonlinear == "gelu":
-        return GELU(), 1.7015043497085571
-
     elif nonlinear == "tanh":
         return Tanh(), 1.5939117670059204
+
+    elif nonlinear == "elu":
+        return ELU(alpha=1.0, inplace=False), 1.2716004848480225
+
+    elif nonlinear == "silu":
+        return SiLU(inplace=False), 1.7881293296813965
+
+    elif nonlinear == "gelu":
+        return GELU(approximate="none"), 1.7015043497085571
 
     else:
         raise NotImplementedError('"{}" not implemented'.format(nonlinear))
@@ -629,7 +636,7 @@ class Linear(Conv):
         """
         Parameters
         ----------
-        channels : int
+        features : int
             input features, must be divisible by groups
         groups : int
             number of input groups per stream
