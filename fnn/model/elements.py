@@ -15,7 +15,7 @@ def nonlinearity(nonlinear=None):
     Parameters
     ----------
     nonlinear : str | None
-        "elu" | "silu" | "gelu" | "tanh" | None
+        "tanh" | "elu" | "silu" | "gelu" | None
 
     Returns
     -------
