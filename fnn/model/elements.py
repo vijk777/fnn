@@ -30,11 +30,11 @@ def nonlinearity(nonlinear=None):
     elif nonlinear == "silu":
         return SiLU(inplace=False), 1.7881293296813965
 
-    elif nonlinear == "tanh":
-        return Tanh(), 1.5939117670059204
-
     elif nonlinear == "elu":
         return ELU(alpha=1.0, inplace=False), 1.2716004848480225
+
+    elif nonlinear == "tanh":
+        return Tanh(), 1.5939117670059204
 
     elif nonlinear is None:
         return Identity(), 1.0
