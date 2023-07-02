@@ -176,10 +176,10 @@ class SgdClip(RandomOptimizer):
         """
         Returns
         -------
-        dict
-            dictionary of hyperparameters
+        dict[str, float]
+            sgd clip hyperparameters
         """
-        return self._hyperparameters
+        return dict(self._hyperparameters)
 
     @torch.no_grad()
     def step(self, parameters, lr, momentum, nesterov, decay, clip, eps):
