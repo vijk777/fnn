@@ -59,7 +59,7 @@ class PositionFeature(Readout):
         ----------
         position : fnn.model.positions.Position
             spatial position
-        bounds : fnn.model.bounds.Bound
+        bound : fnn.model.bounds.Bound
             spatial bound
         feature : fnn.model.features.Feature
             feature weights

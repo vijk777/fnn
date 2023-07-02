@@ -1,6 +1,7 @@
 import torch
 from .modules import Module
 
+
 # -------------- Bound Base --------------
 
 
@@ -30,6 +31,31 @@ class Bound(Module):
 
 
 # -------------- Bound Types --------------
+
+
+class Sigmoid(Bound):
+    """Sigmoid Bound"""
+
+    @property
+    def vmin(self):
+        return 0
+
+    @property
+    def vmax(self):
+        return 1
+
+    def forward(self, x):
+        """
+        Parameters
+        ----------
+        x : Tensor
+
+        Returns
+        -------
+        Tensor
+            x bounded between 0, and 1
+        """
+        return torch.sigmoid(x)
 
 
 class Tanh(Bound):
