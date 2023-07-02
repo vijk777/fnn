@@ -1,7 +1,7 @@
 import torch
 from .modules import Module
 
-# -------------- Bound Prototype --------------
+# -------------- Bound Base --------------
 
 
 class Bound(Module):

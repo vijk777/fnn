@@ -4,7 +4,7 @@ from .modules import Module, ModuleList
 from .elements import Conv, StreamDropout, nonlinearity
 
 
-# -------------- Feedforward Prototype --------------
+# -------------- Feedforward Base --------------
 
 
 class Feedforward(Module):

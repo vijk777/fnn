@@ -3,7 +3,7 @@ from .modules import Module
 from .utils import isotropic_grid_2d
 
 
-# -------------- Retina Prototype --------------
+# -------------- Retina Base --------------
 
 
 class Retina(Module):

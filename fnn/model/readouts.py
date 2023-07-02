@@ -5,7 +5,7 @@ from .modules import Module, ModuleList
 from .utils import to_groups_2d
 
 
-# -------------- Readout Prototype --------------
+# -------------- Readout Base --------------
 
 
 class Readout(Module):

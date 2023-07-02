@@ -3,7 +3,7 @@ from .parameters import Parameter, ParameterList
 from .modules import Module
 
 
-# -------------- Feature Prototype --------------
+# -------------- Feature Base --------------
 
 
 class Feature(Module):

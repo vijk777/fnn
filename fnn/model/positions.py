@@ -3,7 +3,7 @@ from .parameters import Parameter
 from .modules import Module
 
 
-# -------------- Position Prototype --------------
+# -------------- Position Base --------------
 
 
 class Position(Module):

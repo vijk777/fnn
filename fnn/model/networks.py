@@ -5,7 +5,7 @@ from contextlib import nullcontext
 from .modules import Module
 
 
-# -------------- Neural Network Prototype --------------
+# -------------- Neural Network Base --------------
 
 
 class Network(Module):

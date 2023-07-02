@@ -5,7 +5,7 @@ from .elements import Conv, StreamDropout
 from .utils import to_groups_2d, cat_groups_2d
 
 
-# -------------- Recurrent Prototype --------------
+# -------------- Recurrent Base --------------
 
 
 class Recurrent(Module):

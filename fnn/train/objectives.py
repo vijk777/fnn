@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 
-# -------------- Objective Prototype --------------
+# -------------- Objective Base --------------
 
 
 class Objective:

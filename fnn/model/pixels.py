@@ -3,7 +3,7 @@ from .modules import Module
 from .parameters import Parameter
 
 
-# -------------- Pixel Prototype --------------
+# -------------- Pixel Base --------------
 
 
 class Pixel(Module):

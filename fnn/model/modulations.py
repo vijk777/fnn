@@ -4,7 +4,7 @@ from .elements import Linear, StreamFlatDropout, nonlinearity
 from .utils import cat_groups
 
 
-# -------------- Modulation Prototype --------------
+# -------------- Modulation Base --------------
 
 
 class Modulation(Module):

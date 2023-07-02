@@ -1,7 +1,7 @@
 import torch
 
 
-# -------------- Optimizer Prototype --------------
+# -------------- Optimizer Base --------------
 
 
 class Optimizer:

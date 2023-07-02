@@ -2,7 +2,7 @@ import torch
 from .modules import Module
 
 
-# -------------- Unit Prototype --------------
+# -------------- Unit Base --------------
 
 
 class Unit(Module):

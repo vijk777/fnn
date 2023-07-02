@@ -4,7 +4,7 @@ from .parameters import Parameter
 from .modules import Module
 
 
-# -------------- Monitor Prototype --------------
+# -------------- Monitor Base --------------
 
 
 class Monitor(Module):

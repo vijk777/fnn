@@ -1,7 +1,7 @@
 from .modules import Module
 
 
-# -------------- Reduce Prototype --------------
+# -------------- Reduce Base --------------
 
 
 class Reduce(Module):

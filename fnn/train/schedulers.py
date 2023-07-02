@@ -2,7 +2,7 @@ import numpy as np
 import torch.distributed as dist
 
 
-# -------------- Scheduler Prototype --------------
+# -------------- Scheduler Base --------------
 
 
 class Scheduler:

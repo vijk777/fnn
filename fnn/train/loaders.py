@@ -4,7 +4,7 @@ from torch import randint
 from torch.multiprocessing import spawn, Queue
 
 
-# -------------- Loader Prototype --------------
+# -------------- Loader Base --------------
 
 
 class Loader:

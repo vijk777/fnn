@@ -4,7 +4,7 @@ from .elements import Conv
 from .utils import isotropic_grid_2d
 
 
-# -------------- Core Prototype --------------
+# -------------- Core Base --------------
 
 
 class Core(Module):

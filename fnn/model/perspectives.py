@@ -5,7 +5,7 @@ from .elements import Linear, FlatDropout, nonlinearity
 from .utils import isotropic_grid_sample_2d, rmat_3d
 
 
-# -------------- Perspective Prototype --------------
+# -------------- Perspective Base --------------
 
 
 class Perspective(Module):
