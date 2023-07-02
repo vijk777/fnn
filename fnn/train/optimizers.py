@@ -176,7 +176,7 @@ class SgdClip(RandomOptimizer):
         """
         Returns
         -------
-        dict[str, float]
+        dict
             sgd clip hyperparameters
         """
         return dict(self._hyperparameters)
