@@ -121,15 +121,17 @@ class NetworkLoss(Objective):
 
         Returns
         -------
-        dict
-            epoch info
+        dict[str, float]
+            epoch objectives
         """
-        info = {
-            "training_objective": np.mean(self._training),
-            "validation_objective": np.mean(self._validation),
-        }
+        objectives = dict()
 
-        self._training.clear()
-        self._validation.clear()
+        if self._training:
+            objectives["training_objective"] = np.mean(self._training)
+            self._training.clear()
 
-        return info
+        if self._validation:
+            objectives["validation_objective"] = np.mean(self._validation)
+            self._validation.clear()
+
+        return objectives
