@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 
 
@@ -103,36 +102,32 @@ class RandomOptimizer(Optimizer):
 
         while self.scheduler.step():
 
-            kwargs = self.scheduler(**self.hyperparameters)
-            seed = int(self.seed + self.scheduler.seed)
-            info = dict(seed=seed, **kwargs)
+            epoch = self.scheduler.epoch
+            seed = self.scheduler.seed + self.seed
+            hyperparameters = self.scheduler(**self.hyperparameters)
 
             for g in groups:
                 g.sync_params()
 
-            for training, desc in [[True, "training"], [False, "validation"]]:
-                objectives = []
+            for training in [True, False]:
 
                 with torch.random.fork_rng(devices):
                     torch.manual_seed(seed)
 
                     for data in loader(training=training):
-                        o = objective(training=training, **data)
 
-                        if not np.isfinite(o):
-                            raise ValueError("Non-finite objective.")
+                        objective(training=training, **data)
 
                         if training:
+
                             for g in groups:
                                 g.sync_grads()
-                            self.step(parameters, **kwargs)
 
-                        objectives.append(o)
+                            self.step(parameters, **hyperparameters)
 
-                if objectives:
-                    info[f"{desc}_objective"] = np.mean(objectives)
+            objectives = objective.step()
 
-            yield self.scheduler.epoch, info
+            yield epoch, dict(**hyperparameters, **objectives)
 
 
 class SgdClip(RandomOptimizer):

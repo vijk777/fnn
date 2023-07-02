@@ -33,6 +33,16 @@ class Objective:
         """
         raise NotImplementedError()
 
+    def step(self):
+        """Perform an epoch step
+
+        Returns
+        -------
+        dict
+            epoch info
+        """
+        raise NotImplementedError()
+
 
 # -------------- Objective Types --------------
 
@@ -53,6 +63,9 @@ class NetworkLoss(Objective):
 
         self.sample_stream = bool(sample_stream)
         self.burnin_frames = int(burnin_frames)
+
+        self._training = []
+        self._validation = []
 
     def __call__(self, units, stimuli, perspectives=None, modulations=None, training=True):
         """
@@ -93,4 +106,30 @@ class NetworkLoss(Objective):
         else:
             objective = np.stack(losses).mean()
 
-        return objective.item()
+        objective = objective.item()
+
+        if not np.isfinite(objective):
+            raise ValueError()
+
+        if training:
+            self._training.append(objective)
+        else:
+            self._validation.append(objective)
+
+    def step(self):
+        """Perform an epoch step
+
+        Returns
+        -------
+        dict
+            epoch info
+        """
+        info = {
+            "training_objective": np.mean(self._training),
+            "validation_objective": np.mean(self._validation),
+        }
+
+        self._training.clear()
+        self._validation.clear()
+
+        return info
