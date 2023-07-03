@@ -132,7 +132,7 @@ class Rvt(Recurrent):
 
         if self.recurrent_channels == self.out_channels and self.groups == 1:
             self.proj_y = None
-            
+
         else:
             self.proj_y = Conv(
                 channels=self.out_channels,
@@ -204,14 +204,13 @@ class Rvt(Recurrent):
         self.proj_g = proj()
         self.proj_o = proj()
 
-        self.past = [dict() for _ in range(self.streams + 1)]
+        self.past = dict()
 
     def _restart(self):
         self.dropout(p=self._dropout)
 
     def _reset(self):
-        for past in self.past:
-            past.clear()
+        self.past.clear()
 
     @property
     def channels(self):
@@ -242,20 +241,20 @@ class Rvt(Recurrent):
             [N, O, H, W] -- stream is int
         """
         if stream is None:
-            past = self.past[self.streams]
             channels = self.streams * self.recurrent_channels
             groups = self.streams * self.groups
             heads = self.streams * self.heads
         else:
-            past = self.past[stream]
             channels = self.recurrent_channels
             groups = self.groups
             heads = self.heads
 
-        if past:
-            h = past["h"]
-            c = past["c"]
+        if self.past:
+            assert self.past["stream"] == stream
+            h = self.past["h"]
+            c = self.past["c"]
         else:
+            self.past["stream"] = stream
             h = c = torch.zeros(1, channels, 1, 1, device=self.device)
 
         if self.groups > 1:
@@ -282,8 +281,8 @@ class Rvt(Recurrent):
         h = o * torch.tanh(c)
         h = self.drop(h, stream=stream)
 
-        past["c"] = c
-        past["h"] = h
+        self.past["c"] = c
+        self.past["h"] = h
 
         if self.proj_y is None:
             y = h

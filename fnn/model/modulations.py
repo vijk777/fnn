@@ -219,14 +219,13 @@ class FlatLstm(Modulation):
         else:
             self.proj_y = linear(self.lstm_features, self.out_features, 0)
 
-        self.past = [dict() for _ in range(self.streams + 1)]
+        self.past = dict()
 
     def _restart(self):
         self.dropout(p=self._dropout)
 
     def _reset(self):
-        for past in self.past:
-            past.clear()
+        self.past.clear()
 
     @property
     def features(self):
@@ -257,18 +256,18 @@ class FlatLstm(Modulation):
             [N, M] -- stream is int
         """
         if stream is None:
-            past = self.past[self.streams]
             features = self.lstm_features * self.streams
             groups = self.streams
         else:
-            past = self.past[stream]
             features = self.lstm_features
             groups = 1
 
-        if past:
-            h = past["h"]
-            c = past["c"]
+        if self.past:
+            assert self.past["stream"] == stream
+            h = self.past["h"]
+            c = self.past["c"]
         else:
+            self.past["stream"] = stream
             h = c = torch.zeros(modulation.size(0), features, device=self.device)
 
         xh = cat_groups([modulation, h], groups=groups)
@@ -282,8 +281,8 @@ class FlatLstm(Modulation):
         h = o * torch.tanh(c)
         h = self.drop(h, stream=stream)
 
-        past["c"] = c
-        past["h"] = h
+        self.past["c"] = c
+        self.past["h"] = h
 
         if self.proj_y is None:
             y = h
