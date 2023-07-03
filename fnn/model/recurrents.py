@@ -116,7 +116,7 @@ class Rvt(Recurrent):
         self.inputs = list(map(int, inputs))
         self.streams = int(streams)
 
-        self.drop_h = StreamDropout(p=self._dropout, streams=self.streams)
+        self.drop = StreamDropout(p=self._dropout, streams=self.streams)
 
         self.proj_x = Conv(
             channels=self.recurrent_channels,
@@ -132,7 +132,7 @@ class Rvt(Recurrent):
 
         if self.recurrent_channels == self.out_channels and self.groups == 1:
             self.proj_y = None
-
+            
         else:
             self.proj_y = Conv(
                 channels=self.out_channels,
@@ -280,7 +280,7 @@ class Rvt(Recurrent):
 
         c = f * c + i * g
         h = o * torch.tanh(c)
-        h = self.drop_h(h, stream=stream)
+        h = self.drop(h, stream=stream)
 
         past["c"] = c
         past["h"] = h
