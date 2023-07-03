@@ -130,10 +130,7 @@ class MonitorRetina(Perspective):
         self._dropout = float(dropout)
         self.drop = FlatDropout(p=self._dropout)
 
-        self.proj = Linear(features=3).add_input(
-            features=self.features[-1],
-            init_gain=0,
-        )
+        self.proj = Linear(features=3, init_gain=0).add_input(features=self.features[-1])
 
         self.nonlinear, self.gamma = nonlinearity(nonlinear=nonlinear)
 
