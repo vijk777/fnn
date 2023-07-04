@@ -33,9 +33,9 @@ class Network(Module):
         ----------
         stimulus : ND Tensor
             [N, C, ...] -- stimulus frame
-        perspective : ND Tensor
+        perspective : 2D Tensor
             [N, P] -- perspective frame
-        modulations : ND Tensor
+        modulation : 2D Tensor
             [N, M] -- modulation frame
         stream : int | None
             specific stream (int) or all streams (None)
@@ -53,11 +53,11 @@ class Network(Module):
         ----------
         stimulus : ND Tensor
             [N, C, ...] -- stimulus frame
-        perspective : ND Tensor
+        perspective : 2D Tensor
             [N, P] -- perspective frame
-        modulations : ND Tensor
+        modulation : 2D Tensor
             [N, M] -- modulation frame
-        unit : ND Tensor
+        unit : 2D Tensor
             [N, U] --  unit frame
         stream : int | None
             specific stream (int) or all streams (None)
@@ -74,11 +74,11 @@ class Network(Module):
         Parameters
         ----------
         stimulus : Iterable[ND array]
-            either singular or batch
-        perspective : Iterable[ND array] | None
-            either singular or batch
-        modulations : Iterable[ND array] | None
-            either singular or batch
+            T x [...]
+        perspective : Iterable[1D|2D array] | None
+            T x [P] (singular) | T x [N, P] (batch)
+        modulations : Iterable[1D|2D array] | None
+            T x [M] (singular) | T x [N, M] (batch)
         training : bool
             training or inference
 
@@ -99,14 +99,14 @@ class Network(Module):
         """
         Parameters
         ----------
-        units : Iterable[ND array]
-            either singular or batch
+        units : Iterable[1D|2D array]
+            T x [U] (singular) | T x [N, U] (batch)
         stimulus : Iterable[ND array]
-            either singular or batch
-        perspective : Iterable[ND array] | None
-            either singular or batch
-        modulations : Iterable[ND array] | None
-            either singular or batch
+            T x [...]
+        perspective : Iterable[1D|2D array] | None
+            T x [P] (singular) | T x [N, P] (batch)
+        modulations : Iterable[1D|2D array] | None
+            T x [M] (singular) | T x [N, M] (batch)
         stream : int | None
             specific stream (int) or all streams (None)
         training : bool
@@ -397,11 +397,11 @@ class Visual(Network):
         Parameters
         ----------
         stimulus : Iterable[2D|3D|4D array]
-            T x [H, W] | T x [H, W, C] | T x [N, H, W, C] --- dtype=uint8
+            T x [H, W] (singular) | T x [H, W, C] (singular) | T x [N, H, W, C] (batch) --- dtype=uint8
         perspective : Iterable[1D|2D array] | None
-            T x [P] | T x [N, P] --- dtype=float
+            T x [P] (singular) | T x [N, P] (batch) --- dtype=float
         modulations : Iterable[1D|2D array] | None
-            T x [M] | T x [N, M] --- dtype=float
+            T x [M] (singular) | T x [N, M] (batch) --- dtype=float
         training : bool
             training or inference
 
@@ -444,13 +444,13 @@ class Visual(Network):
         Parameters
         ----------
         units : Iterable[1D|2D array]
-            T x [U] | T x [N, U] -- dtype=float
+            T x [U] (singular) | T x [N, U] (batch) -- dtype=float
         stimulus : Iterable[2D|3D|4D array]
-            T x [H, W] | T x [H, W, C] | T x [N, H, W, C] --- dtype=uint8
+            T x [H, W] (singular) | T x [H, W, C] (singular) | T x [N, H, W, C] (batch) --- dtype=uint8
         perspective : Iterable[1D|2D array] | None
-            T x [P] | T x [N, P] --- dtype=float
+            T x [P] (singular) | T x [N, P] (batch) --- dtype=float
         modulations : Iterable[1D|2D array] | None
-            T x [M] | T x [N, M] --- dtype=float
+            T x [M] (singular) | T x [N, M] (batch) --- dtype=float
         stream : int | None
             specific stream (int) or all streams (None)
         training : bool
