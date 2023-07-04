@@ -275,6 +275,8 @@ class Reconstruction(StimulusObjective):
                 if timepoint >= self.burnin_frames:
                     losses.append(loss.mean())
 
+            assert timepoint + 1 == self.timepoints, "Unexpected number of timepoints"
+
             loss = torch.stack(losses).sum()
             penalty = self.stimulus.penalty()
 
