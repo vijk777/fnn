@@ -7,7 +7,7 @@ from .utils import Gaussian3d
 # -------------- Visual Stimulus Base --------------
 
 
-class VisualStimulus(Stimulus):
+class VisualStimulus:
     """Visual Stimulus"""
 
     def forward(self):
@@ -25,6 +25,16 @@ class VisualStimulus(Stimulus):
         -------
         Tensor
             scalar -- penalty value
+        """
+        raise NotImplementedError()
+
+    @property
+    def video(self):
+        """
+        Returns
+        -------
+        4D array
+            [F, H, W, C], dtype=np.uint8
         """
         raise NotImplementedError()
 
@@ -49,27 +59,31 @@ class VisualNlm(VisualStimulus):
             nlm standard deviation cutoff
         """
         super().__init__()
+
+        assert bound.vmin == 0
+        assert bound.vmax == 1
         self.bound = bound
+
         self.gaussian = Gaussian3d(spatial_std=spatial_std, temporal_std=temporal_std, cutoff=cutoff)
 
-    def _init(self, channels, timepoints, height, width):
+    def _init(self, channels, frames, height, width):
         """
         Parameters
         ----------
         channels : int
             number of channels (C)
-        timepoints : int
-            number of timepoints (T)
+        frames : int
+            number of frames (F)
         height : int
             height in pixels (H)
         width : int
             width in pixels (W)
         """
         self.channels = int(channels)
-        self.timepoints = int(timepoints)
+        self.frames = int(frames)
         self.height = int(height)
         self.width = int(width)
-        self.frames = Parameter(torch.zeros([self.channels, self.timepoints, self.height, self.width]))
+        self.frames = Parameter(torch.zeros([self.channels, self.frames, self.height, self.width]))
 
     def forward(self):
         """
@@ -90,3 +104,18 @@ class VisualNlm(VisualStimulus):
         """
         delt = self.frames - self.gaussian(self.frames)
         return delt.pow(2).sum()
+
+    @property
+    def video(self):
+        """
+        Returns
+        -------
+        4D array
+            [F, H, W, C], dtype=np.uint8
+        """
+        with torch.no_grad():
+
+            video = self.bound(self.frames)
+            video = torch.einsum("C F H W -> F H W C", video)
+
+            return video.cpu().to(dtype=torch.uint8).numpy()

@@ -164,37 +164,43 @@ class Reconstruction(StimulusObjective):
         trial_perspectives,
         trial_modulations,
         trial_units,
+        unit_index=None,
         sample_trial=True,
         sample_stream=True,
         burnin_frames=0,
-        penalty=0,
+        stimulus_penalty=0,
     ):
         """
         Parameters
         ----------
         trial_perspectives : 3D array
-            [timepoints, trials, perspectives]
+            [frames, trials, perspectives]
         trial_modulations : 3D array
-            [timepoints, trials, modulations]
+            [frames, trials, modulations]
         trial_units : 3D array
-            [timepoints, trials, units]
+            [frames, trials, units]
+        unit_index : int | slice | 1D array | None
+            unit index
         sample_trial : bool
             sample trial during training
         sample_stream : bool
             sample stream during training
         burnin_frames : int
             number of initial frames to discard
-        penalty : float
+        stimulus_penalty : float
             stimulus penalty weight
         """
+        assert trial_units.size if unit_index is None else trial_units[:, :, unit_index].size
         assert burnin_frames >= 0
-        assert penalty >= 0
+        assert stimulus_penalty >= 0
 
         self.trial_perspectives = torch.tensor(trial_perspectives, dtype=torch.float)
         self.trial_modulations = torch.tensor(trial_modulations, dtype=torch.float)
         self.trial_units = torch.tensor(trial_units, dtype=torch.float)
 
-        (self.timepoints,) = {
+        self.unit_index = unit_index
+
+        (self.frames,) = {
             self.trial_perspectives.shape[0],
             self.trial_modulations.shape[0],
             self.trial_units.shape[0],
@@ -209,9 +215,9 @@ class Reconstruction(StimulusObjective):
         self.sample_trial = bool(sample_trial)
         self.sample_stream = bool(sample_stream)
         self.burnin_frames = int(burnin_frames)
-        self.penalty = float(penalty)
+        self.stimulus_penalty = float(stimulus_penalty)
 
-    def _init(self, network, stimulus):
+    def _init(self, network, stimulus, unit_index=None):
         """
         Parameters
         ----------
@@ -219,9 +225,12 @@ class Reconstruction(StimulusObjective):
             network module
         stimulus : fnn.model.stimuli.Stimulus
             stimulus module
+        unit_index : int | slice | 1D array | None
+            unit index
         """
         self.network = network
         self.stimulus = stimulus
+        self.unit_index = unit_index
 
         self.trial_perspectives = self.trial_perspectives.to(device=self.network.device)
         self.trial_modulations = self.trial_modulations.to(device=self.network.device)
@@ -262,7 +271,7 @@ class Reconstruction(StimulusObjective):
             inputs = zip(self.stimulus(), perspectives, modulations, units)
             losses = []
 
-            for timepoint, (stimulus, perspective, modulation, unit) in enumerate(inputs):
+            for frame, (stimulus, perspective, modulation, unit) in enumerate(inputs):
 
                 loss = self.network.loss(
                     stimulus=expand(stimulus),
@@ -272,10 +281,13 @@ class Reconstruction(StimulusObjective):
                     stream=stream,
                 )
 
-                if timepoint >= self.burnin_frames:
+                if self.unit_index is not None:
+                    loss = loss[:, self.unit_index]
+
+                if frame >= self.burnin_frames:
                     losses.append(loss.mean())
 
-            assert timepoint + 1 == self.timepoints, "Unexpected number of timepoints"
+            assert frame + 1 == self.frames, "Unexpected number of frames"
 
             loss = torch.stack(losses).sum()
             penalty = self.stimulus.penalty()
@@ -290,7 +302,7 @@ class Reconstruction(StimulusObjective):
                 raise ValueError("Non-finite penalty")
 
             if training:
-                stream = (loss + self.penalty * penalty).backward()
+                stream = (loss + self.stimulus_penalty * penalty).backward()
 
                 self.log["training_loss"].append(loss_item)
                 self.log["training_penalty"].append(penalty_item)
