@@ -1,5 +1,6 @@
-from torch import nn
+from torch import nn, inference_mode
 from itertools import chain
+from contextlib import contextmanager
 
 
 class Module(nn.Module):
@@ -78,6 +79,19 @@ class Module(nn.Module):
         x = next(chain(self.parameters(), self.buffers(), [None]))
         if x is not None:
             return x.device
+
+    @contextmanager
+    def train_context(self, mode: bool = True):
+        prev = self.training
+        try:
+            self.train(mode)
+            if mode:
+                yield
+            else:
+                with inference_mode():
+                    yield
+        finally:
+            self.train(prev)
 
 
 class Sequential(nn.Sequential, Module):

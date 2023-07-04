@@ -8,16 +8,7 @@ from torch.multiprocessing import spawn, Queue
 
 
 class Loader:
-    """Data Loader"""
-
-    def _init(self, dataset):
-        """
-        Parameters
-        ----------
-        dataset : fnn.data.dataset.Dataset
-            dataset to load
-        """
-        self.dataset = dataset
+    """Loader"""
 
     def __call__(self, training=True, display_progress=True):
         """
@@ -36,10 +27,23 @@ class Loader:
         raise NotImplementedError()
 
 
+class DatasetLoader:
+    """Dataset Loader"""
+
+    def _init(self, dataset):
+        """
+        Parameters
+        ----------
+        dataset : fnn.data.dataset.Dataset
+            dataset to load
+        """
+        raise NotImplementedError()
+
+
 # -------------- Loader Types --------------
 
 
-class Batches(Loader):
+class Batches(DatasetLoader):
     """Randomly Sampled Batches"""
 
     def __init__(self, sample_size, batch_size, training_size, validation_size):
@@ -57,6 +61,8 @@ class Batches(Loader):
         """
         assert sample_size > 0
         assert batch_size > 0
+        assert training_size >= 0
+        assert validation_size >= 0
 
         self.sample_size = int(sample_size)
         self.batch_size = int(batch_size)
@@ -71,7 +77,7 @@ class Batches(Loader):
             dataset to load
         """
         assert dataset.df.samples.min() >= self.sample_size
-        super()._init(dataset)
+        self.dataset = dataset
 
     def _random_keys(self, training=True):
         if training:
@@ -150,3 +156,49 @@ class Batches(Loader):
             yield batch
 
         assert c.join()
+
+
+class EmptyLoader(Loader):
+    """Empty Loader"""
+
+    def __init__(self, training_size, validation_size):
+        """
+        Parameters
+        ----------
+        training_size : int
+            number of training iterations in an epoch
+        validation_size : int
+            number of validation iterations in an epoch
+        """
+        assert training_size >= 0
+        assert validation_size >= 0
+
+        self.training_size = int(training_size)
+        self.validation_size = int(validation_size)
+
+    def __call__(self, training=True, display_progress=True):
+        """
+        Parameters
+        ----------
+        training : bool
+            training or validation
+        display_progress : bool
+            display progress
+
+        Yields
+        -------
+        dict
+            empty dictionary
+        """
+        if training:
+            iterations = range(self.training_size)
+            desc = "Training"
+        else:
+            iterations = range(self.validation_size)
+            desc = "Validation"
+
+        if display_progress:
+            iterations = tqdm(iterations, desc=desc)
+
+        for _ in iterations:
+            yield dict()

@@ -1,6 +1,6 @@
 import math
 import torch
-from torch.nn import functional, init, Identity, ELU, SiLU, GELU, Tanh, AvgPool2d
+from torch import nn
 from itertools import chain
 from functools import reduce
 from collections import deque
@@ -25,19 +25,19 @@ def nonlinearity(nonlinear=None):
         scaling factor to preserve variance
     """
     if nonlinear == "gelu":
-        return GELU(approximate="none"), 1.7015043497085571
+        return nn.GELU(approximate="none"), 1.7015043497085571
 
     elif nonlinear == "silu":
-        return SiLU(inplace=False), 1.7881293296813965
+        return nn.SiLU(inplace=False), 1.7881293296813965
 
     elif nonlinear == "elu":
-        return ELU(alpha=1.0, inplace=False), 1.2716004848480225
+        return nn.ELU(alpha=1.0, inplace=False), 1.2716004848480225
 
     elif nonlinear == "tanh":
-        return Tanh(), 1.5939117670059204
+        return nn.Tanh(), 1.5939117670059204
 
     elif nonlinear is None:
-        return Identity(), 1.0
+        return nn.Identity(), 1.0
 
     else:
         raise NotImplementedError(f'"{nonlinear}" not implemented')
@@ -262,10 +262,10 @@ class Input(Module):
             self.pad_fn = lambda x: x
 
         elif self.pad_mode == "zeros":
-            self.pad_fn = lambda x: functional.pad(x, pad=[self.pad] * 4)
+            self.pad_fn = lambda x: nn.functional.pad(x, pad=[self.pad] * 4)
 
         elif self.pad_mode == "replicate":
-            self.pad_fn = lambda x: functional.pad(x, pad=[self.pad] * 4, mode="replicate")
+            self.pad_fn = lambda x: nn.functional.pad(x, pad=[self.pad] * 4, mode="replicate")
 
         else:
             raise ValueError("Invalid pad mode")
@@ -293,7 +293,7 @@ class Input(Module):
 
         def param():
             weight = torch.zeros(shape)
-            init.uniform_(weight, -bound, bound)
+            nn.init.uniform_(weight, -bound, bound)
 
             if self.mask is not None:
                 weight.mul_(self.mask)
@@ -581,7 +581,7 @@ class Conv(Module):
             else:
                 g = i.groups
 
-            out = functional.conv3d(x, weight=w, groups=g, bias=bias, stride=i.stride).squeeze(dim=2)
+            out = nn.functional.conv3d(x, weight=w, groups=g, bias=bias, stride=i.stride).squeeze(dim=2)
             outs.append(out)
             bias = None
 

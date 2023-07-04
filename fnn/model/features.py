@@ -1,6 +1,6 @@
 import torch
-from .parameters import Parameter, ParameterList
 from .modules import Module
+from .parameters import Parameter, ParameterList
 
 
 # -------------- Feature Base --------------

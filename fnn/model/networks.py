@@ -1,30 +1,71 @@
 import torch
 import numpy as np
 from itertools import repeat
-from contextlib import nullcontext
 from .modules import Module
 
 
-# -------------- Neural Network Base --------------
+# -------------- Network Base --------------
 
 
 class Network(Module):
-    """Neural Network"""
+    """Network"""
 
     def _init(self, stimuli, perspectives, modulations, units, streams):
         """
         Parameters
         ----------
         stimuli : int
-            stimulus channels
+            stimulus channels (C)
         perspectives : int
-            perspective features
+            perspective features (P)
         modulations : int
-            modulation features
+            modulation features (M)
         units : int
-            number of units
+            number of units (U)
         streams : int
-            number of streams
+            number of streams (S)
+        """
+        raise NotImplementedError()
+
+    def forward(self, stimulus, perspective, modulation, stream=None):
+        """
+        Parameters
+        ----------
+        stimulus : ND Tensor
+            [N, C, ...] -- stimulus frame
+        perspective : ND Tensor
+            [N, P] -- perspective frame
+        modulations : ND Tensor
+            [N, M] -- modulation frame
+        stream : int | None
+            specific stream (int) or all streams (None)
+
+        Returns
+        -------
+        2D Tensor
+            [N, U] -- response frame
+        """
+        raise NotImplementedError()
+
+    def loss(self, stimulus, perspective, modulation, unit, stream=None):
+        """
+        Parameters
+        ----------
+        stimulus : ND Tensor
+            [N, C, ...] -- stimulus frame
+        perspective : ND Tensor
+            [N, P] -- perspective frame
+        modulations : ND Tensor
+            [N, M] -- modulation frame
+        unit : ND Tensor
+            [N, U] --  unit frame
+        stream : int | None
+            specific stream (int) or all streams (None)
+
+        Returns
+        -------
+        Tensor
+            [N, U] -- loss frame
         """
         raise NotImplementedError()
 
@@ -98,11 +139,11 @@ class Network(Module):
         raise NotImplementedError()
 
 
-# -------------- Neural Network Types --------------
+# -------------- Network Types --------------
 
 
 class Visual(Network):
-    """Visual Neural Network"""
+    """Visual Network"""
 
     def __init__(self, core, perspective, modulation, readout, reduce, unit):
         """
@@ -178,12 +219,12 @@ class Visual(Network):
         """
         Parameters
         ----------
-        stimulus : Tensor
-            [N, C, H, W]
-        perspective : Tensor
-            [N, P]
-        modulations : Tensor
-            [N, M]
+        stimulus : 4D Tensor
+            [N, C, H, W] -- stimulus frame
+        perspective : 2D Tensor
+            [N, P] -- perspective frame
+        modulations : 2D Tensor
+            [N, M] -- modulation frame
         stream : int | None
             specific stream (int) or all streams (None)
         periphery : str
@@ -191,7 +232,7 @@ class Visual(Network):
 
         Returns
         -------
-        Tensor
+        3D Tensor
             [N, U, R] -- raw output
         """
         if periphery == "dark":
@@ -235,12 +276,12 @@ class Visual(Network):
         """
         Parameters
         ----------
-        stimulus : Tensor
-            [N, C, H, W]
-        perspective : Tensor
-            [N, P]
-        modulations : Tensor
-            [N, M]
+        stimulus : 4D Tensor
+            [N, C, H, W] -- stimulus frame
+        perspective : 2D Tensor
+            [N, P] -- perspective frame
+        modulations : 2D Tensor
+            [N, M] -- modulation frame
         stream : int | None
             specific stream (int) or all streams (None)
         periphery : str
@@ -248,7 +289,7 @@ class Visual(Network):
 
         Returns
         -------
-        Tensor
+        2D Tensor
             [N, U] -- response frame
         """
         r = self._raw(
@@ -264,20 +305,20 @@ class Visual(Network):
         """
         Parameters
         ----------
-        stimulus : Tensor
-            [N, C, H, W]
-        perspective : Tensor
-            [N, P]
-        modulations : Tensor
-            [N, M]
-        unit : Tensor
-            [N, U]
+        stimulus : 4D Tensor
+            [N, C, H, W] -- stimulus frame
+        perspective : 2D Tensor
+            [N, P] -- perspective frame
+        modulations : 2D Tensor
+            [N, M] -- modulation frame
+        unit : 2D Tensor
+            [N, U] --  unit frame
         stream : int | None
             specific stream (int) or all streams (None)
 
         Returns
         -------
-        Tensor
+        2D Tensor
             [N, U] -- loss frame
         """
         r = self._raw(
@@ -301,11 +342,11 @@ class Visual(Network):
 
         Returns
         -------
-        torch.Tensor
+        4D Tensor
             [N, C, H, W]
-        torch.Tensor
+        2D Tensor
             [N, P]
-        torch.Tensor
+        2D Tensor
             [N, M]
         bool
             squeeze response batch dim
@@ -383,22 +424,13 @@ class Visual(Network):
         if modulations is None:
             modulations = repeat(None)
 
-        _training = self.training
-        if training:
-            context = nullcontext
-            self.train(True)
-        else:
-            context = torch.inference_mode
-            self.train(False)
-
-        with context():
+        with self.train_context(training):
 
             for stimulus, perspective, modulation in zip(stimuli, perspectives, modulations):
 
                 *tensors, squeeze = self.to_tensor(stimulus, perspective, modulation)
 
                 response = self(*tensors)
-
                 if squeeze:
                     response = response.squeeze(0)
 
@@ -406,8 +438,6 @@ class Visual(Network):
                     yield response
                 else:
                     yield response.cpu().numpy()
-
-        self.train(_training)
 
     def generate_loss(self, units, stimuli, perspectives=None, modulations=None, stream=None, training=False):
         """
@@ -438,6 +468,7 @@ class Visual(Network):
             [N, U] (batch input, training=True)
         """
         self.reset()
+        device = self.device
 
         if perspectives is None:
             perspectives = repeat(None)
@@ -445,29 +476,21 @@ class Visual(Network):
         if modulations is None:
             modulations = repeat(None)
 
-        _training = self.training
-        if training:
-            context = nullcontext
-            self.train(True)
-        else:
-            context = torch.inference_mode
-            self.train(False)
-
-        with context():
+        with self.train_context(training):
 
             for unit, stimulus, perspective, modulation in zip(units, stimuli, perspectives, modulations):
 
-                *tensors, squeeze = self.to_tensor(stimulus, perspective, modulation)
-
-                unit = torch.tensor(unit, dtype=torch.float, device=self.device)
+                unit = torch.tensor(unit, dtype=torch.float, device=device)
                 if unit.ndim == 1:
-                    assert squeeze
                     unit = unit[None]
+                    squeeze = True
                 else:
-                    assert not squeeze
+                    squeeze = False
+
+                *tensors, _squeeze = self.to_tensor(stimulus, perspective, modulation)
+                assert squeeze == _squeeze
 
                 loss = self.loss(*tensors, unit=unit, stream=stream)
-
                 if squeeze:
                     loss = loss.squeeze(0)
 
@@ -475,8 +498,6 @@ class Visual(Network):
                     yield loss
                 else:
                     yield loss.cpu().numpy()
-
-        self.train(_training)
 
     def parallel_groups(self, group_size=1):
         """

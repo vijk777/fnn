@@ -1,5 +1,6 @@
+import math
 import torch
-from torch.nn import functional
+from torch import nn
 
 
 def to_groups(tensor, groups):
@@ -238,7 +239,7 @@ def isotropic_grid_sample_2d(x, grid, major="x", pad_mode="zeros", pad_value=0):
         grid_y * scale * (height - 1) / height,
     ]
 
-    x = functional.grid_sample(
+    x = nn.functional.grid_sample(
         x,
         grid=torch.stack(grid, dim=3),
         mode="bilinear",
@@ -246,3 +247,81 @@ def isotropic_grid_sample_2d(x, grid, major="x", pad_mode="zeros", pad_value=0):
         align_corners=False,
     )
     return finalize(x)
+
+
+class Gaussian3d(nn.Module):
+    """3D (Spatiotemporal) Gaussian Blur"""
+
+    def __init__(self, spatial_std=1, temporal_std=1, cutoff=4):
+        """
+        Parameters
+        ----------
+        spatial_sigma : float
+            spatial standard deviation
+        temporal_sigma : float
+            temporal standard deviation
+        cutoff : float
+            standard deviation cutoff
+        """
+        from scipy.signal.windows import gaussian
+
+        super().__init__()
+
+        self.spatial_std = float(spatial_std)
+        self.temporal_std = float(temporal_std)
+        self.cutoff = float(cutoff)
+
+        def pad_kernel(std):
+            M = math.ceil(std * cutoff) * 2 + 1
+            pad = M // 2
+            kernel = gaussian(M=M, std=std)
+            kernel = torch.tensor(kernel / kernel.sum(), dtype=torch.float)
+            return pad, kernel
+
+        self.spatial_pad, spatial_kernel = pad_kernel(self.spatial_std)
+        self.temporal_pad, temporal_kernel = pad_kernel(self.temporal_std)
+
+        self.pads = [
+            [0, 0, 0, 0, self.temporal_pad, self.temporal_pad],
+            [0, 0, self.spatial_pad, self.spatial_pad, 0, 0],
+            [self.spatial_pad, self.spatial_pad, 0, 0, 0, 0],
+        ]
+
+        self.register_buffer("spatial_kernel", spatial_kernel)
+        self.register_buffer("temporal_kernel", temporal_kernel)
+
+    @property
+    def kernels(self):
+        return [
+            self.temporal_kernel[None, None, :, None, None],
+            self.spatial_kernel[None, None, None, :, None],
+            self.spatial_kernel[None, None, None, None, :],
+        ]
+
+    def forward(self, x):
+        """
+        Parameters
+        ----------
+        x : 4D Tensor
+            [N, T, H, W]
+
+        Returns
+        -------
+        4D Tensor
+            [N, T, H, W]
+        """
+        channels, _, _, _ = x.shape
+        x = x.unsqueeze(dim=0)
+
+        for p, k in zip(self.pads, self.kernels):
+
+            x = nn.functional.conv3d(
+                input=nn.functional.pad(x, pad=p, mode="replicate"),
+                weight=k.expand(channels, -1, -1, -1, -1),
+                groups=channels,
+            )
+
+        return x.squeeze(dim=0)
+
+    def extra_repr(self):
+        return f"spatial_std={self.spatial_std:.3g}, temporal_std={self.temporal_std:.3g}"
