@@ -94,7 +94,7 @@ class RandomOptimizer(Optimizer):
         int
             epoch number
         dict
-            optimization info (hyperparameters and objectives)
+            optimization info (seed, hyperparameters, and objectives)
         """
         parameters = dict(parameters)
         groups = [] if groups is None else list(groups)
@@ -127,7 +127,7 @@ class RandomOptimizer(Optimizer):
 
             objectives = objective.step()
 
-            yield epoch, dict(**hyperparameters, **objectives)
+            yield epoch, dict(seed=seed, **hyperparameters, **objectives)
 
 
 class SgdClip(RandomOptimizer):
