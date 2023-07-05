@@ -265,16 +265,22 @@ class Reconstruction(StimulusObjective):
 
         with self.network.train_context(training):
 
-            inputs = zip(self.stimulus(), perspectives, modulations, units)
             losses = []
+
+            inputs = zip(
+                self.stimulus(),
+                select(self.trial_perspectives),
+                select(self.trial_modulations),
+                select(self.trial_units),
+            )
 
             for frame, (stimulus, perspective, modulation, unit) in enumerate(inputs):
 
                 loss = self.network.loss(
                     stimulus=expand(stimulus),
-                    perspective=select(perspective),
-                    modulation=select(modulation),
-                    unit=select(unit),
+                    perspective=perspective,
+                    modulation=modulation,
+                    unit=unit,
                     stream=stream,
                 )
 

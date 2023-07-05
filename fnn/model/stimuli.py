@@ -7,7 +7,7 @@ from .utils import Gaussian3d
 # -------------- Visual Stimulus Base --------------
 
 
-class VisualStimulus:
+class VisualStimulus(Module):
     """Visual Stimulus"""
 
     def forward(self):
@@ -63,7 +63,6 @@ class VisualNlm(VisualStimulus):
         assert bound.vmin == 0
         assert bound.vmax == 1
         self.bound = bound
-
         self.gaussian = Gaussian3d(spatial_std=spatial_std, temporal_std=temporal_std, cutoff=cutoff)
 
     def _init(self, channels, frames, height, width):
