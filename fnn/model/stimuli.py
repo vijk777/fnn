@@ -117,5 +117,6 @@ class VisualNlm(VisualStimulus):
 
             video = self.bound(self.frames)
             video = torch.einsum("C F H W -> F H W C", video)
+            video = video.mul(255).round().to(device="cpu", dtype=torch.uint8)
 
-            return video.cpu().to(dtype=torch.uint8).numpy()
+            return video.numpy()
