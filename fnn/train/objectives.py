@@ -217,7 +217,7 @@ class Reconstruction(StimulusObjective):
         self.burnin_frames = int(burnin_frames)
         self.stimulus_penalty = float(stimulus_penalty)
 
-    def _init(self, network, stimulus, unit_index=None):
+    def _init(self, network, stimulus):
         """
         Parameters
         ----------
@@ -225,12 +225,9 @@ class Reconstruction(StimulusObjective):
             network module
         stimulus : fnn.model.stimuli.Stimulus
             stimulus module
-        unit_index : int | slice | 1D array | None
-            unit index
         """
-        self.network = network
+        self.network = network.freeze(True)
         self.stimulus = stimulus
-        self.unit_index = unit_index
 
         self.trial_perspectives = self.trial_perspectives.to(device=self.network.device)
         self.trial_modulations = self.trial_modulations.to(device=self.network.device)
@@ -281,11 +278,16 @@ class Reconstruction(StimulusObjective):
                     stream=stream,
                 )
 
-                if self.unit_index is not None:
-                    loss = loss[:, self.unit_index]
+                if frame < self.burnin_frames:
+                    continue
 
-                if frame >= self.burnin_frames:
-                    losses.append(loss.mean())
+                elif self.unit_index is None:
+                    loss = loss.mean()
+
+                else:
+                    loss = loss[:, self.unit_index].mean()
+
+                losses.append(loss)
 
             assert frame + 1 == self.frames, "Unexpected number of frames"
 
