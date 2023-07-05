@@ -9,7 +9,7 @@ class Objective:
     """Objective"""
 
     def __call__(self, training=True, **data):
-        """Performs an objective call
+        """Perform an objective call
 
         Parameters
         ----------
@@ -118,7 +118,7 @@ class NetworkLoss(NetworkObjective):
         self._validation = []
 
     def __call__(self, units, stimuli, perspectives=None, modulations=None, training=True):
-        """Performs an objective call
+        """Perform an objective call
 
         Parameters
         ----------
@@ -257,7 +257,7 @@ class Reconstruction(StimulusObjective):
         self.trial_units = device(self.trial_units)
 
     def __call__(self, training=True):
-        """Performs an objective call
+        """Perform an objective call
 
         Parameters
         ----------
@@ -380,7 +380,7 @@ class Excitation(StimulusObjective):
         self.modulation = tensor(self.network.default_modulation)
 
     def __call__(self, training=True):
-        """Performs an objective call
+        """Perform an objective call
 
         Parameters
         ----------
