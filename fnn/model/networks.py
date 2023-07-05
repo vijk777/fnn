@@ -27,6 +27,26 @@ class Network(Module):
         """
         raise NotImplementedError()
 
+    @property
+    def default_perspective(self):
+        """
+        Returns
+        -------
+        1D array
+            [P] -- default perspective value
+        """
+        raise NotImplementedError()
+
+    @property
+    def default_modulation(self):
+        """
+        Returns
+        -------
+        1D array
+            [M] -- default modulation value
+        """
+        raise NotImplementedError()
+
     def forward(self, stimulus, perspective, modulation, stream=None):
         """
         Parameters
@@ -215,6 +235,26 @@ class Visual(Network):
             keepdim=False,
         )
 
+    @property
+    def default_perspective(self):
+        """
+        Returns
+        -------
+        1D array
+            [P] -- default perspective value
+        """
+        return np.zeros([self.perspectives])
+
+    @property
+    def default_modulation(self):
+        """
+        Returns
+        -------
+        1D array
+            [M] -- default modulation value
+        """
+        return np.zeros([self.modulations])
+
     def _raw(self, stimulus, perspective, modulation, stream=None, periphery="dark"):
         """
         Parameters
@@ -368,7 +408,7 @@ class Visual(Network):
             N = stimulus.shape[0]
 
         if perspective is None:
-            perspective = np.zeros([1, self.perspectives])
+            perspective = self.default_perspective[None]
         elif perspective.ndim == 1:
             perspective = perspective[None]
         else:
@@ -376,7 +416,7 @@ class Visual(Network):
             N = max(N, perspective.shape[0])
 
         if modulation is None:
-            modulation = np.zeros([1, self.modulations])
+            modulation = self.default_modulation[None]
         elif modulation.ndim == 1:
             modulation = modulation[None]
         else:
