@@ -10,6 +10,24 @@ from .utils import Gaussian3d
 class VisualStimulus(Module):
     """Visual Stimulus"""
 
+    def _init(self, channels, frames, height, width):
+        """
+        Parameters
+        ----------
+        channels : int
+            number of channels (C)
+        frames : int
+            number of frames (F)
+        height : int
+            height in pixels (H)
+        width : int
+            width in pixels (W)
+        """
+        self.channels = int(channels)
+        self.frames = int(frames)
+        self.height = int(height)
+        self.width = int(width)
+
     def forward(self):
         """
         Yields
@@ -45,12 +63,14 @@ class VisualStimulus(Module):
 class VisualNlm(VisualStimulus):
     """Visual Stimulus with Non-local means Regularization"""
 
-    def __init__(self, bound, spatial_std=1, temporal_std=1, cutoff=4):
+    def __init__(self, bound, init_value=0, spatial_std=1, temporal_std=1, cutoff=4):
         """
         Parameters
         ----------
         bound : fnn.model.bounds.Bound
             stimulus bound
+        init_value : float
+            initial pixel value
         spatial_sigma : float
             nlm spatial standard deviation
         temporal_sigma : float
@@ -63,6 +83,7 @@ class VisualNlm(VisualStimulus):
         assert bound.vmin == 0
         assert bound.vmax == 1
         self.bound = bound
+        self.init_value = float(init_value)
         self.gaussian = Gaussian3d(spatial_std=spatial_std, temporal_std=temporal_std, cutoff=cutoff)
 
     def _init(self, channels, frames, height, width):
@@ -78,11 +99,11 @@ class VisualNlm(VisualStimulus):
         width : int
             width in pixels (W)
         """
-        self.channels = int(channels)
-        self.frames = int(frames)
-        self.height = int(height)
-        self.width = int(width)
-        self.frames = Parameter(torch.zeros([self.channels, self.frames, self.height, self.width]))
+        super()._init(channels=channels, frames=frames, height=height, width=width)
+
+        self.frames = Parameter(
+            torch.full([self.channels, self.frames, self.height, self.width], self.init_value),
+        )
 
     def forward(self):
         """
