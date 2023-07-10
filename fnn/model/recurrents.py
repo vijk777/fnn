@@ -147,7 +147,6 @@ class Rvt(Recurrent):
             groups=self.heads,
             streams=self.streams,
             init_gain=(self.attention_channels / self.heads) ** -0.5,
-            decay_gain=True,
             bias=False,
         )
         self.proj_q.add_input(
