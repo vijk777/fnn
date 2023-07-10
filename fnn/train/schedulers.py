@@ -78,28 +78,28 @@ class Scheduler:
 class CosineLr(Scheduler):
     """Cosine Learning Rate"""
 
-    def __init__(self, cycle_size=100, burnin_epochs=0, burnin_cycles=0):
+    def __init__(self, cycle_size=100, warmup_epochs=0, warmup_cycles=0):
         """
         Parameters
         ----------
         cycle_size : int
             number of epochs in a cycle
-        burnin : int
-            number of burnin epochs
-        burnin_cycles : int
-            number of burnin cycles
+        warmup_epochs : int
+            number of warmup epochs
+        warmup_cycles : int
+            number of warmup cycles
         """
         assert cycle_size > 0
-        assert burnin_epochs >= 0
+        assert warmup_epochs >= 0
 
-        if burnin_epochs:
-            assert burnin_cycles > 0
+        if warmup_epochs:
+            assert warmup_cycles > 0
         else:
-            assert burnin_cycles == 0
+            assert warmup_cycles == 0
 
         self.cycle_size = int(cycle_size)
-        self.burnin_epochs = int(burnin_epochs)
-        self.burnin_cycles = int(burnin_cycles)
+        self.warmup_epochs = int(warmup_epochs)
+        self.warmup_cycles = int(warmup_cycles)
 
     @property
     def seed(self):
@@ -142,16 +142,16 @@ class CosineLr(Scheduler):
         dict
             hyperparameters with transformed learning rate
         """
-        burnin_cycle = self.cycle < self.burnin_cycles
-        burnin_epoch = self.epoch < self.burnin_epochs
+        warmup_cycle = self.cycle < self.warmup_cycles
+        warmup_epoch = self.epoch < self.warmup_epochs
 
-        if burnin_cycle and burnin_epoch:
-            lr = lr * (self.epoch + 0.5) / self.burnin_epochs
+        if warmup_cycle and warmup_epoch:
+            lr = lr * (self.epoch + 0.5) / self.warmup_epochs
 
         else:
-            if burnin_cycle:
-                t = self.epoch - self.burnin_epochs
-                tmax = self.cycle_size - self.burnin_epochs
+            if warmup_cycle:
+                t = self.epoch - self.warmup_epochs
+                tmax = self.cycle_size - self.warmup_epochs
             else:
                 t = self.epoch
                 tmax = self.cycle_size

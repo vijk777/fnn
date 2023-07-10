@@ -150,6 +150,9 @@ class SigmoidPower(Pixel):
         self.scale = Parameter(torch.full([1], self.init_scale))
         self.offset = Parameter(torch.full([1], self.init_offset))
 
+        for param in [self.logit, self.scale, self.offset]:
+            param.decay = False
+
     @property
     def power(self):
         return self.logit.sigmoid() * self.max_power
