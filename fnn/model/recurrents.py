@@ -1,5 +1,4 @@
 import torch
-from .parameters import Parameter, ParameterList
 from .modules import Module
 from .elements import Conv, StreamDropout
 from .utils import to_groups_2d, cat_groups_2d
