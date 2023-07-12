@@ -146,7 +146,7 @@ class CvtLstm(Recurrent):
 
         self.inputs = Accumulate(inputs)
 
-        def conv(pad=None, gain=None):
+        def conv(pad, gain):
             return Conv(
                 in_channels=self.recurrent_channels,
                 out_channels=self.attention_channels,
@@ -159,20 +159,24 @@ class CvtLstm(Recurrent):
                 bias=None,
             )
 
-        self.q_xx = conv(pad="zeros", gain=self.head_channels**-0.5)
-        self.q_xh = conv(pad="zeros", gain=self.head_channels**-0.5)
-        self.q_hx = conv(pad="zeros", gain=self.head_channels**-0.5)
-        self.q_hh = conv(pad="zeros", gain=self.head_channels**-0.5)
-
-        self.k_xx = conv()
-        self.k_xh = conv()
-        self.k_hx = conv()
-        self.k_hh = conv()
-
-        self.v_xx = conv()
-        self.v_xh = conv()
-        self.v_hx = conv()
-        self.v_hh = conv()
+        self.proj_q = Accumulate(
+            [
+                conv(pad="zeros", gain=(self.head_channels * 2) ** -0.5),
+                conv(pad="zeros", gain=(self.head_channels * 2) ** -0.5),
+            ]
+        )
+        self.proj_k = Accumulate(
+            [
+                conv(pad=None, gain=None),
+                conv(pad=None, gain=None),
+            ]
+        )
+        self.proj_v = Accumulate(
+            [
+                conv(pad=None, gain=None),
+                conv(pad=None, gain=None),
+            ]
+        )
 
         def proj(bias):
             return Conv(
@@ -181,17 +185,13 @@ class CvtLstm(Recurrent):
                 in_groups=self.groups,
                 out_groups=self.groups,
                 streams=self.streams,
-                gain=0.5,
                 bias=bias,
             )
 
-        def accumulate(bias=None):
-            return Accumulate([proj(bias), proj(None), proj(None), proj(None)])
-
-        self.proj_i = accumulate(self.init_input)
-        self.proj_f = accumulate(self.init_forget)
-        self.proj_g = accumulate(0)
-        self.proj_o = accumulate(0)
+        self.proj_i = proj(self.init_input)
+        self.proj_f = proj(self.init_forget)
+        self.proj_g = proj(0)
+        self.proj_o = proj(0)
 
         self.drop = Dropout(p=self._dropout)
 
@@ -257,26 +257,36 @@ class CvtLstm(Recurrent):
 
         h = h.expand_as(x)
         N, _, H, W = h.shape
-        attns = []
 
-        for q_, k_, v_, query, token in [
-            [self.q_xx, self.k_xx, self.v_xx, x, x],
-            [self.q_xh, self.k_xh, self.v_xh, x, h],
-            [self.q_hx, self.k_hx, self.v_hx, h, x],
-            [self.q_hh, self.k_hh, self.v_hh, h, h],
-        ]:
-            q = q_(query, stream=stream).view(N, heads, self.head_channels, -1)
-            k = k_(token, stream=stream).view(N, heads, self.head_channels, -1)
-            v = v_(token, stream=stream).view(N, heads, self.head_channels, -1)
+        q = self.proj_q([x, h], stream=stream).view(N, heads, self.head_channels, -1)
+        k = self.proj_k([x, h], stream=stream).view(N, heads, self.head_channels, -1)
+        v = self.proj_v([x, h], stream=stream).view(N, heads, self.head_channels, -1)
 
-            w = torch.einsum("N G C Q , N G C D -> N G Q D", q, k).softmax(dim=3)
-            a = torch.einsum("N G C D , N G Q D -> N G C Q", v, w).view(N, -1, H, W)
-            attns.append(a)
+        w = torch.einsum("N G C Q , N G C D -> N G Q D", q, k).softmax(dim=3)
+        a = torch.einsum("N G C D , N G Q D -> N G C Q", v, w).view(N, -1, H, W)
 
-        i = torch.sigmoid(self.proj_i(attns, stream=stream))
-        f = torch.sigmoid(self.proj_f(attns, stream=stream))
-        g = torch.tanh(self.proj_g(attns, stream=stream))
-        o = torch.sigmoid(self.proj_o(attns, stream=stream))
+        # k_x = self.k_x(x, stream=stream).view(N, heads, self.head_channels, -1)
+        # k_h = self.k_x(h, stream=stream).view(N, heads, self.head_channels, -1)
+
+        # v_x = self.v_x(x, stream=stream).view(N, heads, self.head_channels, -1)
+        # v_h = self.v_x(h, stream=stream).view(N, heads, self.head_channels, -1)
+
+        # attns = []
+        # for query, token, k, v in [
+        #     [self.q_xx, x, k_x, v_x],
+        #     [self.q_xh, x, k_h, v_h],
+        #     [self.q_hx, h, k_x, v_x],
+        #     [self.q_hh, h, k_h, v_h],
+        # ]:
+        #     q = query(token, stream=stream).view(N, heads, self.head_channels, -1)
+        #     w = torch.einsum("N G C Q , N G C D -> N G Q D", q, k).softmax(dim=3)
+        #     a = torch.einsum("N G C D , N G Q D -> N G C Q", v, w).view(N, -1, H, W)
+        #     attns.append(a)
+
+        i = torch.sigmoid(self.proj_i(a, stream=stream))
+        f = torch.sigmoid(self.proj_f(a, stream=stream))
+        g = torch.tanh(self.proj_g(a, stream=stream))
+        o = torch.sigmoid(self.proj_o(a, stream=stream))
 
         c = f * c + i * g
         h = o * torch.tanh(c)
