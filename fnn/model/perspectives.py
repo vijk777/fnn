@@ -145,8 +145,8 @@ class MonitorRetina(Perspective):
             self.layers.append(linear)
 
         self.drop = FlatDropout(p=self._dropout)
-        
-        self.out = Linear(in_features=in_features, out_features=3)
+
+        self.out = Linear(in_features=in_features, out_features=3, gain=0)
 
     def _restart(self):
         self.dropout(p=self._dropout)
