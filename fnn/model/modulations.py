@@ -57,7 +57,7 @@ class Modulation(Module):
 class FlatLstm(Modulation):
     """Flat Lstm"""
 
-    def __init__(self, lstm_features, out_features, dropout=0):
+    def __init__(self, lstm_features, out_features, init_input=-1, init_forget=1, dropout=0):
         """
         Parameters
         ----------
@@ -65,6 +65,10 @@ class FlatLstm(Modulation):
             lstm features per stream
         out_features : int
             out features per stream
+        init_input : float
+            initial input gate bias
+        init_forget : float
+            initial forget gate bias
         dropout : float
             dropout probability -- [0, 1)
         """
@@ -72,6 +76,8 @@ class FlatLstm(Modulation):
 
         self.lstm_features = int(lstm_features)
         self.out_features = int(out_features)
+        self.init_input = float(init_input)
+        self.init_forget = float(init_forget)
         self._dropout = float(dropout)
 
     def _init(self, modulations, streams):
@@ -97,13 +103,13 @@ class FlatLstm(Modulation):
 
         self.proj_i = Accumulate(
             [
-                linear(self.modulations, self.lstm_features, 2**-0.5, 0),
+                linear(self.modulations, self.lstm_features, 2**-0.5, self.init_input),
                 linear(self.lstm_features, self.lstm_features, 2**-0.5, None),
             ]
         )
         self.proj_f = Accumulate(
             [
-                linear(self.modulations, self.lstm_features, 2**-0.5, 0),
+                linear(self.modulations, self.lstm_features, 2**-0.5, self.init_forget),
                 linear(self.lstm_features, self.lstm_features, 2**-0.5, None),
             ]
         )

@@ -298,6 +298,8 @@ class ConvLstm(Recurrent):
         out_channels,
         groups=1,
         spatial=3,
+        init_input=-1,
+        init_forget=1,
         dropout=0,
     ):
         """
@@ -311,6 +313,10 @@ class ConvLstm(Recurrent):
             groups per stream
         spatial : int
             spatial kernel size
+        init_input : float
+            initial input gate bias
+        init_forget : float
+            initial forget gate bias
         dropout : float
             dropout probability -- [0, 1)
         """
@@ -323,6 +329,8 @@ class ConvLstm(Recurrent):
         self.out_channels = int(out_channels)
         self.groups = int(groups)
         self.spatial = int(spatial)
+        self.init_input = float(init_input)
+        self.init_forget = float(init_forget)
         self._dropout = float(dropout)
 
     def _init(self, inputs, streams):
@@ -376,8 +384,8 @@ class ConvLstm(Recurrent):
                 bias=bias,
             )
 
-        self.proj_i = Accumulate([conv(0), conv(None)])
-        self.proj_f = Accumulate([conv(0), conv(None)])
+        self.proj_i = Accumulate([conv(self.init_input), conv(None)])
+        self.proj_f = Accumulate([conv(self.init_forget), conv(None)])
         self.proj_g = Accumulate([conv(0), conv(None)])
         self.proj_o = Accumulate([conv(0), conv(None)])
 
