@@ -1,7 +1,6 @@
 import torch
 from .modules import Module
 from .elements import Conv, InterGroup, Accumulate, Dropout
-from .utils import to_groups_2d
 
 
 # -------------- Recurrent Base --------------
@@ -55,8 +54,8 @@ class Recurrent(Module):
 # -------------- Recurrent Types --------------
 
 
-class Rvt(Recurrent):
-    """Recurrent Vision Transformer"""
+class CvtLstm(Recurrent):
+    """Convolutional Transformer Lstm"""
 
     def __init__(
         self,
@@ -66,6 +65,8 @@ class Rvt(Recurrent):
         groups=1,
         heads=1,
         spatial=3,
+        init_input=-1,
+        init_forget=1,
         dropout=0,
     ):
         """
@@ -79,10 +80,12 @@ class Rvt(Recurrent):
             out channels per stream
         groups : int
             groups per stream
-        heads : int
-            heads per stream
         spatial : int
             spatial kernel size
+        init_input : float
+            initial input gate bias
+        init_forget : float
+            initial forget gate bias
         dropout : float
             dropout probability -- [0, 1)
         """
@@ -101,6 +104,8 @@ class Rvt(Recurrent):
         self.groups = int(groups)
         self.heads = int(heads)
         self.spatial = int(spatial)
+        self.init_input = float(init_input)
+        self.init_forget = float(init_forget)
         self._dropout = float(dropout)
 
     def _init(self, inputs, streams):
@@ -141,7 +146,7 @@ class Rvt(Recurrent):
 
         self.inputs = Accumulate(inputs)
 
-        def conv(pad, gain, bias):
+        def conv(pad=None, gain=None):
             return Conv(
                 in_channels=self.recurrent_channels,
                 out_channels=self.attention_channels,
@@ -151,56 +156,42 @@ class Rvt(Recurrent):
                 spatial=self.spatial,
                 pad=pad,
                 gain=gain,
-                bias=bias,
+                bias=None,
             )
 
-        self.proj_q = Accumulate(
-            [
-                conv(pad="zeros", gain=(self.head_channels * 2) ** -0.5, bias=None),
-                conv(pad="zeros", gain=(self.head_channels * 2) ** -0.5, bias=None),
-            ]
-        )
-        self.proj_k = Accumulate(
-            [
-                conv(pad=None, gain=None, bias=None),
-                conv(pad=None, gain=None, bias=None),
-            ]
-        )
-        self.proj_v = Accumulate(
-            [
-                conv(pad=None, gain=2**-0.5, bias=0),
-                conv(pad=None, gain=2**-0.5, bias=None),
-            ]
-        )
+        self.q_xx = conv(pad="zeros", gain=self.head_channels**-0.5)
+        self.q_xh = conv(pad="zeros", gain=self.head_channels**-0.5)
+        self.q_hx = conv(pad="zeros", gain=self.head_channels**-0.5)
+        self.q_hh = conv(pad="zeros", gain=self.head_channels**-0.5)
 
-        def conv_a():
+        self.k_xx = conv()
+        self.k_xh = conv()
+        self.k_hx = conv()
+        self.k_hh = conv()
+
+        self.v_xx = conv()
+        self.v_xh = conv()
+        self.v_hx = conv()
+        self.v_hh = conv()
+
+        def proj(bias):
             return Conv(
                 in_channels=self.attention_channels,
                 out_channels=self.recurrent_channels,
                 in_groups=self.groups,
                 out_groups=self.groups,
                 streams=self.streams,
-                gain=3**-0.5,
-                bias=0,
+                gain=0.5,
+                bias=bias,
             )
 
-        def conv_xh():
-            return Conv(
-                in_channels=self.recurrent_channels,
-                out_channels=self.recurrent_channels,
-                in_groups=self.groups,
-                out_groups=self.groups,
-                streams=self.streams,
-                spatial=self.spatial,
-                pad="zeros",
-                gain=3**-0.5,
-                bias=None,
-            )
+        def accumulate(bias=None):
+            return Accumulate([proj(bias), proj(None), proj(None), proj(None)])
 
-        self.proj_i = Accumulate([conv_a(), conv_xh(), conv_xh()])
-        self.proj_f = Accumulate([conv_a(), conv_xh(), conv_xh()])
-        self.proj_g = Accumulate([conv_a(), conv_xh(), conv_xh()])
-        self.proj_o = Accumulate([conv_a(), conv_xh(), conv_xh()])
+        self.proj_i = accumulate(self.init_input)
+        self.proj_f = accumulate(self.init_forget)
+        self.proj_g = accumulate(0)
+        self.proj_o = accumulate(0)
 
         self.drop = Dropout(p=self._dropout)
 
@@ -266,18 +257,26 @@ class Rvt(Recurrent):
 
         h = h.expand_as(x)
         N, _, H, W = h.shape
+        attns = []
 
-        q = self.proj_q([x, h], stream=stream).view(N, heads, self.head_channels, -1)
-        k = self.proj_k([x, h], stream=stream).view(N, heads, self.head_channels, -1)
-        v = self.proj_v([x, h], stream=stream).view(N, heads, self.head_channels, -1)
+        for q_, k_, v_, query, token in [
+            [self.q_xx, self.k_xx, self.v_xx, x, x],
+            [self.q_xh, self.k_xh, self.v_xh, x, h],
+            [self.q_hx, self.k_hx, self.v_hx, h, x],
+            [self.q_hh, self.k_hh, self.v_hh, h, h],
+        ]:
+            q = q_(query, stream=stream).view(N, heads, self.head_channels, -1)
+            k = k_(token, stream=stream).view(N, heads, self.head_channels, -1)
+            v = v_(token, stream=stream).view(N, heads, self.head_channels, -1)
 
-        w = torch.einsum("N G C Q , N G C D -> N G Q D", q, k).softmax(dim=3)
-        a = torch.einsum("N G C D , N G Q D -> N G C Q", v, w).view(N, -1, H, W)
+            w = torch.einsum("N G C Q , N G C D -> N G Q D", q, k).softmax(dim=3)
+            a = torch.einsum("N G C D , N G Q D -> N G C Q", v, w).view(N, -1, H, W)
+            attns.append(a)
 
-        i = torch.sigmoid(self.proj_i([a, x, h], stream=stream))
-        f = torch.sigmoid(self.proj_f([a, x, h], stream=stream))
-        g = torch.tanh(self.proj_g([a, x, h], stream=stream))
-        o = torch.sigmoid(self.proj_o([a, x, h], stream=stream))
+        i = torch.sigmoid(self.proj_i(attns, stream=stream))
+        f = torch.sigmoid(self.proj_f(attns, stream=stream))
+        g = torch.tanh(self.proj_g(attns, stream=stream))
+        o = torch.sigmoid(self.proj_o(attns, stream=stream))
 
         c = f * c + i * g
         h = o * torch.tanh(c)
