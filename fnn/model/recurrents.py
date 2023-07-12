@@ -419,7 +419,7 @@ class ConvLstm(Recurrent):
         """
         return self.out_channels
 
-    def forward(self, inputs, stream=None):
+    def forward(self, x, stream=None):
         """
         Parameters
         ----------
