@@ -87,7 +87,13 @@ class FlatLstm(Modulation):
         self.streams = int(streams)
 
         def linear(inputs, outputs, gain, bias):
-            return Linear(in_features=inputs, out_features=outputs, streams=self.streams, gain=gain)
+            return Linear(
+                in_features=inputs,
+                out_features=outputs,
+                streams=self.streams,
+                gain=gain,
+                bias=bias,
+            )
 
         self.proj_i = Accumulate(
             [

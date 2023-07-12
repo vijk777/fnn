@@ -136,13 +136,14 @@ class Rvt(Recurrent):
             gain = sum(masks) ** -0.5
             inputs = []
 
-        for in_channels, mask in zip(self._inputs, self.masks):
+        for i, (in_channels, mask) in enumerate(zip(self._inputs, self.masks)):
             conv = Conv(
                 in_channels=in_channels,
                 out_channels=self.recurrent_channels,
                 out_groups=self.groups,
                 streams=self.streams,
                 gain=gain * mask,
+                bias=None if i else 0,
             )
             inputs.append(conv)
 
@@ -176,7 +177,7 @@ class Rvt(Recurrent):
         self.proj_v = Accumulate(
             [
                 conv(pad=None, gain=2**-0.5, bias=0),
-                conv(pad=None, gain=2**-0.5, bias=0),
+                conv(pad=None, gain=2**-0.5, bias=None),
             ]
         )
 
@@ -363,19 +364,20 @@ class ConvLstm(Recurrent):
             gain = sum(masks) ** -0.5
             inputs = []
 
-        for in_channels, mask in zip(self._inputs, self.masks):
+        for i, (in_channels, mask) in enumerate(zip(self._inputs, self.masks)):
             conv = Conv(
                 in_channels=in_channels,
                 out_channels=self.recurrent_channels,
                 out_groups=self.groups,
                 streams=self.streams,
                 gain=gain * mask,
+                bias=None if i else 0,
             )
             inputs.append(conv)
 
         self.inputs = Accumulate(inputs)
 
-        def conv_xh():
+        def conv(bias):
             return Conv(
                 in_channels=self.recurrent_channels,
                 out_channels=self.recurrent_channels,
@@ -385,13 +387,13 @@ class ConvLstm(Recurrent):
                 spatial=self.spatial,
                 pad="zeros",
                 gain=2**-0.5,
-                bias=None,
+                bias=bias,
             )
 
-        self.proj_i = Accumulate([conv_xh(), conv_xh()])
-        self.proj_f = Accumulate([conv_xh(), conv_xh()])
-        self.proj_g = Accumulate([conv_xh(), conv_xh()])
-        self.proj_o = Accumulate([conv_xh(), conv_xh()])
+        self.proj_i = Accumulate([conv(0), conv(None)])
+        self.proj_f = Accumulate([conv(0), conv(None)])
+        self.proj_g = Accumulate([conv(0), conv(None)])
+        self.proj_o = Accumulate([conv(0), conv(None)])
 
         self.drop = Dropout(p=self._dropout)
 

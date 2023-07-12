@@ -111,6 +111,7 @@ class Block(Module):
                 out_groups=self.groups,
                 streams=self.streams,
                 gain=0,
+                bias=None,
             )
 
         def conv():
@@ -243,7 +244,7 @@ class Dense(Feedforward):
         assert len(self._inputs) == len(self.masks)
         assert sum(masks) > 0
 
-        def proj(in_channels, out_channels, out_groups, spatial, stride, gain):
+        def proj(in_channels, out_channels, out_groups, spatial, stride, gain, bias):
             return Conv(
                 in_channels=in_channels,
                 out_channels=out_channels,
@@ -253,11 +254,16 @@ class Dense(Feedforward):
                 gain=gain,
                 pad="replicate",
                 streams=self.streams,
+                bias=bias,
             )
 
         def accumulate(inputs, masks, out_channels, out_groups, spatial, stride):
+            modules = []
             gain = sum(masks) ** -0.5
-            modules = [proj(i, out_channels, out_groups, spatial, stride, gain * m) for i, m in zip(inputs, masks)]
+            for l, (i, m) in enumerate(zip(inputs, masks)):
+                bias = None if l else 0
+                module = proj(i, out_channels, out_groups, spatial, stride, gain * m, bias)
+                modules.append(module)
             return Accumulate(modules)
 
         self.inputs = ModuleList()
