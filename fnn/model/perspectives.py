@@ -122,17 +122,8 @@ class MonitorRetina(Perspective):
         self.retina_pixel = retina_pixel
 
         self.features = list(map(int, features))
-        self.layers = ModuleList([Linear(features=f) for f in self.features])
-
-        for layer, f in zip(self.layers[1:], self.features):
-            layer.add_input(features=f)
-
-        self._dropout = float(dropout)
-        self.drop = FlatDropout(p=self._dropout)
-
-        self.proj = Linear(features=3, init_gain=0).add_input(features=self.features[-1])
-
         self.nonlinear, self.gamma = nonlinearity(nonlinear=nonlinear)
+        self._dropout = float(dropout)
 
     def _init(self, stimuli, perspectives):
         """
@@ -144,7 +135,18 @@ class MonitorRetina(Perspective):
             perspective features (F)
         """
         self._channels = int(stimuli)
-        self.layers[0].add_input(features=perspectives)
+        self.perspectives = int(perspectives)
+
+        self.layers = ModuleList([])
+        in_features = perspectives
+        for out_features in self.features:
+            linear = Linear(in_features=in_features, out_features=out_features)
+            in_features = out_features
+            self.layers.append(linear)
+
+        self.drop = FlatDropout(p=self._dropout)
+        
+        self.out = Linear(in_features=in_features, out_features=3)
 
     def _restart(self):
         self.dropout(p=self._dropout)
@@ -171,9 +173,9 @@ class MonitorRetina(Perspective):
         Tensor
             [N, 3, 3], 3D rotation matrix
         """
-        x = reduce(lambda x, layer: self.nonlinear(layer([x])) * self.gamma, self.layers, perspective)
+        x = reduce(lambda x, layer: self.nonlinear(layer(x)) * self.gamma, self.layers, perspective)
         x = self.drop(x)
-        x = self.proj([x])
+        x = self.out(x)
         return rmat_3d(*x.unbind(1))
 
     def forward(self, stimulus, perspective, pad_mode="zeros"):

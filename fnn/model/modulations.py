@@ -1,7 +1,6 @@
 import torch
 from .modules import Module
-from .elements import Linear, StreamFlatDropout, nonlinearity
-from .utils import cat_groups
+from .elements import Linear, Accumulate, FlatDropout
 
 
 # -------------- Modulation Base --------------
@@ -87,20 +86,37 @@ class FlatLstm(Modulation):
         self.modulations = int(modulations)
         self.streams = int(streams)
 
-        self.drop = StreamFlatDropout(p=self._dropout, streams=self.streams)
+        def linear(inputs, outputs, gain, bias):
+            return Linear(in_features=inputs, out_features=outputs, streams=self.streams, gain=gain)
 
-        def linear(inputs, outputs, init_gain=1):
-            return Linear(features=outputs, streams=self.streams, init_gain=init_gain).add_input(features=inputs)
+        self.proj_i = Accumulate(
+            [
+                linear(self.modulations, self.lstm_features, 2**-0.5, 0),
+                linear(self.lstm_features, self.lstm_features, 2**-0.5, None),
+            ]
+        )
+        self.proj_f = Accumulate(
+            [
+                linear(self.modulations, self.lstm_features, 2**-0.5, 0),
+                linear(self.lstm_features, self.lstm_features, 2**-0.5, None),
+            ]
+        )
+        self.proj_g = Accumulate(
+            [
+                linear(self.modulations, self.lstm_features, 2**-0.5, 0),
+                linear(self.lstm_features, self.lstm_features, 2**-0.5, None),
+            ]
+        )
+        self.proj_o = Accumulate(
+            [
+                linear(self.modulations, self.lstm_features, 2**-0.5, 0),
+                linear(self.lstm_features, self.lstm_features, 2**-0.5, None),
+            ]
+        )
 
-        self.proj_i = linear(self.modulations + self.lstm_features, self.lstm_features)
-        self.proj_f = linear(self.modulations + self.lstm_features, self.lstm_features)
-        self.proj_g = linear(self.modulations + self.lstm_features, self.lstm_features)
-        self.proj_o = linear(self.modulations + self.lstm_features, self.lstm_features)
+        self.drop = FlatDropout(p=self._dropout)
 
-        if self.lstm_features == self.out_features:
-            self.proj_y = None
-        else:
-            self.proj_y = linear(self.lstm_features, self.out_features, 0)
+        self.out = linear(self.lstm_features, self.out_features, 1, 0)
 
         self.past = dict()
 
@@ -138,38 +154,28 @@ class FlatLstm(Modulation):
                 or
             [N, M] -- stream is int
         """
-        if stream is None:
-            features = self.lstm_features * self.streams
-            groups = self.streams
-        else:
-            features = self.lstm_features
-            groups = 1
+        x = modulation
 
         if self.past:
-            assert self.past["stream"] == stream
             h = self.past["h"]
             c = self.past["c"]
         else:
-            self.past["stream"] = stream
-            h = c = torch.zeros(modulation.size(0), features, device=self.device)
+            if stream is None:
+                features = self.streams * self.lstm_features
+            else:
+                features = self.lstm_features
+            h = c = torch.zeros([1, features], device=self.device)
 
-        xh = cat_groups([modulation, h], groups=groups)
-
-        i = torch.sigmoid(self.proj_i([xh], stream=stream))
-        f = torch.sigmoid(self.proj_f([xh], stream=stream))
-        g = torch.tanh(self.proj_g([xh], stream=stream))
-        o = torch.sigmoid(self.proj_o([xh], stream=stream))
+        i = torch.sigmoid(self.proj_i([x, h], stream=stream))
+        f = torch.sigmoid(self.proj_f([x, h], stream=stream))
+        g = torch.tanh(self.proj_g([x, h], stream=stream))
+        o = torch.sigmoid(self.proj_o([x, h], stream=stream))
 
         c = f * c + i * g
         h = o * torch.tanh(c)
-        h = self.drop(h, stream=stream)
+        h = self.drop(h)
 
         self.past["c"] = c
         self.past["h"] = h
 
-        if self.proj_y is None:
-            y = h
-        else:
-            y = self.proj_y([h], stream=stream)
-
-        return y
+        return self.out(h, stream=stream)

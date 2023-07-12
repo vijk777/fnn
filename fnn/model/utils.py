@@ -1,6 +1,23 @@
 import math
 import torch
 from torch import nn
+from functools import reduce
+
+
+def add(tensors):
+    """Adds a list of tensors together
+
+    Parameters
+    ----------
+    tensor : List[Tensor]
+        list of tensors to add together
+
+    Returns
+    -------
+    Tensor
+        tensors added together
+    """
+    return reduce(torch.Tensor.add, tensors)
 
 
 def to_groups(tensor, groups):

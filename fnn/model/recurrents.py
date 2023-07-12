@@ -1,7 +1,7 @@
 import torch
 from .modules import Module
-from .elements import Conv, StreamDropout
-from .utils import to_groups_2d, cat_groups_2d
+from .elements import Conv, InterGroup, Accumulate, Dropout
+from .utils import to_groups_2d
 
 
 # -------------- Recurrent Base --------------
@@ -16,6 +16,8 @@ class Recurrent(Module):
         ----------
         channels : Sequence[int]
             [input channels per stream (I), ...]
+        masks : Sequence[bool]
+            initial mask for each input
         streams : int
             number of streams, S
         """
@@ -31,23 +33,23 @@ class Recurrent(Module):
         """
         raise NotImplementedError()
 
-    def forward(self, inputs, stream=None):
+    def forward(self, x, stream=None):
         """
         Parameters
         ----------
-        inputs : Sequence[Tensor]
-            [[N, S*I, H, W] ...] -- stream is None
-                or
+        x : Sequence[Tensor]
             [[N, I, H, W] ...] -- stream is int
+                or
+            [[N, S*I, H, W] ...] -- stream is None
         stream : int | None
             specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            [N, S*O, H, W] -- stream is None
-                or
             [N, O, H, W] -- stream is int
+                or
+            [N, S*O, H, W] -- stream is None
         """
         raise NotImplementedError()
 
@@ -65,7 +67,7 @@ class Rvt(Recurrent):
         out_channels,
         groups=1,
         heads=1,
-        kernel_size=3,
+        spatial=3,
         dropout=0,
     ):
         """
@@ -81,8 +83,8 @@ class Rvt(Recurrent):
             groups per stream
         heads : int
             heads per stream
-        kernel_size : int
-            kernel size
+        spatial : int
+            spatial kernel size
         dropout : float
             dropout probability -- [0, 1)
         """
@@ -100,107 +102,120 @@ class Rvt(Recurrent):
         self.out_channels = int(out_channels)
         self.groups = int(groups)
         self.heads = int(heads)
-        self.kernel_size = int(kernel_size)
+        self.spatial = int(spatial)
         self._dropout = float(dropout)
 
-    def _init(self, inputs, streams):
+    def _init(self, inputs, masks, streams):
         """
         Parameters
         ----------
         channels : Sequence[int]
             [input channels per stream (I), ...]
+        masks : Sequence[bool]
+            initial mask for each input
         streams : int
             number of streams, S
         """
-        self.inputs = list(map(int, inputs))
+        self._inputs = list(map(int, inputs))
+        self.masks = list(map(bool, masks))
         self.streams = int(streams)
 
-        self.drop = StreamDropout(p=self._dropout, streams=self.streams)
-
-        self.proj_x = Conv(
-            channels=self.recurrent_channels,
-            groups=self.groups,
-            streams=self.streams,
-        )
-
-        for _channels in inputs:
-            self.proj_x.add_input(channels=_channels)
+        assert len(self._inputs) == len(self.masks)
+        assert sum(masks) > 0
 
         if self.groups > 1:
-            self.proj_x.add_intergroup()
-
-        if self.recurrent_channels == self.out_channels and self.groups == 1:
-            self.proj_y = None
-
+            gain = (sum(masks) + 1) ** -0.5
+            intergroup = InterGroup(
+                channels=self.recurrent_channels,
+                groups=self.groups,
+                streams=self.streams,
+                gain=gain,
+            )
+            inputs = [intergroup]
         else:
-            self.proj_y = Conv(
-                channels=self.out_channels,
+            gain = sum(masks) ** -0.5
+            inputs = []
+
+        for in_channels, mask in zip(self._inputs, self.masks):
+            conv = Conv(
+                in_channels=in_channels,
+                out_channels=self.recurrent_channels,
+                out_groups=self.groups,
                 streams=self.streams,
+                gain=gain * mask,
             )
-            self.proj_y.add_input(
-                channels=self.recurrent_channels,
-            )
+            inputs.append(conv)
 
-        self.proj_q = Conv(
-            channels=self.attention_channels,
-            groups=self.heads,
-            streams=self.streams,
-            init_gain=(self.attention_channels / self.heads) ** -0.5,
-            bias=False,
-        )
-        self.proj_q.add_input(
-            channels=self.recurrent_channels * 2,
-            groups=self.groups,
-            kernel_size=self.kernel_size,
-        )
+        self.inputs = Accumulate(inputs)
 
-        self.proj_k = Conv(
-            channels=self.attention_channels,
-            groups=self.heads,
-            streams=self.streams,
-            gain=False,
-            bias=False,
-        )
-        self.proj_k.add_input(
-            channels=self.recurrent_channels * 2,
-            groups=self.groups,
-            kernel_size=self.kernel_size,
-            pad=False,
-        )
-
-        self.proj_v = Conv(
-            channels=self.attention_channels,
-            groups=self.heads,
-            streams=self.streams,
-        )
-        self.proj_v.add_input(
-            channels=self.recurrent_channels * 2,
-            groups=self.groups,
-            kernel_size=self.kernel_size,
-            pad=False,
-        )
-
-        def proj():
-            p = Conv(
-                channels=self.recurrent_channels,
-                groups=self.groups,
+        def conv(pad, gain, bias):
+            return Conv(
+                in_channels=self.recurrent_channels,
+                out_channels=self.attention_channels,
+                in_groups=self.groups,
+                out_groups=self.heads,
                 streams=self.streams,
+                spatial=self.spatial,
+                pad=pad,
+                gain=gain,
+                bias=bias,
             )
-            p.add_input(
-                channels=self.attention_channels,
-                groups=self.groups,
-            )
-            p.add_input(
-                channels=self.recurrent_channels * 2,
-                groups=self.groups,
-                kernel_size=self.kernel_size,
-            )
-            return p
 
-        self.proj_i = proj()
-        self.proj_f = proj()
-        self.proj_g = proj()
-        self.proj_o = proj()
+        self.proj_q = Accumulate(
+            [
+                conv(pad="zeros", gain=(self.head_channels * 2) ** -0.5, bias=None),
+                conv(pad="zeros", gain=(self.head_channels * 2) ** -0.5, bias=None),
+            ]
+        )
+        self.proj_k = Accumulate(
+            [
+                conv(pad=None, gain=None, bias=None),
+                conv(pad=None, gain=None, bias=None),
+            ]
+        )
+        self.proj_v = Accumulate(
+            [
+                conv(pad=None, gain=2**-0.5, bias=0),
+                conv(pad=None, gain=2**-0.5, bias=0),
+            ]
+        )
+
+        def conv_a():
+            return Conv(
+                in_channels=self.attention_channels,
+                out_channels=self.recurrent_channels,
+                in_groups=self.groups,
+                out_groups=self.groups,
+                streams=self.streams,
+                gain=3**-0.5,
+                bias=0,
+            )
+
+        def conv_xh():
+            return Conv(
+                in_channels=self.recurrent_channels,
+                out_channels=self.recurrent_channels,
+                in_groups=self.groups,
+                out_groups=self.groups,
+                streams=self.streams,
+                spatial=self.spatial,
+                pad="zeros",
+                gain=3**-0.5,
+                bias=None,
+            )
+
+        self.proj_i = Accumulate([conv_a(), conv_xh(), conv_xh()])
+        self.proj_f = Accumulate([conv_a(), conv_xh(), conv_xh()])
+        self.proj_g = Accumulate([conv_a(), conv_xh(), conv_xh()])
+        self.proj_o = Accumulate([conv_a(), conv_xh(), conv_xh()])
+
+        self.drop = Dropout(p=self._dropout)
+
+        self.out = Conv(
+            in_channels=self.recurrent_channels,
+            out_channels=self.out_channels,
+            streams=self.streams,
+        )
 
         self.past = dict()
 
@@ -220,74 +235,65 @@ class Rvt(Recurrent):
         """
         return self.out_channels
 
-    def forward(self, inputs, stream=None):
+    def forward(self, x, stream=None):
         """
         Parameters
         ----------
-        inputs : Sequence[Tensor]
-            [[N, S*I, H, W] ...] -- stream is None
-                or
+        x : Sequence[Tensor]
             [[N, I, H, W] ...] -- stream is int
+                or
+            [[N, S*I, H, W] ...] -- stream is None
         stream : int | None
             specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            [N, S*O, H, W] -- stream is None
-                or
             [N, O, H, W] -- stream is int
+                or
+            [N, S*O, H, W] -- stream is None
         """
         if stream is None:
             channels = self.streams * self.recurrent_channels
-            groups = self.streams * self.groups
             heads = self.streams * self.heads
         else:
             channels = self.recurrent_channels
-            groups = self.groups
             heads = self.heads
 
         if self.past:
-            assert self.past["stream"] == stream
             h = self.past["h"]
             c = self.past["c"]
         else:
-            self.past["stream"] = stream
             h = c = torch.zeros(1, channels, 1, 1, device=self.device)
 
         if self.groups > 1:
-            x = self.proj_x([*inputs, h], stream=stream)
+            x = self.inputs([h, *x], stream=stream)
         else:
-            x = self.proj_x(inputs, stream=stream)
+            x = self.inputs(x, stream=stream)
 
-        xh = cat_groups_2d([x, h.expand_as(x)], groups=groups)
-        N, _, H, W = xh.shape
+        h = h.expand_as(x)
+        N, _, H, W = h.shape
 
-        q = self.proj_q([xh], stream=stream).view(N, heads, self.head_channels, -1)
-        k = self.proj_k([xh], stream=stream).view(N, heads, self.head_channels, -1)
-        v = self.proj_v([xh], stream=stream).view(N, heads, self.head_channels, -1)
+        q = self.proj_q([x, h], stream=stream).view(N, heads, self.head_channels, -1)
+        k = self.proj_k([x, h], stream=stream).view(N, heads, self.head_channels, -1)
+        v = self.proj_v([x, h], stream=stream).view(N, heads, self.head_channels, -1)
 
         w = torch.einsum("N G C Q , N G C D -> N G Q D", q, k).softmax(dim=3)
         a = torch.einsum("N G C D , N G Q D -> N G C Q", v, w).view(N, -1, H, W)
 
-        i = torch.sigmoid(self.proj_i([a, xh], stream=stream))
-        f = torch.sigmoid(self.proj_f([a, xh], stream=stream))
-        g = torch.tanh(self.proj_g([a, xh], stream=stream))
-        o = torch.sigmoid(self.proj_o([a, xh], stream=stream))
+        i = torch.sigmoid(self.proj_i([a, x, h], stream=stream))
+        f = torch.sigmoid(self.proj_f([a, x, h], stream=stream))
+        g = torch.tanh(self.proj_g([a, x, h], stream=stream))
+        o = torch.sigmoid(self.proj_o([a, x, h], stream=stream))
 
         c = f * c + i * g
         h = o * torch.tanh(c)
-        h = self.drop(h, stream=stream)
+        h = self.drop(h)
 
         self.past["c"] = c
         self.past["h"] = h
 
-        if self.proj_y is None:
-            y = h
-        else:
-            y = self.proj_y([h], stream=stream)
-
-        return y
+        return self.out(h, stream=stream)
 
 
 class ConvLstm(Recurrent):
@@ -298,7 +304,7 @@ class ConvLstm(Recurrent):
         recurrent_channels,
         out_channels,
         groups=1,
-        kernel_size=3,
+        spatial=3,
         dropout=0,
     ):
         """
@@ -310,8 +316,8 @@ class ConvLstm(Recurrent):
             out channels per stream
         groups : int
             groups per stream
-        kernel_size : int
-            kernel size
+        spatial : int
+            spatial kernel size
         dropout : float
             dropout probability -- [0, 1)
         """
@@ -323,64 +329,77 @@ class ConvLstm(Recurrent):
         self.recurrent_channels = int(recurrent_channels)
         self.out_channels = int(out_channels)
         self.groups = int(groups)
-        self.kernel_size = int(kernel_size)
+        self.spatial = int(spatial)
         self._dropout = float(dropout)
 
-    def _init(self, inputs, streams):
+    def _init(self, inputs, masks, streams):
         """
         Parameters
         ----------
         channels : Sequence[int]
             [input channels per stream (I), ...]
+        masks : Sequence[bool]
+            initial mask for each input
         streams : int
             number of streams, S
         """
-        self.inputs = list(map(int, inputs))
+        self._inputs = list(map(int, inputs))
+        self.masks = list(map(bool, masks))
         self.streams = int(streams)
 
-        self.drop = StreamDropout(p=self._dropout, streams=self.streams)
-
-        self.proj_x = Conv(
-            channels=self.recurrent_channels,
-            groups=self.groups,
-            streams=self.streams,
-        )
-
-        for _channels in inputs:
-            self.proj_x.add_input(channels=_channels)
+        assert len(self._inputs) == len(self.masks)
+        assert sum(masks) > 0
 
         if self.groups > 1:
-            self.proj_x.add_intergroup()
-
-        if self.recurrent_channels == self.out_channels and self.groups == 1:
-            self.proj_y = None
-
+            gain = (sum(masks) + 1) ** -0.5
+            intergroup = InterGroup(
+                channels=self.recurrent_channels,
+                groups=self.groups,
+                streams=self.streams,
+                gain=gain,
+            )
+            inputs = [intergroup]
         else:
-            self.proj_y = Conv(
-                channels=self.out_channels,
+            gain = sum(masks) ** -0.5
+            inputs = []
+
+        for in_channels, mask in zip(self._inputs, self.masks):
+            conv = Conv(
+                in_channels=in_channels,
+                out_channels=self.recurrent_channels,
+                out_groups=self.groups,
                 streams=self.streams,
+                gain=gain * mask,
             )
-            self.proj_y.add_input(
-                channels=self.recurrent_channels,
+            inputs.append(conv)
+
+        self.inputs = Accumulate(inputs)
+
+        def conv_xh():
+            return Conv(
+                in_channels=self.recurrent_channels,
+                out_channels=self.recurrent_channels,
+                in_groups=self.groups,
+                out_groups=self.groups,
+                streams=self.streams,
+                spatial=self.spatial,
+                pad="zeros",
+                gain=2**-0.5,
+                bias=None,
             )
 
-        def proj():
-            p = Conv(
-                channels=self.recurrent_channels,
-                groups=self.groups,
-                streams=self.streams,
-            )
-            p.add_input(
-                channels=self.recurrent_channels * 2,
-                groups=self.groups,
-                kernel_size=self.kernel_size,
-            )
-            return p
+        self.proj_i = Accumulate([conv_xh(), conv_xh()])
+        self.proj_f = Accumulate([conv_xh(), conv_xh()])
+        self.proj_g = Accumulate([conv_xh(), conv_xh()])
+        self.proj_o = Accumulate([conv_xh(), conv_xh()])
 
-        self.proj_i = proj()
-        self.proj_f = proj()
-        self.proj_g = proj()
-        self.proj_o = proj()
+        self.drop = Dropout(p=self._dropout)
+
+        self.out = Conv(
+            in_channels=self.recurrent_channels,
+            out_channels=self.out_channels,
+            streams=self.streams,
+        )
 
         self.past = dict()
 
@@ -404,58 +423,47 @@ class ConvLstm(Recurrent):
         """
         Parameters
         ----------
-        inputs : Sequence[Tensor]
-            [[N, S*I, H, W] ...] -- stream is None
-                or
+        x : Sequence[Tensor]
             [[N, I, H, W] ...] -- stream is int
+                or
+            [[N, S*I, H, W] ...] -- stream is None
         stream : int | None
             specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            [N, S*O, H, W] -- stream is None
-                or
             [N, O, H, W] -- stream is int
+                or
+            [N, S*O, H, W] -- stream is None
         """
-        if stream is None:
-            channels = self.streams * self.recurrent_channels
-            groups = self.streams * self.groups
-        else:
-            channels = self.recurrent_channels
-            groups = self.groups
-
         if self.past:
-            assert self.past["stream"] == stream
             h = self.past["h"]
             c = self.past["c"]
         else:
-            self.past["stream"] = stream
+            if stream is None:
+                channels = self.streams * self.recurrent_channels
+            else:
+                channels = self.recurrent_channels
             h = c = torch.zeros(1, channels, 1, 1, device=self.device)
 
         if self.groups > 1:
-            x = self.proj_x([*inputs, h], stream=stream)
+            x = self.inputs([h, *x], stream=stream)
         else:
-            x = self.proj_x(inputs, stream=stream)
+            x = self.inputs(x, stream=stream)
 
-        xh = cat_groups_2d([x, h.expand_as(x)], groups=groups)
-        N, _, H, W = xh.shape
+        h = h.expand_as(x)
 
-        i = torch.sigmoid(self.proj_i([xh], stream=stream))
-        f = torch.sigmoid(self.proj_f([xh], stream=stream))
-        g = torch.tanh(self.proj_g([xh], stream=stream))
-        o = torch.sigmoid(self.proj_o([xh], stream=stream))
+        i = torch.sigmoid(self.proj_i([x, h], stream=stream))
+        f = torch.sigmoid(self.proj_f([x, h], stream=stream))
+        g = torch.tanh(self.proj_g([x, h], stream=stream))
+        o = torch.sigmoid(self.proj_o([x, h], stream=stream))
 
         c = f * c + i * g
         h = o * torch.tanh(c)
-        h = self.drop(h, stream=stream)
+        h = self.drop(h)
 
         self.past["c"] = c
         self.past["h"] = h
 
-        if self.proj_y is None:
-            y = h
-        else:
-            y = self.proj_y([h], stream=stream)
-
-        return y
+        return self.out(h, stream=stream)

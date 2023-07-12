@@ -31,18 +31,18 @@ class Readout(Module):
         Parameters
         ----------
         core : Tensor
-            [N, S*C, H, W] -- stream is None
-                or
             [N, C, H, W] -- stream is int
+                or
+            [N, S*C, H, W] -- stream is None
         stream : int | None
             specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            [N, S, U, R] -- stream is None
-                or
             [N, U, R] -- stream is int
+                or
+            [N, S, U, R] -- stream is None
         """
         raise NotImplementedError()
 
@@ -107,18 +107,18 @@ class PositionFeature(Readout):
         Parameters
         ----------
         core : Tensor
-            [N, S*C, H, W] -- stream is None
-                or
             [N, C, H, W] -- stream is int
+                or
+            [N, S*C, H, W] -- stream is None
         stream : int | None
             specific stream (int) or all streams (None)
 
         Returns
         -------
         Tensor
-            [N, S, U, R] -- stream is None
-                or
             [N, U, R] -- stream is int
+                or
+            [N, S, U, R] -- stream is None
         """
         if self.training:
             position = self.position.sample(core.size(0))

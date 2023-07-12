@@ -1,7 +1,5 @@
 import torch
 from .modules import Module
-from .elements import Conv
-from .utils import isotropic_grid_2d
 
 
 # -------------- Core Base --------------
@@ -94,17 +92,14 @@ class FeedforwardRecurrent(Core):
 
         self.feedforward._init(
             inputs=[self.perspectives],
+            masks=[True],
             streams=self.streams,
         )
         self.recurrent._init(
-            inputs=[self.feedforward.channels, self.modulations, 2],
+            inputs=[self.feedforward.channels, self.modulations],
+            masks=[True, False],
             streams=self.streams,
         )
-
-        self._reset()
-
-    def _reset(self):
-        self._grid = None
 
     @property
     def channels(self):
@@ -140,15 +135,5 @@ class FeedforwardRecurrent(Core):
         """
         f = self.feedforward([perspective], stream=stream)
         m = modulation[:, :, None, None]
-        g = self._grid
-
-        if g is None:
-            _, _, H, W = f.shape
-            g = isotropic_grid_2d(height=H, width=W, device=self.device)
-            g = torch.einsum("H W C -> C H W", g)[None]
-            self._grid = g
-
-        if stream is None:
-            g = g.repeat(1, self.streams, 1, 1)
-
-        return self.recurrent([f, m, g], stream=stream)
+        r = self.recurrent([f, m], stream=stream)
+        return r

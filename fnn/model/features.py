@@ -34,9 +34,9 @@ class Feature(Module):
         Returns
         -------
         Tensor
-            [S, U, O, I] -- stream is None
-                or
             [U, O, I] -- stream is int
+                or
+            [S, U, O, I] -- stream is None
         """
         raise NotImplementedError()
 
@@ -135,9 +135,9 @@ class Norm(Feature):
         Returns
         -------
         Tensor
-            [S, U, O, I] -- stream is None
-                or
             [U, O, I] -- stream is int
+                or
+            [S, U, O, I] -- stream is None
         """
         if stream is None:
             features = [self.features(stream=s) for s in range(self.streams)]
