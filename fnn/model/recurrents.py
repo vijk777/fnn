@@ -265,24 +265,6 @@ class CvtLstm(Recurrent):
         w = torch.einsum("N G C Q , N G C D -> N G Q D", q, k).softmax(dim=3)
         a = torch.einsum("N G C D , N G Q D -> N G C Q", v, w).view(N, -1, H, W)
 
-        # k_x = self.k_x(x, stream=stream).view(N, heads, self.head_channels, -1)
-        # k_h = self.k_x(h, stream=stream).view(N, heads, self.head_channels, -1)
-
-        # v_x = self.v_x(x, stream=stream).view(N, heads, self.head_channels, -1)
-        # v_h = self.v_x(h, stream=stream).view(N, heads, self.head_channels, -1)
-
-        # attns = []
-        # for query, token, k, v in [
-        #     [self.q_xx, x, k_x, v_x],
-        #     [self.q_xh, x, k_h, v_h],
-        #     [self.q_hx, h, k_x, v_x],
-        #     [self.q_hh, h, k_h, v_h],
-        # ]:
-        #     q = query(token, stream=stream).view(N, heads, self.head_channels, -1)
-        #     w = torch.einsum("N G C Q , N G C D -> N G Q D", q, k).softmax(dim=3)
-        #     a = torch.einsum("N G C D , N G Q D -> N G C Q", v, w).view(N, -1, H, W)
-        #     attns.append(a)
-
         i = torch.sigmoid(self.proj_i(a, stream=stream))
         f = torch.sigmoid(self.proj_f(a, stream=stream))
         g = torch.tanh(self.proj_g(a, stream=stream))
