@@ -251,12 +251,14 @@ class CvtLstm(Recurrent):
             h = c = torch.zeros(1, channels, 1, 1, device=self.device)
 
         if self.groups > 1:
-            x = self.inputs([h, *x], stream=stream)
+            inputs = [h, *x]
         else:
-            x = self.inputs(x, stream=stream)
+            inputs = x
 
+        x = torch.tanh(self.inputs(inputs, stream=stream))
         h = h.expand_as(x)
-        N, _, H, W = h.shape
+
+        N, _, H, W = x.shape
 
         q = self.proj_q([x, h], stream=stream).view(N, heads, self.head_channels, -1)
         k = self.proj_k([x, h], stream=stream).view(N, heads, self.head_channels, -1)
@@ -435,10 +437,11 @@ class ConvLstm(Recurrent):
             h = c = torch.zeros(1, channels, 1, 1, device=self.device)
 
         if self.groups > 1:
-            x = self.inputs([h, *x], stream=stream)
+            inputs = [h, *x]
         else:
-            x = self.inputs(x, stream=stream)
+            inputs = x
 
+        x = torch.tanh(self.inputs(inputs, stream=stream))
         h = h.expand_as(x)
 
         i = torch.sigmoid(self.proj_i([x, h], stream=stream))
