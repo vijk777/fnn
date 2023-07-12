@@ -167,14 +167,14 @@ class CvtLstm(Recurrent):
         )
         self.proj_k = Accumulate(
             [
-                conv(pad=None, gain=None),
-                conv(pad=None, gain=None),
+                conv(pad=None, gain=2**-0.5),
+                conv(pad=None, gain=2**-0.5),
             ]
         )
         self.proj_v = Accumulate(
             [
-                conv(pad=None, gain=None),
-                conv(pad=None, gain=None),
+                conv(pad=None, gain=2**-0.5),
+                conv(pad=None, gain=2**-0.5),
             ]
         )
 
