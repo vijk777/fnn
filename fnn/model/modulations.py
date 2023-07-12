@@ -122,7 +122,7 @@ class FlatLstm(Modulation):
 
         self.drop = FlatDropout(p=self._dropout)
 
-        self.out = linear(self.lstm_features, self.out_features, 1, 0)
+        self.out = linear(self.lstm_features, self.out_features, 0, 0)
 
         self.past = dict()
 

@@ -16,8 +16,6 @@ class Recurrent(Module):
         ----------
         channels : Sequence[int]
             [input channels per stream (I), ...]
-        masks : Sequence[bool]
-            initial mask for each input
         streams : int
             number of streams, S
         """
@@ -105,26 +103,20 @@ class Rvt(Recurrent):
         self.spatial = int(spatial)
         self._dropout = float(dropout)
 
-    def _init(self, inputs, masks, streams):
+    def _init(self, inputs, streams):
         """
         Parameters
         ----------
         channels : Sequence[int]
             [input channels per stream (I), ...]
-        masks : Sequence[bool]
-            initial mask for each input
         streams : int
             number of streams, S
         """
         self._inputs = list(map(int, inputs))
-        self.masks = list(map(bool, masks))
         self.streams = int(streams)
 
-        assert len(self._inputs) == len(self.masks)
-        assert sum(masks) > 0
-
         if self.groups > 1:
-            gain = (sum(masks) + 1) ** -0.5
+            gain = (len(self._inputs) + 1) ** -0.5
             intergroup = InterGroup(
                 channels=self.recurrent_channels,
                 groups=self.groups,
@@ -133,16 +125,16 @@ class Rvt(Recurrent):
             )
             inputs = [intergroup]
         else:
-            gain = sum(masks) ** -0.5
+            gain = len(self._inputs) ** -0.5
             inputs = []
 
-        for i, (in_channels, mask) in enumerate(zip(self._inputs, self.masks)):
+        for i, in_channels in enumerate(self._inputs):
             conv = Conv(
                 in_channels=in_channels,
                 out_channels=self.recurrent_channels,
                 out_groups=self.groups,
                 streams=self.streams,
-                gain=gain * mask,
+                gain=gain,
                 bias=None if i else 0,
             )
             inputs.append(conv)
@@ -333,26 +325,20 @@ class ConvLstm(Recurrent):
         self.spatial = int(spatial)
         self._dropout = float(dropout)
 
-    def _init(self, inputs, masks, streams):
+    def _init(self, inputs, streams):
         """
         Parameters
         ----------
         channels : Sequence[int]
             [input channels per stream (I), ...]
-        masks : Sequence[bool]
-            initial mask for each input
         streams : int
             number of streams, S
         """
         self._inputs = list(map(int, inputs))
-        self.masks = list(map(bool, masks))
         self.streams = int(streams)
 
-        assert len(self._inputs) == len(self.masks)
-        assert sum(masks) > 0
-
         if self.groups > 1:
-            gain = (sum(masks) + 1) ** -0.5
+            gain = (len(self._inputs) + 1) ** -0.5
             intergroup = InterGroup(
                 channels=self.recurrent_channels,
                 groups=self.groups,
@@ -361,16 +347,16 @@ class ConvLstm(Recurrent):
             )
             inputs = [intergroup]
         else:
-            gain = sum(masks) ** -0.5
+            gain = len(self._inputs) ** -0.5
             inputs = []
 
-        for i, (in_channels, mask) in enumerate(zip(self._inputs, self.masks)):
+        for i, in_channels in enumerate(self._inputs):
             conv = Conv(
                 in_channels=in_channels,
                 out_channels=self.recurrent_channels,
                 out_groups=self.groups,
                 streams=self.streams,
-                gain=gain * mask,
+                gain=gain,
                 bias=None if i else 0,
             )
             inputs.append(conv)

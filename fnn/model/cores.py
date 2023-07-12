@@ -92,12 +92,10 @@ class FeedforwardRecurrent(Core):
 
         self.feedforward._init(
             inputs=[self.perspectives],
-            masks=[True],
             streams=self.streams,
         )
         self.recurrent._init(
             inputs=[self.feedforward.channels, self.modulations],
-            masks=[True, False],
             streams=self.streams,
         )
 

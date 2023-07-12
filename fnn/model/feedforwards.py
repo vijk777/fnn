@@ -10,14 +10,12 @@ from .utils import add
 class Feedforward(Module):
     """Feature Module"""
 
-    def _init(self, inputs, masks, streams):
+    def _init(self, inputs, streams):
         """
         Parameters
         ----------
         channels : Sequence[int]
             [input channels per stream (I), ...]
-        masks : Sequence[bool]
-            initial mask for each input
         streams : int
             number of streams (S)
         """
@@ -226,23 +224,17 @@ class Dense(Feedforward):
         self.nonlinear = str(nonlinear)
         self._drop = float(dropout)
 
-    def _init(self, inputs, masks, streams):
+    def _init(self, inputs, streams):
         """
         Parameters
         ----------
         inputs : Sequence[int]
             [input channels per stream (I), ...]
-        masks : Sequence[bool]
-            initial mask for each input
         streams : int
             number of streams (S)
         """
         self._inputs = list(map(int, inputs))
-        self.masks = list(map(bool, masks))
         self.streams = int(streams)
-
-        assert len(self._inputs) == len(self.masks)
-        assert sum(masks) > 0
 
         def proj(in_channels, out_channels, out_groups, spatial, stride, gain, bias):
             return Conv(
@@ -272,7 +264,7 @@ class Dense(Feedforward):
         in_spatial = self.in_spatial
         in_stride = self.in_stride
         inputs = self._inputs
-        masks = self.masks
+        masks = [True] * len(inputs)
 
         for channels, groups, layers, temporal, spatial, pool in zip(
             self.block_channels,
