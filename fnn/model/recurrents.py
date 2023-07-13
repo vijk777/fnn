@@ -64,7 +64,8 @@ class CvtLstm(Recurrent):
         out_channels,
         groups=1,
         heads=1,
-        spatial=3,
+        spatial_token=3,
+        spatial_skip=1,
         init_input=-1,
         init_forget=1,
         dropout=0,
@@ -80,8 +81,10 @@ class CvtLstm(Recurrent):
             out channels per stream
         groups : int
             groups per stream
-        spatial : int
-            spatial kernel size
+        spatial_token : int
+            spatial kernel size -- attention tokens
+        spatial_skip : int
+            spatial kernel size -- skip connections
         init_input : float
             initial input gate bias
         init_forget : float
@@ -103,7 +106,8 @@ class CvtLstm(Recurrent):
         self.out_channels = int(out_channels)
         self.groups = int(groups)
         self.heads = int(heads)
-        self.spatial = int(spatial)
+        self.spatial_token = int(spatial_token)
+        self.spatial_skip = int(spatial_skip)
         self.init_input = float(init_input)
         self.init_forget = float(init_forget)
         self._dropout = float(dropout)
@@ -146,14 +150,14 @@ class CvtLstm(Recurrent):
 
         self.inputs = Accumulate(inputs)
 
-        def conv(pad, gain):
+        def token(pad, gain):
             return Conv(
                 in_channels=self.recurrent_channels,
                 out_channels=self.attention_channels,
                 in_groups=self.groups,
                 out_groups=self.heads,
                 streams=self.streams,
-                spatial=self.spatial,
+                spatial=self.spatial_token,
                 pad=pad,
                 gain=gain,
                 bias=None,
@@ -161,32 +165,48 @@ class CvtLstm(Recurrent):
 
         self.proj_q = Accumulate(
             [
-                conv(pad="zeros", gain=(self.head_channels * 2) ** -0.5),
-                conv(pad="zeros", gain=(self.head_channels * 2) ** -0.5),
+                token(pad="zeros", gain=(self.head_channels * 2) ** -0.5),
+                token(pad="zeros", gain=(self.head_channels * 2) ** -0.5),
             ]
         )
         self.proj_k = Accumulate(
             [
-                conv(pad=None, gain=2**-0.5),
-                conv(pad=None, gain=2**-0.5),
+                token(pad=None, gain=2**-0.5),
+                token(pad=None, gain=2**-0.5),
             ]
         )
         self.proj_v = Accumulate(
             [
-                conv(pad=None, gain=2**-0.5),
-                conv(pad=None, gain=2**-0.5),
+                token(pad=None, gain=2**-0.5),
+                token(pad=None, gain=2**-0.5),
             ]
         )
 
-        def proj(bias):
+        def token(bias):
             return Conv(
                 in_channels=self.attention_channels,
                 out_channels=self.recurrent_channels,
                 in_groups=self.groups,
                 out_groups=self.groups,
                 streams=self.streams,
+                gain=2**-0.5,
                 bias=bias,
             )
+
+        def skip():
+            return Conv(
+                in_channels=self.recurrent_channels,
+                out_channels=self.recurrent_channels,
+                in_groups=self.groups,
+                out_groups=self.groups,
+                streams=self.streams,
+                spatial=self.spatial_skip,
+                gain=0.5,
+                bias=None,
+            )
+
+        def proj(bias):
+            return Accumulate([token(bias), skip(), skip()])
 
         self.proj_i = proj(self.init_input)
         self.proj_f = proj(self.init_forget)
@@ -267,10 +287,10 @@ class CvtLstm(Recurrent):
         w = torch.einsum("N G C Q , N G C D -> N G Q D", q, k).softmax(dim=3)
         a = torch.einsum("N G C D , N G Q D -> N G C Q", v, w).view(N, -1, H, W)
 
-        i = torch.sigmoid(self.proj_i(a, stream=stream))
-        f = torch.sigmoid(self.proj_f(a, stream=stream))
-        g = torch.tanh(self.proj_g(a, stream=stream))
-        o = torch.sigmoid(self.proj_o(a, stream=stream))
+        i = torch.sigmoid(self.proj_i([a, x, h], stream=stream))
+        f = torch.sigmoid(self.proj_f([a, x, h], stream=stream))
+        g = torch.tanh(self.proj_g([a, x, h], stream=stream))
+        o = torch.sigmoid(self.proj_o([a, x, h], stream=stream))
 
         c = f * c + i * g
         h = o * torch.tanh(c)
