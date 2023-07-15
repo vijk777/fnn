@@ -134,7 +134,7 @@ class Block(Module):
         """
         Parameters
         ----------
-        inputs : 4D Tensor
+        x : 4D Tensor
             [N, C, H, W] -- stream is int
                 or
             [N, S*C, H, W] -- stream is None
