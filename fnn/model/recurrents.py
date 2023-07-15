@@ -275,7 +275,7 @@ class CvtLstm(Recurrent):
         else:
             inputs = x
 
-        x = torch.tanh(self.inputs(inputs, stream=stream))
+        x = self.inputs(inputs, stream=stream)
         h = h.expand_as(x)
 
         N, _, H, W = x.shape
@@ -461,7 +461,7 @@ class ConvLstm(Recurrent):
         else:
             inputs = x
 
-        x = torch.tanh(self.inputs(inputs, stream=stream))
+        x = self.inputs(inputs, stream=stream)
         h = h.expand_as(x)
 
         i = torch.sigmoid(self.proj_i([x, h], stream=stream))
