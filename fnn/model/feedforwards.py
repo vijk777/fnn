@@ -90,7 +90,7 @@ class Block(Module):
         if self.pool == 1:
             self.pool_fn = lambda x: x
         else:
-            self.pool_fn = lambda x: avg_pool2d(x, self.pool) * self.pool
+            self.pool_fn = lambda x: avg_pool2d(x, self.pool)
 
     def _init(self, streams):
         """
@@ -112,7 +112,7 @@ class Block(Module):
                 bias=None,
             )
 
-        def conv():
+        def conv(gain):
             return Conv(
                 in_channels=self.channels,
                 out_channels=self.channels,
@@ -121,10 +121,12 @@ class Block(Module):
                 streams=self.streams,
                 temporal=self.temporal,
                 spatial=self.spatial,
+                gain=gain,
             )
 
         def layer(layer):
-            modules = [conn() for _ in range(layer)] + [conv()]
+            gain = 1 if layer + 1 < self._layers else self.pool
+            modules = [conn() for _ in range(layer)] + [conv(gain)]
             return Accumulate(modules)
 
         self.layers = ModuleList([layer(l) for l in range(self._layers)])
@@ -147,16 +149,18 @@ class Block(Module):
                 or
             [[N, S*C, H', W'], ... x (layers + 1)] -- stream is None
         """
-        x = [self.pool_fn(x)]
+        linears = [x]
+        nonlinears = []
 
         for layer in self.layers:
 
-            y = layer(x, stream=stream)
-            y = self.nonlinear(y) * self.gamma
+            y = self.nonlinear(x) * self.gamma
+            nonlinears.append(y)
 
-            x.append(y)
+            x = layer(nonlinears, stream=stream)
+            linears.append(x)
 
-        return x
+        return list(map(self.pool_fn, linears))
 
 
 class Dense(Feedforward):
