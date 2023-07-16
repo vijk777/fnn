@@ -264,6 +264,7 @@ class Reconstruction(StimulusObjective):
         training : bool
             training or validation
         """
+        self.stimulus.reset()
         self.network.reset()
 
         if training and self.sample_trial:
@@ -387,6 +388,7 @@ class Excitation(StimulusObjective):
         training : bool
             training or validation
         """
+        self.stimulus.reset()
         self.network.reset()
 
         if training and self.sample_stream:
