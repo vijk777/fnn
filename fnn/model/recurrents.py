@@ -211,7 +211,7 @@ class CvtLstm(Recurrent):
                     skip(gain),
                 ]
             else:
-                gain = 4**-0.5
+                gain = 0.5
                 skips = []
 
             tokens = [
