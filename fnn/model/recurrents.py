@@ -1,7 +1,6 @@
 import torch
 from .modules import Module
 from .elements import Conv, InterGroup, Accumulate, Dropout
-from .utils import cat_groups_2d
 
 
 # -------------- Recurrent Base --------------
