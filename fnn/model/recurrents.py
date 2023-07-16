@@ -81,6 +81,8 @@ class CvtLstm(Recurrent):
             out channels per stream
         groups : int
             groups per stream
+        heads : int
+            heads per stream
         spatial_token : int
             spatial kernel size -- attention tokens
         spatial_skip : int
