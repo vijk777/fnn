@@ -165,14 +165,20 @@ class CvtLstm(Recurrent):
                 bias=None,
             )
 
-        self.proj_q_x = token(pad="zeros", gain=self.head_channels**-0.5)
-        self.proj_q_h = token(pad="zeros", gain=self.head_channels**-0.5)
+        self.proj_q_x_x = token(pad="zeros", gain=self.head_channels**-0.5)
+        self.proj_q_x_h = token(pad="zeros", gain=self.head_channels**-0.5)
+        self.proj_q_h_x = token(pad="zeros", gain=self.head_channels**-0.5)
+        self.proj_q_h_h = token(pad="zeros", gain=self.head_channels**-0.5)
 
-        self.proj_k_x = token(pad=None, gain=None)
-        self.proj_k_h = token(pad=None, gain=None)
+        self.proj_k_x_x = token(pad=None, gain=None)
+        self.proj_k_x_h = token(pad=None, gain=None)
+        self.proj_k_h_x = token(pad=None, gain=None)
+        self.proj_k_h_h = token(pad=None, gain=None)
 
-        self.proj_v_x = token(pad=None, gain=None)
-        self.proj_v_h = token(pad=None, gain=None)
+        self.proj_v_x_x = token(pad=None, gain=None)
+        self.proj_v_x_h = token(pad=None, gain=None)
+        self.proj_v_h_x = token(pad=None, gain=None)
+        self.proj_v_h_h = token(pad=None, gain=None)
 
         def token(gain, bias):
             return Conv(
@@ -289,16 +295,31 @@ class CvtLstm(Recurrent):
 
         N, _, H, W = x.shape
 
-        q = torch.stack([self.proj_q_x(x, stream=stream), self.proj_q_h(h, stream=stream)], dim=0)
-        k = torch.stack([self.proj_k_x(x, stream=stream), self.proj_k_h(h, stream=stream)], dim=0)
-        v = torch.stack([self.proj_v_x(x, stream=stream), self.proj_v_h(h, stream=stream)], dim=0)
+        q = [
+            self.proj_q_x_x(x, stream=stream),
+            self.proj_q_x_h(x, stream=stream),
+            self.proj_q_h_x(h, stream=stream),
+            self.proj_q_h_h(h, stream=stream),
+        ]
+        k = [
+            self.proj_k_x_x(x, stream=stream),
+            self.proj_k_x_h(h, stream=stream),
+            self.proj_k_h_x(x, stream=stream),
+            self.proj_k_h_h(h, stream=stream),
+        ]
+        v = [
+            self.proj_v_x_x(x, stream=stream),
+            self.proj_v_x_h(h, stream=stream),
+            self.proj_v_h_x(x, stream=stream),
+            self.proj_v_h_h(h, stream=stream),
+        ]
 
-        q = q.view(2, N, streams, self.heads, self.head_channels, -1)
-        k = k.view(2, N, streams, self.heads, self.head_channels, -1)
-        v = v.view(2, N, streams, self.heads, self.head_channels, -1)
+        q = torch.stack(q, dim=0).view(2, 2, N, streams, self.heads, self.head_channels, -1)
+        k = torch.stack(k, dim=0).view(2, 2, N, streams, self.heads, self.head_channels, -1)
+        v = torch.stack(v, dim=0).view(2, 2, N, streams, self.heads, self.head_channels, -1)
 
-        w = torch.einsum("A N S G C Q , B N S G C D -> A B N S G Q D", q, k).softmax(dim=-1)
-        a = torch.einsum("B N S G C D , A B N S G Q D -> A B N S G C Q", v, w)
+        w = torch.einsum("A B N S G C Q , A B N S G C D -> A B N S G Q D", q, k).softmax(dim=-1)
+        a = torch.einsum("A B N S G C D , A B N S G Q D -> A B N S G C Q", v, w)
 
         z = [
             a[0, 0].view(N, -1, H, W),
