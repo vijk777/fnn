@@ -71,7 +71,7 @@ class Block(Module):
             temporal kernel size
         spatial : int
             spatial kernel size
-        pool_size : int
+        pool : int
             spatial pooling size
         nonlinear : str | None
             nonlinearity
