@@ -61,11 +61,11 @@ class CvtLstm(Recurrent):
         self,
         recurrent_channels,
         attention_channels,
+        common_channels,
         out_channels,
         groups=1,
         heads=1,
-        spatial_token=3,
-        spatial_skip=1,
+        spatial=3,
         init_input=-1,
         init_forget=1,
         dropout=0,
@@ -83,10 +83,8 @@ class CvtLstm(Recurrent):
             groups per stream
         heads : int
             heads per stream
-        spatial_token : int
-            spatial kernel size -- attention tokens
-        spatial_skip : int
-            spatial kernel size -- skip connections
+        spatial : int
+            spatial kernel size
         init_input : float
             initial input gate bias
         init_forget : float
@@ -100,16 +98,19 @@ class CvtLstm(Recurrent):
         if attention_channels % heads != 0:
             raise ValueError("Attention channels must be divisible by heads")
 
+        if heads < groups:
+            raise ValueError("Heads cannot be less than groups")
+
         super().__init__()
 
         self.recurrent_channels = int(recurrent_channels)
         self.attention_channels = int(attention_channels)
         self.head_channels = int(attention_channels // heads)
+        self.common_channels = int(common_channels)
         self.out_channels = int(out_channels)
         self.groups = int(groups)
         self.heads = int(heads)
-        self.spatial_token = int(spatial_token)
-        self.spatial_skip = int(spatial_skip)
+        self.spatial = int(spatial)
         self.init_input = float(init_input)
         self.init_forget = float(init_forget)
         self._dropout = float(dropout)
@@ -152,76 +153,71 @@ class CvtLstm(Recurrent):
 
         self.inputs = Accumulate(inputs)
 
-        def token(pad, gain):
+        def conv():
             return Conv(
                 in_channels=self.recurrent_channels,
+                out_channels=self.common_channels,
+                in_groups=self.groups,
+                out_groups=self.groups,
+                streams=self.streams,
+                spatial=self.spatial,
+                gain=None,
+                bias=None,
+            )
+
+        self.conv_x = conv()
+        self.conv_h = conv()
+
+        def attn(gain):
+            return Conv(
+                in_channels=self.common_channels,
                 out_channels=self.attention_channels,
                 in_groups=self.groups,
                 out_groups=self.heads,
                 streams=self.streams,
-                spatial=self.spatial_token,
-                pad=pad,
                 gain=gain,
                 bias=None,
             )
 
-        self.proj_q_x_x = token(pad="zeros", gain=self.head_channels**-0.5)
-        self.proj_q_x_h = token(pad="zeros", gain=self.head_channels**-0.5)
-        self.proj_q_h_x = token(pad="zeros", gain=self.head_channels**-0.5)
-        self.proj_q_h_h = token(pad="zeros", gain=self.head_channels**-0.5)
+        self.proj_q_x_x = attn(gain=self.head_channels**-0.5)
+        self.proj_q_x_h = attn(gain=self.head_channels**-0.5)
+        self.proj_q_h_x = attn(gain=self.head_channels**-0.5)
+        self.proj_q_h_h = attn(gain=self.head_channels**-0.5)
 
-        self.proj_k_x_x = token(pad=None, gain=None)
-        self.proj_k_x_h = token(pad=None, gain=None)
-        self.proj_k_h_x = token(pad=None, gain=None)
-        self.proj_k_h_h = token(pad=None, gain=None)
+        self.proj_k_x_x = attn(gain=None)
+        self.proj_k_x_h = attn(gain=None)
+        self.proj_k_h_x = attn(gain=None)
+        self.proj_k_h_h = attn(gain=None)
 
-        self.proj_v_x_x = token(pad=None, gain=None)
-        self.proj_v_x_h = token(pad=None, gain=None)
-        self.proj_v_h_x = token(pad=None, gain=None)
-        self.proj_v_h_h = token(pad=None, gain=None)
+        self.proj_v_x_x = attn(gain=None)
+        self.proj_v_x_h = attn(gain=None)
+        self.proj_v_h_x = attn(gain=None)
+        self.proj_v_h_h = attn(gain=None)
 
-        def token(gain, bias):
+        def token(bias):
             return Conv(
                 in_channels=self.attention_channels,
                 out_channels=self.recurrent_channels,
                 in_groups=self.groups,
                 out_groups=self.groups,
                 streams=self.streams,
-                gain=gain,
+                gain=0.5,
                 bias=bias,
             )
 
-        def skip(gain):
+        def skip():
             return Conv(
-                in_channels=self.recurrent_channels,
+                in_channels=self.common_channels,
                 out_channels=self.recurrent_channels,
                 in_groups=self.groups,
                 out_groups=self.groups,
                 streams=self.streams,
-                spatial=self.spatial_skip,
-                gain=gain,
+                gain=0,
                 bias=None,
             )
 
         def proj(bias):
-            if self.spatial_skip:
-                gain = 6**-0.5
-                skips = [
-                    skip(gain),
-                    skip(gain),
-                ]
-            else:
-                gain = 0.5
-                skips = []
-
-            tokens = [
-                token(gain, bias),
-                token(gain, None),
-                token(gain, None),
-                token(gain, None),
-            ]
-
-            return Accumulate(tokens + skips)
+            return Accumulate([token(bias), token(None), token(None), token(None), skip(), skip()])
 
         self.proj_i = proj(self.init_input)
         self.proj_f = proj(self.init_forget)
@@ -295,6 +291,9 @@ class CvtLstm(Recurrent):
 
         N, _, H, W = x.shape
 
+        x = self.conv_x(x, stream=stream)
+        h = self.conv_h(h, stream=stream)
+
         q = [
             self.proj_q_x_x(x, stream=stream),
             self.proj_q_x_h(x, stream=stream),
@@ -326,10 +325,9 @@ class CvtLstm(Recurrent):
             a[0, 1].view(N, -1, H, W),
             a[1, 0].view(N, -1, H, W),
             a[1, 1].view(N, -1, H, W),
+            x,
+            h,
         ]
-
-        if self.spatial_skip:
-            z += [x, h]
 
         i = torch.sigmoid(self.proj_i(z, stream=stream))
         f = torch.sigmoid(self.proj_f(z, stream=stream))
