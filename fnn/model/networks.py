@@ -89,7 +89,14 @@ class Network(Module):
         """
         raise NotImplementedError()
 
-    def generate_response(self, stimuli, perspectives=None, modulations=None, training=False):
+    def generate_response(
+        self,
+        stimuli,
+        perspectives=None,
+        modulations=None,
+        training=False,
+        reset=True,
+    ):
         """
         Parameters
         ----------
@@ -100,7 +107,9 @@ class Network(Module):
         modulations : Iterable[1D|2D array] | None
             T x [M] (singular) | T x [N, M] (batch)
         training : bool
-            training or inference
+            training or inference mode
+        reset : bool
+            reset or continue state
 
         Yields
         ------
@@ -115,7 +124,16 @@ class Network(Module):
         """
         raise NotImplementedError()
 
-    def generate_loss(self, units, stimuli, perspectives=None, modulations=None, stream=None, training=False):
+    def generate_loss(
+        self,
+        units,
+        stimuli,
+        perspectives=None,
+        modulations=None,
+        stream=None,
+        training=False,
+        reset=True,
+    ):
         """
         Parameters
         ----------
@@ -130,7 +148,9 @@ class Network(Module):
         stream : int | None
             specific stream (int) or all streams (None)
         training : bool
-            training or inference
+            training or inference mode
+        reset : bool
+            reset or continue state
 
         Yields
         ------
@@ -432,7 +452,14 @@ class Visual(Network):
 
         return stimulus, perspective, modulation, squeeze
 
-    def generate_response(self, stimuli, perspectives=None, modulations=None, training=False):
+    def generate_response(
+        self,
+        stimuli,
+        perspectives=None,
+        modulations=None,
+        training=False,
+        reset=True,
+    ):
         """
         Parameters
         ----------
@@ -443,7 +470,9 @@ class Visual(Network):
         modulations : Iterable[1D|2D array] | None
             T x [M] (singular) | T x [N, M] (batch) --- dtype=float
         training : bool
-            training or inference
+            training or inference mode
+        reset : bool
+            reset or continue state
 
         Yields
         ------
@@ -456,7 +485,8 @@ class Visual(Network):
         or 2D Tensor
             [N, U] (batch input, training=True)
         """
-        self.reset()
+        if reset:
+            self.reset()
 
         if perspectives is None:
             perspectives = repeat(None)
@@ -479,7 +509,16 @@ class Visual(Network):
                 else:
                     yield response.cpu().numpy()
 
-    def generate_loss(self, units, stimuli, perspectives=None, modulations=None, stream=None, training=False):
+    def generate_loss(
+        self,
+        units,
+        stimuli,
+        perspectives=None,
+        modulations=None,
+        stream=None,
+        training=False,
+        reset=True,
+    ):
         """
         Parameters
         ----------
@@ -494,7 +533,9 @@ class Visual(Network):
         stream : int | None
             specific stream (int) or all streams (None)
         training : bool
-            training or inference
+            training or inference mode
+        reset : bool
+            reset or continue state
 
         Yields
         ------
@@ -507,8 +548,8 @@ class Visual(Network):
         or 2D Tensor
             [N, U] (batch input, training=True)
         """
-        self.reset()
-        device = self.device
+        if reset:
+            self.reset()
 
         if perspectives is None:
             perspectives = repeat(None)
@@ -517,6 +558,8 @@ class Visual(Network):
             modulations = repeat(None)
 
         with self.train_context(training):
+
+            device = self.device
 
             for unit, stimulus, perspective, modulation in zip(units, stimuli, perspectives, modulations):
 
