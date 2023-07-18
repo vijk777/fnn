@@ -189,7 +189,7 @@ class CvtLstm(Recurrent):
                 in_groups=self.groups,
                 out_groups=self.groups,
                 streams=self.streams,
-                gain=0,
+                gain=2**-0.5,
                 bias=None,
             )
 
@@ -200,7 +200,7 @@ class CvtLstm(Recurrent):
                 in_groups=self.groups,
                 out_groups=self.groups,
                 streams=self.streams,
-                gain=1,
+                gain=2**-0.5,
                 bias=bias,
             )
 
