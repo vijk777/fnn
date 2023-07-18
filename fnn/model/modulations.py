@@ -1,6 +1,6 @@
 import torch
 from .modules import Module
-from .elements import Linear, Accumulate, FlatDropout
+from .elements import Linear, FlatDropout
 from .utils import cat_groups
 
 

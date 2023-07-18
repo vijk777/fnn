@@ -1,6 +1,6 @@
 import torch
 from .modules import Module, ModuleList
-from .elements import Conv, Accumulate, Dropout, nonlinearity
+from .elements import Conv, Dropout, nonlinearity
 from .utils import cat_groups_2d
 
 
