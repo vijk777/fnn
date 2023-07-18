@@ -158,7 +158,7 @@ class Block(Module):
         else:
             groups = self.groups
 
-        for conv, skip in zip(self.convs, self.skips):
+        for l, (conv, skip) in enumerate(zip(self.convs, self.skips)):
 
             y = self.nonlinear(x) * self.gamma
 
@@ -168,7 +168,8 @@ class Block(Module):
                 n = y
             else:
                 x = conv(y, stream=stream) + skip(n, stream=stream)
-                n = cat_groups_2d([n, y], groups=groups)
+                if l + 1 < self._layers:
+                    n = cat_groups_2d([n, y], groups=groups)
 
             z = cat_groups_2d([z, x], groups=groups)
 
