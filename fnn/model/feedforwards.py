@@ -296,6 +296,7 @@ class Dense(Feedforward):
                 spatial=spatial,
                 pool=pool,
                 nonlinear=self.nonlinear,
+                dropout=self._drop,
             )
             block._init(streams=self.streams)
             self.blocks.append(block)
