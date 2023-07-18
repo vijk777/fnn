@@ -180,7 +180,7 @@ class CvtLstm(Recurrent):
 
         def proj(bias):
             return Conv(
-                in_channels=self.common_channels + self.recurrent_channels * 2,
+                in_channels=self.common_channels + self.attention_channels,
                 out_channels=self.recurrent_channels,
                 in_groups=self.groups,
                 out_groups=self.groups,
@@ -259,21 +259,22 @@ class CvtLstm(Recurrent):
         h = h.expand_as(x)
         xh = cat_groups_2d([x, h], groups=groups)
 
-        N, _, H, W = xh.shape
+        z = self.conv(xh, stream=stream)
+        N, _, H, W = z.shape
 
-        q = self.proj_q(xh, stream=stream).view(N, groups, self.heads, self.head_channels, H * W)
-        k = self.proj_k(xh, stream=stream).view(N, groups, self.heads, self.head_channels, H * W)
-        v = self.proj_v(xh, stream=stream).view(N, groups, self.heads, self.head_channels, H * W)
+        q = self.proj_q(z, stream=stream).view(N, groups, self.heads, self.head_channels, H * W)
+        k = self.proj_k(z, stream=stream).view(N, groups, self.heads, self.head_channels, H * W)
+        v = self.proj_v(z, stream=stream).view(N, groups, self.heads, self.head_channels, H * W)
 
         w = torch.einsum("N S G C Q , N S G C D -> N S G Q D", q, k).softmax(dim=-1)
         a = torch.einsum("N S G C D , N S G Q D -> N S G C Q", v, w).view(N, -1, H, W)
 
-        xha = cat_groups_2d([xh, a], groups=groups)
+        za = cat_groups_2d([z, a], groups=groups)
 
-        i = torch.sigmoid(self.proj_i(xha, stream=stream))
-        f = torch.sigmoid(self.proj_f(xha, stream=stream))
-        g = torch.tanh(self.proj_g(xha, stream=stream))
-        o = torch.sigmoid(self.proj_o(xha, stream=stream))
+        i = torch.sigmoid(self.proj_i(za, stream=stream))
+        f = torch.sigmoid(self.proj_f(za, stream=stream))
+        g = torch.tanh(self.proj_g(za, stream=stream))
+        o = torch.sigmoid(self.proj_o(za, stream=stream))
 
         c = f * c + i * g
         h = o * torch.tanh(c)
