@@ -1,6 +1,7 @@
-from torch.nn.functional import avg_pool2d
+import torch
 from .modules import Module, ModuleList
 from .elements import Conv, Accumulate, Dropout, nonlinearity
+from .utils import cat_groups_2d
 
 
 # -------------- Feedforward Base --------------
@@ -57,7 +58,7 @@ class Feedforward(Module):
 class Block(Module):
     """Dense Connection Block"""
 
-    def __init__(self, channels, groups, layers, temporal, spatial, pool, nonlinear=None):
+    def __init__(self, channels, groups, layers, temporal, spatial, pool, nonlinear=None, dropout=0):
         """
         Parameters
         ----------
@@ -75,6 +76,8 @@ class Block(Module):
             spatial pooling size
         nonlinear : str | None
             nonlinearity
+        dropout : float
+            dropout probability -- [0, 1)
         """
         super().__init__()
         self.channels = int(channels)
@@ -83,13 +86,8 @@ class Block(Module):
         self.temporal = int(temporal)
         self.spatial = int(spatial)
         self.pool = int(pool)
-
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
-
-        if self.pool == 1:
-            self.pool_fn = lambda x: x
-        else:
-            self.pool_fn = lambda x: avg_pool2d(x, self.pool)
+        self._drop = float(dropout)
 
     def _init(self, streams):
         """
@@ -100,18 +98,7 @@ class Block(Module):
         """
         self.streams = int(streams)
 
-        def conn():
-            return Conv(
-                in_channels=self.channels,
-                in_groups=self.groups,
-                out_channels=self.channels,
-                out_groups=self.groups,
-                streams=self.streams,
-                gain=0,
-                bias=None,
-            )
-
-        def conv(gain):
+        def conv(layer):
             return Conv(
                 in_channels=self.channels,
                 out_channels=self.channels,
@@ -120,15 +107,33 @@ class Block(Module):
                 streams=self.streams,
                 temporal=self.temporal,
                 spatial=self.spatial,
-                gain=gain,
+                gain=2**-0.5 if layer else 1,
             )
 
-        def layer(layer):
-            gain = 1 if layer + 1 < self._layers else self.pool
-            modules = [conn() for _ in range(layer)] + [conv(gain)]
-            return Accumulate(modules)
+        def skip(layer):
+            if layer:
+                return Conv(
+                    in_channels=self.channels * layer,
+                    out_channels=self.channels,
+                    in_groups=self.groups,
+                    out_groups=self.groups,
+                    streams=self.streams,
+                    gain=2**-0.5,
+                    bias=None,
+                )
 
-        self.layers = ModuleList([layer(l) for l in range(self._layers)])
+        self.convs = ModuleList(map(conv, range(self._layers)))
+        self.skips = ModuleList(map(skip, range(self._layers)))
+
+        if self.pool == 1:
+            self.pool_fn = lambda x: x
+        else:
+            self.pool_fn = lambda x: torch.nn.functional.avg_pool2d(x, self.pool)
+
+        self.drop = Dropout(p=self._drop)
+
+    def _restart(self):
+        self.dropout(p=self._drop)
 
     def forward(self, x, stream=None):
         """
@@ -143,23 +148,32 @@ class Block(Module):
 
         Returns
         -------
-        List[4D Tensor]
-            [[N, C, H', W'], ... x (layers + 1)] -- stream is int
+        4D Tensor
+            [N, C, H', W'] -- stream is int
                 or
-            [[N, S*C, H', W'], ... x (layers + 1)] -- stream is None
+            [N, S*C, H', W'] -- stream is None
         """
-        linears = [x]
-        nonlinears = []
+        if stream is None:
+            groups = self.groups * self.streams
+        else:
+            groups = self.groups
 
-        for layer in self.layers:
+        for conv, skip in zip(self.convs, self.skips):
 
             y = self.nonlinear(x) * self.gamma
-            nonlinears.append(y)
 
-            x = layer(nonlinears, stream=stream)
-            linears.append(x)
+            if skip is None:
+                z = x
+                x = conv(y, stream=stream)
+                n = y
+            else:
+                x = conv(y, stream=stream) + skip(n, stream=stream)
+                n = cat_groups_2d([n, y], groups=groups)
 
-        return list(map(self.pool_fn, linears))
+            z = cat_groups_2d([z, x], groups=groups)
+
+        out = self.pool_fn(z)
+        return self.drop(out)
 
 
 class Dense(Feedforward):
@@ -239,35 +253,23 @@ class Dense(Feedforward):
         self._inputs = list(map(int, inputs))
         self.streams = int(streams)
 
-        def proj(in_channels, out_channels, out_groups, spatial, stride, gain, bias):
+        def proj(in_channels, out_channels, out_groups, spatial, stride):
             return Conv(
                 in_channels=in_channels,
                 out_channels=out_channels,
                 out_groups=out_groups,
                 spatial=spatial,
                 stride=stride,
-                gain=gain,
                 pad="replicate",
                 streams=self.streams,
-                bias=bias,
             )
-
-        def accumulate(inputs, masks, out_channels, out_groups, spatial, stride):
-            modules = []
-            gain = sum(masks) ** -0.5
-            for l, (i, m) in enumerate(zip(inputs, masks)):
-                bias = None if l else 0
-                module = proj(i, out_channels, out_groups, spatial, stride, gain * m, bias)
-                modules.append(module)
-            return Accumulate(modules)
 
         self.inputs = ModuleList()
         self.blocks = ModuleList()
 
+        in_channels = sum(self._inputs)
         in_spatial = self.in_spatial
         in_stride = self.in_stride
-        inputs = self._inputs
-        masks = [True] * len(inputs)
 
         for channels, groups, layers, temporal, spatial, pool in zip(
             self.block_channels,
@@ -277,9 +279,8 @@ class Dense(Feedforward):
             self.block_spatials,
             self.block_pools,
         ):
-            inputs = accumulate(
-                inputs=inputs,
-                masks=masks,
+            inputs = proj(
+                in_channels=in_channels,
                 out_channels=channels,
                 out_groups=groups,
                 spatial=in_spatial,
@@ -299,24 +300,17 @@ class Dense(Feedforward):
             block._init(streams=self.streams)
             self.blocks.append(block)
 
+            in_channels = (layers + 1) * channels
             in_spatial = 1
             in_stride = 1
-            inputs = (layers + 1) * [channels]
-            masks = layers * [False] + [True]
 
-        self.drop = ModuleList([Dropout(p=self._drop) for _ in inputs])
-
-        self.out = accumulate(
-            inputs=inputs,
-            masks=masks,
+        self.out = proj(
+            in_channels=in_channels,
             out_channels=self.out_channels,
             out_groups=1,
             spatial=1,
             stride=1,
         )
-
-    def _restart(self):
-        self.dropout(p=self._drop)
 
     @property
     def channels(self):
@@ -346,11 +340,14 @@ class Dense(Feedforward):
                 or
             [N, S*O, H', W'] -- stream is None
         """
+        if stream is None:
+            x = cat_groups_2d(x, groups=self.streams)
+        else:
+            x = cat_groups_2d(x, groups=1)
+
         for inp, block in zip(self.inputs, self.blocks):
 
             x = inp(x, stream=stream)
             x = block(x, stream=stream)
-
-        x = [drop(_) for drop, _ in zip(self.drop, x)]
 
         return self.out(x, stream=stream)

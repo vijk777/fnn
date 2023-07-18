@@ -1,6 +1,7 @@
 import torch
 from .modules import Module
 from .elements import Conv, InterGroup, Accumulate, Dropout
+from .utils import cat_groups_2d
 
 
 # -------------- Recurrent Base --------------
@@ -153,19 +154,14 @@ class CvtLstm(Recurrent):
 
         self.inputs = Accumulate(inputs)
 
-        def conv():
-            return Conv(
-                in_channels=self.recurrent_channels,
-                out_channels=self.common_channels,
-                in_groups=self.groups,
-                out_groups=self.groups,
-                streams=self.streams,
-                spatial=self.spatial,
-                gain=2**-0.5,
-                bias=None,
-            )
-
-        self.conv = Accumulate([conv(), conv()])
+        self.conv = Conv(
+            in_channels=self.recurrent_channels * 2,
+            out_channels=self.common_channels,
+            in_groups=self.groups,
+            out_groups=self.groups,
+            streams=self.streams,
+            spatial=self.spatial,
+        )
 
         def token(gain):
             return Conv(
@@ -182,32 +178,20 @@ class CvtLstm(Recurrent):
         self.proj_k = token(gain=None)
         self.proj_v = token(gain=None)
 
-        def skip():
+        def proj(bias):
             return Conv(
-                in_channels=self.common_channels,
+                in_channels=self.common_channels + self.recurrent_channels * 2,
                 out_channels=self.recurrent_channels,
                 in_groups=self.groups,
                 out_groups=self.groups,
                 streams=self.streams,
-                gain=2**-0.5,
-                bias=None,
-            )
-
-        def attn(bias):
-            return Conv(
-                in_channels=self.attention_channels,
-                out_channels=self.recurrent_channels,
-                in_groups=self.groups,
-                out_groups=self.groups,
-                streams=self.streams,
-                gain=2**-0.5,
                 bias=bias,
             )
 
-        self.proj_i = Accumulate([skip(), attn(bias=self.init_input)])
-        self.proj_f = Accumulate([skip(), attn(bias=self.init_forget)])
-        self.proj_g = Accumulate([skip(), attn(bias=0)])
-        self.proj_o = Accumulate([skip(), attn(bias=0)])
+        self.proj_i = proj(bias=self.init_input)
+        self.proj_f = proj(bias=self.init_forget)
+        self.proj_g = proj(bias=0)
+        self.proj_o = proj(bias=0)
 
         self.drop = Dropout(p=self._dropout)
 
@@ -255,10 +239,10 @@ class CvtLstm(Recurrent):
         """
         if stream is None:
             channels = self.streams * self.recurrent_channels
-            streams = self.streams
+            groups = self.streams
         else:
             channels = self.recurrent_channels
-            streams = 1
+            groups = 1
 
         if self.past:
             h = self.past["h"]
@@ -273,21 +257,23 @@ class CvtLstm(Recurrent):
 
         x = torch.tanh(self.inputs(inputs, stream=stream))
         h = h.expand_as(x)
+        xh = cat_groups_2d([x, h], groups=groups)
 
-        z = self.conv([x, h], stream=stream)
-        N, _, H, W = z.shape
+        N, _, H, W = xh.shape
 
-        q = self.proj_q(z, stream=stream).view(N, streams, self.heads, self.head_channels, H * W)
-        k = self.proj_k(z, stream=stream).view(N, streams, self.heads, self.head_channels, H * W)
-        v = self.proj_v(z, stream=stream).view(N, streams, self.heads, self.head_channels, H * W)
+        q = self.proj_q(xh, stream=stream).view(N, groups, self.heads, self.head_channels, H * W)
+        k = self.proj_k(xh, stream=stream).view(N, groups, self.heads, self.head_channels, H * W)
+        v = self.proj_v(xh, stream=stream).view(N, groups, self.heads, self.head_channels, H * W)
 
         w = torch.einsum("N S G C Q , N S G C D -> N S G Q D", q, k).softmax(dim=-1)
         a = torch.einsum("N S G C D , N S G Q D -> N S G C Q", v, w).view(N, -1, H, W)
 
-        i = torch.sigmoid(self.proj_i([z, a], stream=stream))
-        f = torch.sigmoid(self.proj_f([z, a], stream=stream))
-        g = torch.tanh(self.proj_g([z, a], stream=stream))
-        o = torch.sigmoid(self.proj_o([z, a], stream=stream))
+        xha = cat_groups_2d([xh, a], groups=groups)
+
+        i = torch.sigmoid(self.proj_i(xha, stream=stream))
+        f = torch.sigmoid(self.proj_f(xha, stream=stream))
+        g = torch.tanh(self.proj_g(xha, stream=stream))
+        o = torch.sigmoid(self.proj_o(xha, stream=stream))
 
         c = f * c + i * g
         h = o * torch.tanh(c)
@@ -383,21 +369,19 @@ class ConvLstm(Recurrent):
 
         def conv(bias):
             return Conv(
-                in_channels=self.recurrent_channels,
+                in_channels=self.recurrent_channels * 2,
                 out_channels=self.recurrent_channels,
                 in_groups=self.groups,
                 out_groups=self.groups,
                 streams=self.streams,
                 spatial=self.spatial,
-                pad="zeros",
-                gain=2**-0.5,
                 bias=bias,
             )
 
-        self.proj_i = Accumulate([conv(self.init_input), conv(None)])
-        self.proj_f = Accumulate([conv(self.init_forget), conv(None)])
-        self.proj_g = Accumulate([conv(0), conv(None)])
-        self.proj_o = Accumulate([conv(0), conv(None)])
+        self.proj_i = conv(bias=self.init_input)
+        self.proj_f = conv(bias=self.init_forget)
+        self.proj_g = conv(bias=0)
+        self.proj_o = conv(bias=0)
 
         self.drop = Dropout(p=self._dropout)
 
@@ -443,14 +427,17 @@ class ConvLstm(Recurrent):
                 or
             [N, S*O, H, W] -- stream is None
         """
+        if stream is None:
+            channels = self.streams * self.recurrent_channels
+            groups = self.streams
+        else:
+            channels = self.recurrent_channels
+            groups = 1
+
         if self.past:
             h = self.past["h"]
             c = self.past["c"]
         else:
-            if stream is None:
-                channels = self.streams * self.recurrent_channels
-            else:
-                channels = self.recurrent_channels
             h = c = torch.zeros(1, channels, 1, 1, device=self.device)
 
         if self.groups > 1:
@@ -460,11 +447,12 @@ class ConvLstm(Recurrent):
 
         x = torch.tanh(self.inputs(inputs, stream=stream))
         h = h.expand_as(x)
+        xh = cat_groups_2d([x, h], groups=groups)
 
-        i = torch.sigmoid(self.proj_i([x, h], stream=stream))
-        f = torch.sigmoid(self.proj_f([x, h], stream=stream))
-        g = torch.tanh(self.proj_g([x, h], stream=stream))
-        o = torch.sigmoid(self.proj_o([x, h], stream=stream))
+        i = torch.sigmoid(self.proj_i(xh, stream=stream))
+        f = torch.sigmoid(self.proj_f(xh, stream=stream))
+        g = torch.tanh(self.proj_g(xh, stream=stream))
+        o = torch.sigmoid(self.proj_o(xh, stream=stream))
 
         c = f * c + i * g
         h = o * torch.tanh(c)
