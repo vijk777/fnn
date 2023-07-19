@@ -31,6 +31,11 @@ class Objective:
         raise NotImplementedError()
 
 
+# -------------- Objective Types --------------
+
+# -- Network Objectives --
+
+
 class NetworkObjective(Objective):
     """Network Objective"""
 
@@ -42,59 +47,6 @@ class NetworkObjective(Objective):
             network module
         """
         self.network = network
-
-
-class StimulusObjective(Objective):
-    """Stimulus Objective"""
-
-    def _init(self, stimulus, network, unit_index=None):
-        """
-        Parameters
-        ----------
-        module : fnn.model.networks.Network
-            network module
-        stimulus : fnn.model.stimuli.Stimulus
-            stimulus module
-        unit_index : int | List[int] | None
-            unit index
-        """
-        self.stimulus = stimulus
-        self.network = network.freeze(True)
-
-        if unit_index is None:
-            self.unit_index = None
-        else:
-            try:
-                self.unit_index = int(unit_index)
-            except:
-                self.unit_index = list(map(int, unit_index))
-
-        self.log = dict(
-            training_loss=[],
-            training_penalty=[],
-            validation_loss=[],
-            validation_penalty=[],
-        )
-
-    def step(self):
-        """Perform an epoch step
-
-        Returns
-        -------
-        dict[str, float]
-            epoch objectives
-        """
-        objectives = dict()
-
-        for key, value in self.log.items():
-            if value:
-                objectives[key] = np.mean(value)
-                value.clear()
-
-        return objectives
-
-
-# -------------- Objective Types --------------
 
 
 class NetworkLoss(NetworkObjective):
@@ -179,6 +131,59 @@ class NetworkLoss(NetworkObjective):
         if self._validation:
             objectives["validation_objective"] = np.mean(self._validation)
             self._validation.clear()
+
+        return objectives
+
+
+# -- Stimulus Objectives --
+
+
+class StimulusObjective(Objective):
+    """Stimulus Objective"""
+
+    def _init(self, stimulus, network, unit_index=None):
+        """
+        Parameters
+        ----------
+        module : fnn.model.networks.Network
+            network module
+        stimulus : fnn.model.stimuli.Stimulus
+            stimulus module
+        unit_index : int | List[int] | None
+            unit index
+        """
+        self.stimulus = stimulus
+        self.network = network.freeze(True)
+
+        if unit_index is None:
+            self.unit_index = None
+        else:
+            try:
+                self.unit_index = int(unit_index)
+            except:
+                self.unit_index = list(map(int, unit_index))
+
+        self.log = dict(
+            training_loss=[],
+            training_penalty=[],
+            validation_loss=[],
+            validation_penalty=[],
+        )
+
+    def step(self):
+        """Perform an epoch step
+
+        Returns
+        -------
+        dict[str, float]
+            epoch objectives
+        """
+        objectives = dict()
+
+        for key, value in self.log.items():
+            if value:
+                objectives[key] = np.mean(value)
+                value.clear()
 
         return objectives
 
