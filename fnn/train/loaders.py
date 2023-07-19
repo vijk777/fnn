@@ -29,6 +29,8 @@ class Loader:
 
 # -------------- Loader Types --------------
 
+# -- Dataset Loaders --
+
 
 class DatasetLoader(Loader):
     """Dataset Loader"""
@@ -156,6 +158,9 @@ class Batches(DatasetLoader):
             yield batch
 
         assert c.join()
+
+
+# -- Miscellaneous Loaders --
 
 
 class EmptyLoader(Loader):
