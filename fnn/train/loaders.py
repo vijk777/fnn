@@ -118,7 +118,7 @@ class Batches(DatasetLoader):
             display progress
 
         Yields
-        -------
+        ------
         dict
             training or validation data
         """
@@ -191,7 +191,7 @@ class EmptyLoader(Loader):
             display progress
 
         Yields
-        -------
+        ------
         dict
             empty dictionary
         """
