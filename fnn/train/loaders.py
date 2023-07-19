@@ -20,14 +20,17 @@ class Loader:
             display progress
 
         Yields
-        -------
+        ------
         dict
             training or validation data
         """
         raise NotImplementedError()
 
 
-class DatasetLoader:
+# -------------- Loader Types --------------
+
+
+class DatasetLoader(Loader):
     """Dataset Loader"""
 
     def _init(self, dataset):
@@ -38,9 +41,6 @@ class DatasetLoader:
             dataset to load
         """
         raise NotImplementedError()
-
-
-# -------------- Loader Types --------------
 
 
 class Batches(DatasetLoader):
