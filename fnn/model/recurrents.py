@@ -241,8 +241,10 @@ class Rvt(Recurrent):
 
         if self.past:
             h = self.past["h"]
+            h_drop = self.past["h_drop"]
         else:
             h = self.nonlinear(torch.zeros(1, channels, 1, 1, device=self.device))
+            h_drop = self.drop(h)
 
         if self.groups > 1:
             inputs = [h, *x]
@@ -250,9 +252,9 @@ class Rvt(Recurrent):
             inputs = x
 
         x = self.nonlinear(self.inputs(inputs, stream=stream))
-        h = h.expand_as(x)
+        h_drop = h_drop.expand_as(x)
 
-        xh = cat_groups_2d([x, h], groups=groups)
+        xh = cat_groups_2d([x, h_drop], groups=groups)
         c = self.conv(xh, stream=stream)
 
         N, _, H, W = c.shape
@@ -270,11 +272,12 @@ class Rvt(Recurrent):
         _h = self.nonlinear(self.proj_h(ca, stream=stream))
 
         h = z * h + (1 - z) * _h
-        h = self.drop(h)
+        h_drop = self.drop(h)
 
         self.past["h"] = h
+        self.past["h_drop"] = h_drop
 
-        return self.out(h, stream=stream)
+        return self.out(h_drop, stream=stream)
 
 
 class CvtLstm(Recurrent):
