@@ -158,7 +158,7 @@ class Rvt(Recurrent):
             streams=self.streams,
             spatial=self.spatial,
             gain=None,
-            bais=None,
+            bias=None,
         )
 
         def token(gain):
