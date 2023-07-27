@@ -247,7 +247,7 @@ class Rvt(Recurrent):
             h_drop = self.drop(self.nonlinear(h))
 
         if self.groups > 1:
-            inputs = [h, *x]
+            inputs = [h_drop, *x]
         else:
             inputs = x
 
