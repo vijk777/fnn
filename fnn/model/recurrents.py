@@ -109,7 +109,7 @@ class Rvt(Recurrent):
         self.groups = int(groups)
         self.heads = int(heads)
         self.spatial = int(spatial)
-        self.nonlinear, self.gamma = nonlinearity(nonlinear)
+        self.nonlinear, _ = nonlinearity(nonlinear)
         self._dropout = float(dropout)
 
     def _init(self, inputs, streams):
@@ -244,7 +244,7 @@ class Rvt(Recurrent):
             h_drop = self.past["h_drop"]
         else:
             h = torch.zeros(1, channels, 1, 1, device=self.device)
-            h_drop = self.drop(self.nonlinear(h) * self.gamma)
+            h_drop = self.drop(self.nonlinear(h))
 
         if self.groups > 1:
             inputs = [h, *x]
@@ -252,7 +252,7 @@ class Rvt(Recurrent):
             inputs = x
 
         x = self.inputs(inputs, stream=stream)
-        x = self.nonlinear(x) * self.gamma
+        x = self.nonlinear(x)
 
         h_drop = h_drop.expand_as(x)
         xh = cat_groups_2d([x, h_drop], groups=groups)
@@ -273,7 +273,7 @@ class Rvt(Recurrent):
         _h = self.nonlinear(self.proj_h(ca, stream=stream))
 
         h = z * h + (1 - z) * _h
-        h_drop = self.drop(h * self.gamma)
+        h_drop = self.drop(h)
 
         self.past["h"] = h
         self.past["h_drop"] = h_drop
