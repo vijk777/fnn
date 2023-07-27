@@ -1,6 +1,6 @@
 import torch
 from .modules import Module
-from .elements import Conv, InterGroup, Accumulate, Dropout
+from .elements import Conv, InterGroup, Accumulate, Dropout, nonlinearity
 from .utils import cat_groups_2d
 
 
@@ -67,6 +67,7 @@ class Rvt(Recurrent):
         groups=1,
         heads=1,
         spatial=3,
+        nonlinear="gelu",
         dropout=0,
     ):
         """
@@ -84,6 +85,8 @@ class Rvt(Recurrent):
             heads per stream
         spatial : int
             spatial kernel size
+        nonlinear : str | None
+            nonlinearity
         dropout : float
             dropout probability -- [0, 1)
         """
@@ -106,6 +109,7 @@ class Rvt(Recurrent):
         self.groups = int(groups)
         self.heads = int(heads)
         self.spatial = int(spatial)
+        self.nonlinear, self.gamma = nonlinearity(nonlinear)
         self._dropout = float(dropout)
 
     def _init(self, inputs, streams):
@@ -239,19 +243,21 @@ class Rvt(Recurrent):
             h = self.past["h"]
             h_drop = self.past["h_drop"]
         else:
-            h = h_drop = torch.zeros(1, channels, 1, 1, device=self.device)
+            h = torch.zeros(1, channels, 1, 1, device=self.device)
+            h_drop = self.drop(self.nonlinear(h) * self.gamma)
 
         if self.groups > 1:
             inputs = [h, *x]
         else:
             inputs = x
 
-        x = torch.tanh(self.inputs(inputs, stream=stream))
+        x = self.inputs(inputs, stream=stream)
+        x = self.nonlinear(x) * self.gamma
+
         h_drop = h_drop.expand_as(x)
-
         xh = cat_groups_2d([x, h_drop], groups=groups)
-        c = self.conv(xh, stream=stream)
 
+        c = self.conv(xh, stream=stream)
         N, _, H, W = c.shape
 
         q = self.proj_q(c, stream=stream).view(N, groups, self.heads, self.head_channels, H * W)
@@ -264,10 +270,10 @@ class Rvt(Recurrent):
         ca = cat_groups_2d([c, a], groups=groups)
 
         z = torch.sigmoid(self.proj_z(ca, stream=stream))
-        _h = torch.tanh(self.proj_h(ca, stream=stream))
+        _h = self.nonlinear(self.proj_h(ca, stream=stream))
 
         h = z * h + (1 - z) * _h
-        h_drop = self.drop(h)
+        h_drop = self.drop(h * self.gamma)
 
         self.past["h"] = h
         self.past["h_drop"] = h_drop
