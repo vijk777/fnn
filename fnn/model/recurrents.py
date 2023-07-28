@@ -129,32 +129,6 @@ class Rvt(Recurrent):
             bias=None,
         )
 
-        # if self.groups > 1:
-        #     gain = (len(self._inputs) + 1) ** -0.5
-        #     intergroup = InterGroup(
-        #         channels=self.recurrent_channels,
-        #         groups=self.groups,
-        #         streams=self.streams,
-        #         gain=gain,
-        #     )
-        #     inputs = [intergroup]
-        # else:
-        #     gain = len(self._inputs) ** -0.5
-        #     inputs = []
-
-        # for i, in_channels in enumerate(self._inputs):
-        #     conv = Conv(
-        #         in_channels=in_channels,
-        #         out_channels=self.recurrent_channels,
-        #         out_groups=self.groups,
-        #         streams=self.streams,
-        #         gain=gain,
-        #         bias=None if i else 0,
-        #     )
-        #     inputs.append(conv)
-
-        # self.inputs = Accumulate(inputs)
-
         self.conv = Conv(
             in_channels=self.common_channels,
             out_channels=self.common_channels,
