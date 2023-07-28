@@ -1,5 +1,6 @@
 import torch
 from .modules import Module
+from .parameters import Parameter, ParameterList
 from .elements import Conv, InterGroup, Accumulate, Dropout
 from .utils import cat_groups_2d
 
@@ -123,37 +124,29 @@ class Rvt(Recurrent):
         self.common = Conv(
             in_channels=sum(self._inputs) + self.recurrent_channels,
             out_channels=self.common_channels,
-            out_groups=self.groups,
             streams=self.streams,
             gain=None,
             bias=None,
         )
 
-        self.conv = Conv(
+        self.token = Conv(
             in_channels=self.common_channels,
-            out_channels=self.common_channels,
+            out_channels=self.attention_channels * 3,
             in_groups=self.groups,
-            out_groups=self.groups,
             streams=self.streams,
             spatial=self.spatial,
             gain=None,
             bias=None,
         )
 
-        def token(gain):
-            return Conv(
-                in_channels=self.common_channels,
-                out_channels=self.attention_channels,
-                in_groups=self.groups,
-                out_groups=self.heads,
-                streams=self.streams,
-                gain=gain,
-                bias=None,
+        def scale():
+            return Parameter(
+                torch.full([self.heads, self.head_channels], self.head_channels**-0.5),
             )
 
-        self.proj_q = token(gain=self.head_channels**-0.5)
-        self.proj_k = token(gain=None)
-        self.proj_v = token(gain=None)
+        self.scales = ParameterList([scale() for _ in range(self.streams)])
+        self.scales.decay = False
+        self.scales.norm_dim = 1
 
         def proj():
             return Conv(
@@ -214,9 +207,11 @@ class Rvt(Recurrent):
         if stream is None:
             channels = self.streams * self.recurrent_channels
             groups = self.streams
+            s = torch.stack(list(self.scales), dim=0)
         else:
             channels = self.recurrent_channels
             groups = 1
+            s = self.scales[stream][None]
 
         if self.past:
             h = self.past["h"]
@@ -226,15 +221,14 @@ class Rvt(Recurrent):
 
         c = cat_groups_2d([*x, h_drop], groups=groups, expand=True)
         c = self.common(c, stream=stream)
-        c = self.conv(c, stream=stream)
 
         N, _, H, W = c.shape
 
-        q = self.proj_q(c, stream=stream).view(N, groups, self.heads, self.head_channels, H * W)
-        k = self.proj_k(c, stream=stream).view(N, groups, self.heads, self.head_channels, H * W)
-        v = self.proj_v(c, stream=stream).view(N, groups, self.heads, self.head_channels, H * W)
+        t = self.token(c, stream=stream).view(N, groups, self.heads, self.head_channels * 3, H * W)
+        q, k, v = t.chunk(chunks=3, dim=3)
 
-        w = torch.einsum("N S G C Q , N S G C D -> N S G Q D", q, k).softmax(dim=-1)
+        qs = torch.einsum("N S G C Q , S G C -> N S G C Q", q, s)
+        w = torch.einsum("N S G C Q , N S G C D -> N S G Q D", qs, k).softmax(dim=-1)
         a = torch.einsum("N S G C D , N S G Q D -> N S G C Q", v, w).view(N, -1, H, W)
 
         ca = cat_groups_2d([c, a], groups=groups)
