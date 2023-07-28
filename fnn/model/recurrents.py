@@ -60,9 +60,9 @@ class Rvt(Recurrent):
 
     def __init__(
         self,
-        recurrent_channels,
-        attention_channels,
         common_channels,
+        attention_channels,
+        recurrent_channels,
         out_channels,
         groups=1,
         heads=1,
@@ -98,10 +98,10 @@ class Rvt(Recurrent):
 
         super().__init__()
 
-        self.recurrent_channels = int(recurrent_channels)
+        self.common_channels = int(common_channels)
         self.attention_channels = int(attention_channels)
         self.head_channels = int(attention_channels // heads)
-        self.common_channels = int(common_channels)
+        self.recurrent_channels = int(recurrent_channels)
         self.out_channels = int(out_channels)
         self.groups = int(groups)
         self.heads = int(heads)
@@ -120,34 +120,43 @@ class Rvt(Recurrent):
         self._inputs = list(map(int, inputs))
         self.streams = int(streams)
 
-        if self.groups > 1:
-            gain = (len(self._inputs) + 1) ** -0.5
-            intergroup = InterGroup(
-                channels=self.recurrent_channels,
-                groups=self.groups,
-                streams=self.streams,
-                gain=gain,
-            )
-            inputs = [intergroup]
-        else:
-            gain = len(self._inputs) ** -0.5
-            inputs = []
+        self.common = Conv(
+            in_channels=sum(self._inputs) + self.recurrent_channels,
+            out_channels=self.common_channels,
+            out_groups=self.groups,
+            streams=self.streams,
+            gain=None,
+            bias=None,
+        )
 
-        for i, in_channels in enumerate(self._inputs):
-            conv = Conv(
-                in_channels=in_channels,
-                out_channels=self.recurrent_channels,
-                out_groups=self.groups,
-                streams=self.streams,
-                gain=gain,
-                bias=None if i else 0,
-            )
-            inputs.append(conv)
+        # if self.groups > 1:
+        #     gain = (len(self._inputs) + 1) ** -0.5
+        #     intergroup = InterGroup(
+        #         channels=self.recurrent_channels,
+        #         groups=self.groups,
+        #         streams=self.streams,
+        #         gain=gain,
+        #     )
+        #     inputs = [intergroup]
+        # else:
+        #     gain = len(self._inputs) ** -0.5
+        #     inputs = []
 
-        self.inputs = Accumulate(inputs)
+        # for i, in_channels in enumerate(self._inputs):
+        #     conv = Conv(
+        #         in_channels=in_channels,
+        #         out_channels=self.recurrent_channels,
+        #         out_groups=self.groups,
+        #         streams=self.streams,
+        #         gain=gain,
+        #         bias=None if i else 0,
+        #     )
+        #     inputs.append(conv)
+
+        # self.inputs = Accumulate(inputs)
 
         self.conv = Conv(
-            in_channels=self.recurrent_channels * 2,
+            in_channels=self.common_channels,
             out_channels=self.common_channels,
             in_groups=self.groups,
             out_groups=self.groups,
@@ -241,16 +250,9 @@ class Rvt(Recurrent):
         else:
             h = h_drop = torch.zeros(1, channels, 1, 1, device=self.device)
 
-        if self.groups > 1:
-            inputs = [h_drop, *x]
-        else:
-            inputs = x
-
-        x = torch.tanh(self.inputs(inputs, stream=stream))
-        h_drop = h_drop.expand_as(x)
-
-        xh = cat_groups_2d([x, h_drop], groups=groups)
-        c = self.conv(xh, stream=stream)
+        c = cat_groups_2d([*x, h_drop], groups=groups, expand=True)
+        c = self.common(c, stream=stream)
+        c = self.conv(c, stream=stream)
 
         N, _, H, W = c.shape
 
