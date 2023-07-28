@@ -80,7 +80,7 @@ def to_groups_2d(tensor, groups):
     return tensor.view(N, groups, -1, H, W)
 
 
-def cat_groups_2d(tensors, groups):
+def cat_groups_2d(tensors, groups, expand=False):
     """Groupwise concatenation of 2D (N, C, H, W) tensors along the channel dimension (C)
 
     Parameters
@@ -95,6 +95,10 @@ def cat_groups_2d(tensors, groups):
     Tensor
         [N, C', H, W]
     """
+    if expand:
+        N, _, H, W = tensors[0].shape
+        tensors = tensors[:1] + [t.expand(N, -1, H, W) for t in tensors[1:]]
+
     if groups == 1:
         return torch.cat(tensors, 1)
     else:
