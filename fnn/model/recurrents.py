@@ -1,6 +1,6 @@
 import torch
 from .modules import Module
-from .elements import Conv, InterGroup, Accumulate, Dropout, nonlinearity
+from .elements import Conv, InterGroup, Accumulate, Dropout
 from .utils import cat_groups_2d
 
 
@@ -67,7 +67,6 @@ class Rvt(Recurrent):
         groups=1,
         heads=1,
         spatial=3,
-        nonlinear="gelu",
         dropout=0,
     ):
         """
@@ -85,8 +84,6 @@ class Rvt(Recurrent):
             heads per stream
         spatial : int
             spatial kernel size
-        nonlinear : str | None
-            nonlinearity
         dropout : float
             dropout probability -- [0, 1)
         """
@@ -109,7 +106,6 @@ class Rvt(Recurrent):
         self.groups = int(groups)
         self.heads = int(heads)
         self.spatial = int(spatial)
-        self.nonlinear, self.gamma = nonlinearity(nonlinear)
         self._dropout = float(dropout)
 
     def _init(self, inputs, streams):
@@ -214,8 +210,7 @@ class Rvt(Recurrent):
             h = self.past["h"]
             h_drop = self.past["h_drop"]
         else:
-            h = torch.zeros(1, channels, 1, 1, device=self.device)
-            h_drop = self.drop(self.nonlinear(h) * self.gamma)
+            h = h_drop = torch.zeros(1, channels, 1, 1, device=self.device)
 
         c = cat_groups_2d([*x, h_drop], groups=groups, expand=True)
         c = self.common(c, stream=stream)
@@ -230,10 +225,10 @@ class Rvt(Recurrent):
         a = torch.einsum("N S G C D , N S G Q D -> N S G C Q", v, w).view(N, -1, H, W)
 
         z = torch.sigmoid(self.proj_z(a, stream=stream))
-        _h = self.nonlinear(self.proj_h(a, stream=stream))
+        _h = torch.tanh(self.proj_h(a, stream=stream))
 
         h = z * h + (1 - z) * _h
-        h_drop = self.drop(h * self.gamma)
+        h_drop = self.drop(h)
 
         self.past["h"] = h
         self.past["h_drop"] = h_drop
