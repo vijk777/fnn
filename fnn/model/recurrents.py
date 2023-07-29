@@ -229,8 +229,8 @@ class Rvt(Recurrent):
         w = torch.einsum("N S G C Q , N S G C D -> N S G Q D", q, k).softmax(dim=-1)
         a = torch.einsum("N S G C D , N S G Q D -> N S G C Q", v, w).view(N, -1, H, W)
 
-        z = torch.sigmoid(self.proj_z(c, stream=stream))
-        _h = self.nonlinear(self.proj_h(c, stream=stream))
+        z = torch.sigmoid(self.proj_z(a, stream=stream))
+        _h = self.nonlinear(self.proj_h(a, stream=stream))
 
         h = z * h + (1 - z) * _h
         h_drop = self.drop(h * self.gamma)
