@@ -67,6 +67,7 @@ class Rvt(Recurrent):
         groups=1,
         heads=1,
         spatial=3,
+        init_gate=1,
         dropout=0,
     ):
         """
@@ -84,6 +85,8 @@ class Rvt(Recurrent):
             heads per stream
         spatial : int
             spatial kernel size
+        init_gate : float
+            initial gate bias
         dropout : float
             dropout probability -- [0, 1)
         """
@@ -106,6 +109,7 @@ class Rvt(Recurrent):
         self.groups = int(groups)
         self.heads = int(heads)
         self.spatial = int(spatial)
+        self.init_gate = float(init_gate)
         self._dropout = float(dropout)
 
     def _init(self, inputs, streams):
@@ -144,17 +148,18 @@ class Rvt(Recurrent):
         self.token_k = token(pad=None, gain=None)
         self.token_v = token(pad=None, gain=None)
 
-        def proj():
+        def proj(bias):
             return Conv(
                 in_channels=self.attention_channels,
                 out_channels=self.recurrent_channels,
                 in_groups=self.groups,
                 out_groups=self.groups,
                 streams=self.streams,
+                bias=bias,
             )
 
-        self.proj_z = proj()
-        self.proj_h = proj()
+        self.proj_z = proj(bias=self.init_gate)
+        self.proj_h = proj(bias=0)
 
         self.drop = Dropout(p=self._dropout)
 
