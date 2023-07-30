@@ -67,7 +67,8 @@ class Rvt(Recurrent):
         groups=1,
         heads=1,
         spatial=3,
-        init_gate=1,
+        init_input=-1,
+        init_forget=1,
         dropout=0,
     ):
         """
@@ -85,8 +86,10 @@ class Rvt(Recurrent):
             heads per stream
         spatial : int
             spatial kernel size
-        init_gate : float
-            initial gate bias
+        init_input : float
+            initial input gate bias
+        init_forget : float
+            initial forget gate bias
         dropout : float
             dropout probability -- [0, 1)
         """
@@ -109,7 +112,8 @@ class Rvt(Recurrent):
         self.groups = int(groups)
         self.heads = int(heads)
         self.spatial = int(spatial)
-        self.init_gate = float(init_gate)
+        self.init_input = float(init_input)
+        self.init_forget = float(init_forget)
         self._dropout = float(dropout)
 
     def _init(self, inputs, streams):
@@ -158,8 +162,10 @@ class Rvt(Recurrent):
                 bias=bias,
             )
 
-        self.proj_z = proj(bias=self.init_gate)
-        self.proj_h = proj(bias=0)
+        self.proj_i = proj(bias=self.init_input)
+        self.proj_f = proj(bias=self.init_forget)
+        self.proj_g = proj(bias=0)
+        self.proj_o = proj(bias=0)
 
         self.drop = Dropout(p=self._dropout)
 
@@ -214,28 +220,32 @@ class Rvt(Recurrent):
 
         if self.past:
             h = self.past["h"]
+            c = self.past["c"]
         else:
-            h = torch.zeros(1, channels, 1, 1, device=self.device)
+            h = c = torch.zeros(1, channels, 1, 1, device=self.device)
 
-        c = cat_groups_2d([*x, h], groups=groups, expand=True)
-        c = self.common(c, stream=stream)
+        xh = cat_groups_2d([*x, h], groups=groups, expand=True)
+        xh = self.common(xh, stream=stream)
 
-        N, _, H, W = c.shape
+        N, _, H, W = xh.shape
 
-        q = self.token_q(c, stream=stream).view(N, groups, self.heads, self.head_channels, -1)
-        k = self.token_k(c, stream=stream).view(N, groups, self.heads, self.head_channels, -1)
-        v = self.token_v(c, stream=stream).view(N, groups, self.heads, self.head_channels, -1)
+        q = self.token_q(xh, stream=stream).view(N, groups, self.heads, self.head_channels, -1)
+        k = self.token_k(xh, stream=stream).view(N, groups, self.heads, self.head_channels, -1)
+        v = self.token_v(xh, stream=stream).view(N, groups, self.heads, self.head_channels, -1)
 
         w = torch.einsum("N S G C Q , N S G C D -> N S G Q D", q, k).softmax(dim=-1)
         a = torch.einsum("N S G C D , N S G Q D -> N S G C Q", v, w).view(N, -1, H, W)
 
-        z = self.proj_z(a, stream=stream)
-        z = torch.sigmoid(z)
+        i = torch.sigmoid(self.proj_i(a, stream=stream))
+        f = torch.sigmoid(self.proj_f(a, stream=stream))
+        g = torch.tanh(self.proj_g(a, stream=stream))
+        o = torch.sigmoid(self.proj_o(a, stream=stream))
 
-        _h = self.proj_h(a, stream=stream)
-        _h = torch.tanh(_h)
+        c = f * c + i * g
+        h = o * torch.tanh(c)
+        h = self.drop(h)
 
-        h = z * h + (1 - z) * self.drop(_h)
+        self.past["c"] = c
         self.past["h"] = h
 
         o = cat_groups_2d([*x, h], groups=groups, expand=True)
