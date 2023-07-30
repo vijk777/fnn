@@ -153,8 +153,8 @@ class Rvt(Recurrent):
             out_groups=self.groups,
             streams=self.streams,
             spatial=self.spatial,
-            gain=False,
-            bias=False,
+            gain=None,
+            bias=None,
         )
 
         def token(gain):
@@ -242,12 +242,12 @@ class Rvt(Recurrent):
             h = h_drop = torch.zeros(1, channels, 1, 1, device=self.device)
 
         if self.groups > 1:
-            x = self.inputs([h_drop, *x], stream=stream)
+            i = self.inputs([h_drop, *x], stream=stream)
         else:
-            x = self.inputs(x, stream=stream)
+            i = self.inputs(x, stream=stream)
 
-        xh = cat_groups_2d([x, h_drop], groups=groups, expand=True)
-        c = self.common(xh, stream=stream)
+        ih = cat_groups_2d([i, h_drop], groups=groups, expand=True)
+        c = self.common(ih, stream=stream)
 
         N, _, H, W = c.shape
 
