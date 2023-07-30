@@ -67,7 +67,6 @@ class Rvt(Recurrent):
         groups=1,
         heads=1,
         spatial=3,
-        nonlinear="gelu",
         dropout=0,
     ):
         """
@@ -85,8 +84,6 @@ class Rvt(Recurrent):
             heads per stream
         spatial : int
             spatial kernel size
-        nonlinear : str | None
-            nonlinearity
         dropout : float
             dropout probability -- [0, 1)
         """
@@ -109,7 +106,6 @@ class Rvt(Recurrent):
         self.groups = int(groups)
         self.heads = int(heads)
         self.spatial = int(spatial)
-        self.nonlinear, self.gamma = nonlinearity(nonlinear)
         self._dropout = float(dropout)
 
     def _init(self, inputs, streams):
@@ -232,10 +228,9 @@ class Rvt(Recurrent):
         z = torch.sigmoid(z)
 
         _h = self.proj_h(a, stream=stream)
-        _h = self.nonlinear(_h) * self.gamma
-        _h = self.drop(_h)
+        _h = torch.tanh(_h)
 
-        h = z * h + (1 - z) * _h
+        h = z * h + (1 - z) * self.drop(_h)
         self.past["h"] = h
 
         o = cat_groups_2d([*x, h], groups=groups, expand=True)
