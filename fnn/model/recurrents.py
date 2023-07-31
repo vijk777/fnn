@@ -1,6 +1,6 @@
 import torch
 from .modules import Module
-from .elements import Conv, InterGroup, Accumulate, Dropout, nonlinearity
+from .elements import Conv, InterGroup, Accumulate, Dropout
 from .utils import cat_groups_2d
 
 
@@ -67,7 +67,6 @@ class Rvt(Recurrent):
         groups=1,
         heads=1,
         spatial=3,
-        nonlinear="gelu",
         init_gate=1,
         dropout=0,
     ):
@@ -86,8 +85,6 @@ class Rvt(Recurrent):
             heads per stream
         spatial : int
             spatial kernel size
-        nonlinear : str | None
-            nonlinearity
         init_gate : float
             initial gate bias
         dropout : float
@@ -112,7 +109,6 @@ class Rvt(Recurrent):
         self.groups = int(groups)
         self.heads = int(heads)
         self.spatial = int(spatial)
-        self.nonlinear, self.gamma = nonlinearity(nonlinear)
         self.init_gate = float(init_gate)
         self._dropout = float(dropout)
 
@@ -250,12 +246,9 @@ class Rvt(Recurrent):
             h = torch.zeros(1, channels, 1, 1, device=self.device)
 
         if self.groups > 1:
-            inputs = [h, *x]
+            x = torch.tanh(self.proj_x([h, *x], stream=stream))
         else:
-            inputs = x
-
-        x = self.proj_x(inputs, stream=stream)
-        x = self.nonlinear(x) * self.gamma
+            x = torch.tanh(self.proj_x(x, stream=stream))
 
         c = cat_groups_2d([x, h], groups=groups, expand=True)
         c = self.conv(c, stream=stream)
@@ -269,11 +262,8 @@ class Rvt(Recurrent):
         w = torch.einsum("N S G C Q , N S G C D -> N S G Q D", q, k).softmax(dim=-1)
         a = torch.einsum("N S G C D , N S G Q D -> N S G C Q", v, w).view(N, -1, H, W)
 
-        z = self.proj_z(a, stream=stream)
-        z = torch.sigmoid(z)
-
-        _h = self.proj_h(a, stream=stream)
-        _h = self.nonlinear(_h) * self.gamma
+        z = torch.sigmoid(self.proj_z(a, stream=stream))
+        _h = torch.tanh(self.proj_h(a, stream=stream))
 
         h = z * h + (1 - z) * self.drop(_h)
         self.past["h"] = h
