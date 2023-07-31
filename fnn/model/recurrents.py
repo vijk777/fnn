@@ -67,8 +67,8 @@ class Rvt(Recurrent):
         groups=1,
         heads=1,
         spatial=3,
-        init_input=-1,
-        init_forget=1,
+        nonlinear="gelu",
+        init_gate=1,
         dropout=0,
     ):
         """
@@ -86,10 +86,10 @@ class Rvt(Recurrent):
             heads per stream
         spatial : int
             spatial kernel size
-        init_input : float
-            initial input gate bias
-        init_forget : float
-            initial forget gate bias
+        nonlinear : str | None
+            nonlinearity
+        init_gate : float
+            initial gate bias
         dropout : float
             dropout probability -- [0, 1)
         """
@@ -112,8 +112,8 @@ class Rvt(Recurrent):
         self.groups = int(groups)
         self.heads = int(heads)
         self.spatial = int(spatial)
-        self.init_input = float(init_input)
-        self.init_forget = float(init_forget)
+        self.nonlinear, self.gamma = nonlinearity(nonlinear)
+        self.init_gate = float(init_gate)
         self._dropout = float(dropout)
 
     def _init(self, inputs, streams):
@@ -128,29 +128,57 @@ class Rvt(Recurrent):
         self._inputs = list(map(int, inputs))
         self.streams = int(streams)
 
-        self.common = Conv(
-            in_channels=sum(self._inputs) + self.recurrent_channels,
+        if self.groups > 1:
+            gain = (len(self._inputs) + 1) ** -0.5
+            intergroup = InterGroup(
+                channels=self.recurrent_channels,
+                groups=self.groups,
+                streams=self.streams,
+                gain=gain,
+            )
+            inputs = [intergroup]
+        else:
+            gain = len(self._inputs) ** -0.5
+            inputs = []
+
+        for i, in_channels in enumerate(self._inputs):
+            conv = Conv(
+                in_channels=in_channels,
+                out_channels=self.recurrent_channels,
+                out_groups=self.groups,
+                streams=self.streams,
+                gain=gain,
+                bias=None if i else 0,
+            )
+            inputs.append(conv)
+
+        self.proj_x = Accumulate(inputs)
+
+        self.conv = Conv(
+            in_channels=self.recurrent_channels * 2,
             out_channels=self.common_channels,
+            in_groups=self.groups,
             out_groups=self.groups,
             streams=self.streams,
+            spatial=self.spatial,
+            gain=None,
+            bias=None,
         )
 
-        def token(pad, gain):
+        def token(gain):
             return Conv(
                 in_channels=self.common_channels,
                 out_channels=self.attention_channels,
                 in_groups=self.groups,
                 out_groups=self.heads,
                 streams=self.streams,
-                spatial=self.spatial,
-                pad=pad,
                 gain=gain,
                 bias=None,
             )
 
-        self.token_q = token(pad="zeros", gain=self.head_channels**-0.5)
-        self.token_k = token(pad=None, gain=None)
-        self.token_v = token(pad=None, gain=None)
+        self.token_q = token(gain=self.head_channels**-0.5)
+        self.token_k = token(gain=None)
+        self.token_v = token(gain=None)
 
         def proj(bias):
             return Conv(
@@ -162,15 +190,13 @@ class Rvt(Recurrent):
                 bias=bias,
             )
 
-        self.proj_i = proj(bias=self.init_input)
-        self.proj_f = proj(bias=self.init_forget)
-        self.proj_g = proj(bias=0)
-        self.proj_o = proj(bias=0)
+        self.proj_z = proj(bias=self.init_gate)
+        self.proj_h = proj(bias=0)
 
         self.drop = Dropout(p=self._dropout)
 
         self.out = Conv(
-            in_channels=sum(self._inputs) + self.recurrent_channels,
+            in_channels=self.recurrent_channels * 2,
             out_channels=self.out_channels,
             streams=self.streams,
         )
@@ -220,35 +246,39 @@ class Rvt(Recurrent):
 
         if self.past:
             h = self.past["h"]
-            c = self.past["c"]
         else:
-            h = c = torch.zeros(1, channels, 1, 1, device=self.device)
+            h = torch.zeros(1, channels, 1, 1, device=self.device)
 
-        xh = cat_groups_2d([*x, h], groups=groups, expand=True)
-        xh = self.common(xh, stream=stream)
+        if self.groups > 1:
+            inputs = [h, *x]
+        else:
+            inputs = x
 
-        N, _, H, W = xh.shape
+        x = self.proj_x(inputs, stream=stream)
+        x = self.nonlinear(x) * self.gamma
 
-        q = self.token_q(xh, stream=stream).view(N, groups, self.heads, self.head_channels, -1)
-        k = self.token_k(xh, stream=stream).view(N, groups, self.heads, self.head_channels, -1)
-        v = self.token_v(xh, stream=stream).view(N, groups, self.heads, self.head_channels, -1)
+        c = cat_groups_2d([x, h], groups=groups, expand=True)
+        c = self.conv(c, stream=stream)
+
+        N, _, H, W = c.shape
+
+        q = self.token_q(c, stream=stream).view(N, groups, self.heads, self.head_channels, H * W)
+        k = self.token_k(c, stream=stream).view(N, groups, self.heads, self.head_channels, H * W)
+        v = self.token_v(c, stream=stream).view(N, groups, self.heads, self.head_channels, H * W)
 
         w = torch.einsum("N S G C Q , N S G C D -> N S G Q D", q, k).softmax(dim=-1)
         a = torch.einsum("N S G C D , N S G Q D -> N S G C Q", v, w).view(N, -1, H, W)
 
-        i = torch.sigmoid(self.proj_i(a, stream=stream))
-        f = torch.sigmoid(self.proj_f(a, stream=stream))
-        g = torch.tanh(self.proj_g(a, stream=stream))
-        o = torch.sigmoid(self.proj_o(a, stream=stream))
+        z = self.proj_z(a, stream=stream)
+        z = torch.sigmoid(z)
 
-        c = f * c + i * g
-        h = o * torch.tanh(c)
-        h = self.drop(h)
+        _h = self.proj_h(a, stream=stream)
+        _h = self.nonlinear(_h) * self.gamma
 
-        self.past["c"] = c
+        h = z * h + (1 - z) * self.drop(_h)
         self.past["h"] = h
 
-        o = cat_groups_2d([*x, h], groups=groups, expand=True)
+        o = cat_groups_2d([x, h], groups=groups, expand=True)
         return self.out(o, stream=stream)
 
 
