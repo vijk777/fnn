@@ -165,19 +165,6 @@ class Network(Module):
         """
         raise NotImplementedError()
 
-    def parallel_groups(self, group_size=1):
-        """
-        Parameters
-        ----------
-        group_size : int
-            parallel group size
-
-        Yields
-        ------
-        fnn.train.parallel.ParameterGroup
-        """
-        raise NotImplementedError()
-
 
 # -------------- Network Types --------------
 
@@ -581,49 +568,3 @@ class Visual(Network):
                     yield loss
                 else:
                     yield loss.cpu().numpy()
-
-    def parallel_groups(self, group_size=1):
-        """
-        Parameters
-        ----------
-        group_size : int
-            parallel group size
-
-        Yields
-        ------
-        fnn.train.parallel.ParameterGroup
-        """
-        from torch.distributed import is_initialized, get_world_size, get_rank, new_group
-        from fnn.train.parallel import ParameterGroup
-
-        if not is_initialized():
-            assert group_size == 1
-            return
-
-        size = get_world_size()
-        assert size % group_size == 0
-
-        if not size > 1:
-            return
-
-        if not self.core.frozen:
-            ranks = np.arange(size)
-            yield ParameterGroup(
-                parameters=self.core.named_parameters(),
-                group=new_group(ranks),
-            )
-
-        if group_size > 1:
-            params = dict()
-
-            for name in ["perspective", "modulation", "readout", "reduce", "unit"]:
-                module = getattr(self, name)
-                if not module.frozen:
-                    params = dict(params, **{f"{name}.{k}": v for k, v in module.named_parameters()})
-
-            if params:
-                ranks = get_rank() // group_size * group_size + np.arange(group_size)
-                yield ParameterGroup(
-                    parameters=params,
-                    group=new_group(ranks),
-                )

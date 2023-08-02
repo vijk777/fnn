@@ -1,6 +1,7 @@
-from torch import nn, inference_mode
+import numpy as np
 from itertools import chain
 from contextlib import contextmanager
+from torch import nn, inference_mode
 
 
 class Module(nn.Module):
@@ -92,6 +93,62 @@ class Module(nn.Module):
                     yield
         finally:
             self.train(prev)
+
+    def parallel_groups(self, group_size=1, shared=None):
+        """
+        Parameters
+        ----------
+        group_size : int
+            parallel group size
+        shared : Sequence[str] | None
+            sequence of module names
+
+        Yields
+        ------
+        fnn.train.parallel.ParameterGroup
+        """
+        from torch.distributed import is_initialized, get_world_size, get_rank, new_group
+        from fnn.train.parallel import ParameterGroup
+
+        if not is_initialized():
+            assert group_size == 1
+            return
+
+        size = get_world_size()
+        assert size % group_size == 0
+
+        if not size > 1:
+            return
+
+        shared = set() if shared is None else set(shared)
+        children = {k for k, _ in self.named_children()}
+
+        if shared - children:
+            raise ValueError("Shared module not recognized")
+
+        shared_params = dict()
+        group_params = dict()
+
+        for name in children:
+
+            module = getattr(self, name)
+
+            if module.frozen:
+                continue
+
+            elif name in shared:
+                shared_params.update({f"{name}.{k}": v for k, v in module.named_parameters()})
+
+            elif group_size > 1:
+                group_params.update({f"{name}.{k}": v for k, v in module.named_parameters()})
+
+        if shared_params:
+            ranks = np.arange(size)
+            yield ParameterGroup(parameters=shared_params, group=new_group(ranks))
+
+        if group_params:
+            ranks = np.arange(group_size) + get_rank() // group_size * group_size
+            yield ParameterGroup(parameters=group_params, group=new_group(ranks))
 
 
 class Sequential(nn.Sequential, Module):
