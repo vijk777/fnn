@@ -238,10 +238,10 @@ class Rvt(Recurrent):
         """
         if stream is None:
             S = self.streams
-            s = torch.stack(list(self.scales))
+            s = torch.stack(list(self.scales))[:, :, None, None]
         else:
             S = 1
-            s = self.scales[stream]
+            s = self.scales[stream][None, :, None, None]
 
         if self.past:
             h = self.past["h"]
@@ -261,7 +261,7 @@ class Rvt(Recurrent):
         v = self.proj_v(xh, stream=stream).view(N, S, self.heads, self.head_channels, -1)
 
         q = q / q.norm(p=2, dim=3, keepdim=True)
-        k = k / k.norm(p=2, dim=3, keepdim=True) * s[:, :, None, None]
+        k = k / k.norm(p=2, dim=3, keepdim=True) * s
 
         w = torch.einsum("N S G C Q , N S G C D -> N S G Q D", q, k).softmax(dim=-1)
         a = torch.einsum("N S G C D , N S G Q D -> N S G C Q", v, w).view(N, -1, H, W)
