@@ -86,8 +86,8 @@ class RandomOptimizer(Optimizer):
             training objective
         parameters : Mapping[str, fnn.model.parameters.Parameter]
             mapping of parameters
-        groups : None | list[fnn.train.parallel.ParameterGroup]
-            None | list of parameter groups
+        groups : None | Iterable[fnn.train.parallel.ParameterGroup]
+            None | parameter groups
 
         Yields
         ------
