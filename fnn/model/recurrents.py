@@ -239,10 +239,10 @@ class Rvt(Recurrent):
         """
         if stream is None:
             S = self.streams
-            s = torch.stack(list(self.scales))
+            s = torch.stack(list(self.scales))[:, :, :, None]
         else:
             S = 1
-            s = self.scales[stream][None]
+            s = self.scales[stream][None, :, :, None]
 
         if self.past:
             h = self.past["h"]
@@ -357,7 +357,7 @@ class ConvLstm(Recurrent):
             )
             inputs.append(conv)
 
-        self.inputs = Accumulate(inputs)
+        self.proj_x = Accumulate(inputs)
 
         def conv(bias):
             return Conv(
