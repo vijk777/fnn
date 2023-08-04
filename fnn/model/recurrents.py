@@ -1,5 +1,6 @@
 import torch
 from .modules import Module
+from .parameters import Parameter, ParameterList
 from .elements import Conv, InterGroup, Accumulate, Dropout
 from .utils import cat_groups_2d
 
@@ -155,7 +156,7 @@ class Rvt(Recurrent):
 
         self.proj_x = Accumulate(inputs)
 
-        def token(channels, pad, gain):
+        def token(channels, pad):
             return Conv(
                 in_channels=self.recurrent_channels * 2,
                 out_channels=channels,
@@ -164,13 +165,20 @@ class Rvt(Recurrent):
                 streams=self.streams,
                 spatial=self.spatial,
                 pad=pad,
-                gain=gain,
+                gain=None,
                 bias=None,
             )
 
-        self.proj_q = token(channels=self.attention_channels, pad="zeros", gain=self.head_channels**-0.5)
-        self.proj_k = token(channels=self.attention_channels, pad=None, gain=None)
-        self.proj_v = token(channels=self.projection_channels, pad=None, gain=None)
+        self.proj_q = token(channels=self.attention_channels, pad="zeros")
+        self.proj_k = token(channels=self.attention_channels, pad=None)
+        self.proj_v = token(channels=self.projection_channels, pad=None)
+
+        def scale():
+            return Parameter(torch.ones([self.heads, self.head_channels]))
+
+        self.scales = ParameterList([scale() for _ in range(self.streams)])
+        self.scales.decay = False
+        self.scales.norm_dim = 1
 
         def proj(bias):
             return Conv(
@@ -230,28 +238,31 @@ class Rvt(Recurrent):
             [N, S*O, H, W] -- stream is None
         """
         if stream is None:
-            channels = self.streams * self.recurrent_channels
-            groups = self.streams
+            S = self.streams
+            s = torch.stack(list(self.scales))
         else:
-            channels = self.recurrent_channels
-            groups = 1
+            S = 1
+            s = self.scales[stream][None]
 
         if self.past:
             h = self.past["h"]
         else:
-            h = torch.zeros(1, channels, 1, 1, device=self.device)
+            h = torch.zeros(1, S * self.recurrent_channels, 1, 1, device=self.device)
 
         if self.groups > 1:
             x = torch.tanh(self.proj_x([h, *x], stream=stream))
         else:
             x = torch.tanh(self.proj_x(x, stream=stream))
 
-        xh = cat_groups_2d([x, h], groups=groups, expand=True)
+        xh = cat_groups_2d([x, h], groups=S * self.groups, expand=True)
         N, _, H, W = xh.shape
 
-        q = self.proj_q(xh, stream=stream).view(N, groups, self.heads, self.head_channels, -1)
-        k = self.proj_k(xh, stream=stream).view(N, groups, self.heads, self.head_channels, -1)
-        v = self.proj_v(xh, stream=stream).view(N, groups, self.heads, self.head_channels, -1)
+        q = self.proj_q(xh, stream=stream).view(N, S, self.heads, self.head_channels, -1)
+        k = self.proj_k(xh, stream=stream).view(N, S, self.heads, self.head_channels, -1)
+        v = self.proj_v(xh, stream=stream).view(N, S, self.heads, self.head_channels, -1)
+
+        q = q / q.norm(p=2, dim=3, keepdim=True)
+        k = k / k.norm(p=2, dim=3, keepdim=True) * s
 
         w = torch.einsum("N S G C Q , N S G C D -> N S G Q D", q, k).softmax(dim=-1)
         a = torch.einsum("N S G C D , N S G Q D -> N S G C Q", v, w).view(N, -1, H, W)
@@ -262,7 +273,7 @@ class Rvt(Recurrent):
         h = z * h + (1 - z) * self.drop(_h)
         self.past["h"] = h
 
-        xh = cat_groups_2d([x, h], groups=groups)
+        xh = cat_groups_2d([x, h], groups=S * self.groups)
         return self.out(xh, stream=stream)
 
 
@@ -409,26 +420,22 @@ class ConvLstm(Recurrent):
             [N, S*O, H, W] -- stream is None
         """
         if stream is None:
-            channels = self.streams * self.recurrent_channels
-            groups = self.streams
+            S = self.streams
         else:
-            channels = self.recurrent_channels
-            groups = 1
+            S = 1
 
         if self.past:
             h = self.past["h"]
             c = self.past["c"]
         else:
-            h = c = torch.zeros(1, channels, 1, 1, device=self.device)
+            h = c = torch.zeros(1, S * self.recurrent_channels, 1, 1, device=self.device)
 
         if self.groups > 1:
-            inputs = [h, *x]
+            x = torch.tanh(self.proj_x([h, *x], stream=stream))
         else:
-            inputs = x
+            x = torch.tanh(self.proj_x(x, stream=stream))
 
-        x = torch.tanh(self.inputs(inputs, stream=stream))
-        h = h.expand_as(x)
-        xh = cat_groups_2d([x, h], groups=groups)
+        xh = cat_groups_2d([x, h], groups=S * self.groups, expand=True)
 
         i = torch.sigmoid(self.proj_i(xh, stream=stream))
         f = torch.sigmoid(self.proj_f(xh, stream=stream))
