@@ -377,7 +377,7 @@ class ConvLstm(Recurrent):
         self.drop = Dropout(p=self._dropout)
 
         self.out = Conv(
-            in_channels=self.recurrent_channels,
+            in_channels=self.recurrent_channels * 2,
             out_channels=self.out_channels,
             streams=self.streams,
         )
@@ -448,4 +448,5 @@ class ConvLstm(Recurrent):
         self.past["c"] = c
         self.past["h"] = h
 
-        return self.out(h, stream=stream)
+        xh = cat_groups_2d([x, h], groups=S * self.groups)
+        return self.out(xh, stream=stream)
