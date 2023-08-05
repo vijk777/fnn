@@ -257,9 +257,9 @@ class Rvt(Recurrent):
             h = torch.zeros(1, S * self.hidden_channels, 1, 1, device=self.device)
 
         if self.groups > 1:
-            x = self.proj_x([h, *x], stream=stream)
+            x = torch.tanh(self.proj_x([h, *x], stream=stream))
         else:
-            x = self.proj_x(x, stream=stream)
+            x = torch.tanh(self.proj_x(x, stream=stream))
 
         xh = cat_groups_2d([x, h], groups=S * self.groups, expand=True)
         N, _, H, W = xh.shape
@@ -446,9 +446,9 @@ class ConvLstm(Recurrent):
             h = c = torch.zeros(1, S * self.hidden_channels, 1, 1, device=self.device)
 
         if self.groups > 1:
-            x = self.proj_x([h, *x], stream=stream)
+            x = torch.tanh(self.proj_x([h, *x], stream=stream))
         else:
-            x = self.proj_x(x, stream=stream)
+            x = torch.tanh(self.proj_x(x, stream=stream))
 
         xh = cat_groups_2d([x, h], groups=S * self.groups, expand=True)
 
