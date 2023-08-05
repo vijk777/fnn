@@ -1,7 +1,7 @@
 import torch
 from .modules import Module
 from .parameters import Parameter, ParameterList
-from .elements import Conv, InterGroup, Accumulate, Dropout, nonlinearity
+from .elements import Conv, InterGroup, Accumulate, Dropout
 from .utils import cat_groups_2d
 
 
@@ -70,7 +70,6 @@ class Rvt(Recurrent):
         heads=1,
         spatial=3,
         init_gate=1,
-        nonlinear="gelu",
         dropout=0,
     ):
         """
@@ -94,8 +93,6 @@ class Rvt(Recurrent):
             spatial kernel size
         init_gate : float
             initial gate bias
-        nonlinear : str | None
-            nonlinearity
         dropout : float
             dropout probability -- [0, 1)
         """
@@ -127,7 +124,6 @@ class Rvt(Recurrent):
         self.heads = int(heads)
         self.spatial = int(spatial)
         self.init_gate = float(init_gate)
-        self.nonlinear, self.gamma = nonlinearity(nonlinear)
         self._dropout = float(dropout)
 
     def _init(self, inputs, streams):
@@ -279,7 +275,7 @@ class Rvt(Recurrent):
         a = torch.einsum("N S G C D , N S G Q D -> N S G C Q", v, w).view(N, -1, H, W)
 
         z = torch.sigmoid(self.proj_z(a, stream=stream))
-        _h = self.nonlinear(self.proj_h(a, stream=stream)) * self.gamma
+        _h = torch.tanh(self.proj_h(a, stream=stream))
 
         h = z * h + (1 - z) * self.drop(_h)
         self.past["h"] = h
