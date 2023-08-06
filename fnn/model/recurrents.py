@@ -179,7 +179,7 @@ class Rvt(Recurrent):
             pad="zeros",
             gain=None,
         )
-        self.proj_q_h = token(
+        self.proj_q_c = token(
             in_channels=self.hidden_channels,
             out_channels=self.attention_channels,
             pad="zeros",
@@ -192,7 +192,7 @@ class Rvt(Recurrent):
             pad=None,
             gain=self.attn_channels**-0.5,
         )
-        self.proj_k_h = token(
+        self.proj_k_c = token(
             in_channels=self.hidden_channels,
             out_channels=self.attention_channels,
             pad=None,
@@ -205,16 +205,16 @@ class Rvt(Recurrent):
             pad=None,
             gain=None,
         )
-        self.proj_v_h = token(
+        self.proj_v_c = token(
             in_channels=self.hidden_channels,
             out_channels=self.projection_channels,
             pad=None,
             gain=None,
         )
 
-        def proj(bias):
+        def proj(channels, bias):
             return Conv(
-                in_channels=self.projection_channels * 2,
+                in_channels=channels,
                 out_channels=self.hidden_channels,
                 in_groups=self.groups,
                 out_groups=self.groups,
@@ -222,13 +222,23 @@ class Rvt(Recurrent):
                 bias=bias,
             )
 
-        self.proj_z = proj(bias=self.init_gate)
-        self.proj_h = proj(bias=0)
+        self.proj_z = proj(
+            channels=self.projection_channels * 2,
+            bias=self.init_gate,
+        )
+        self.proj_n = proj(
+            channels=self.projection_channels * 2,
+            bias=0,
+        )
+        self.proj_h = proj(
+            channels=self.in_channels + self.projection_channels * 2,
+            bias=0,
+        )
 
         self.drop = Dropout(p=self._dropout)
 
         self.out = Conv(
-            in_channels=self.in_channels + self.projection_channels * 2,
+            in_channels=self.hidden_channels,
             out_channels=self.out_channels,
             streams=self.streams,
         )
@@ -275,9 +285,10 @@ class Rvt(Recurrent):
             S = 1
 
         if self.past:
+            c = self.past["c"]
             h = self.past["h"]
         else:
-            h = torch.randn(1, S * self.hidden_channels, 1, 1, device=self.device)
+            h = c = torch.randn(1, S * self.hidden_channels, 1, 1, device=self.device)
 
         if self.groups > 1:
             x = self.proj_x([h, *x], stream=stream)
@@ -285,20 +296,20 @@ class Rvt(Recurrent):
             x = self.proj_x(x, stream=stream)
 
         N, _, H, W = x.shape
-        h = h.expand(N, -1, H, W)
+        c = c.expand(N, -1, H, W)
 
         q_x = self.proj_q_x(x, stream=stream).view(N, S, self.groups, self.attn_channels, -1)
-        q_h = self.proj_q_h(h, stream=stream).view(N, S, self.groups, self.attn_channels, -1)
+        q_c = self.proj_q_c(c, stream=stream).view(N, S, self.groups, self.attn_channels, -1)
 
         k_x = self.proj_k_x(x, stream=stream).view(N, S, self.groups, self.attn_channels, -1)
-        k_h = self.proj_k_h(h, stream=stream).view(N, S, self.groups, self.attn_channels, -1)
+        k_c = self.proj_k_c(c, stream=stream).view(N, S, self.groups, self.attn_channels, -1)
 
         v_x = self.proj_v_x(x, stream=stream).view(N, S, self.groups, self.proj_channels, -1)
-        v_h = self.proj_v_h(h, stream=stream).view(N, S, self.groups, self.proj_channels, -1)
+        v_c = self.proj_v_c(c, stream=stream).view(N, S, self.groups, self.proj_channels, -1)
 
-        q = torch.stack([q_x, q_h], dim=0).unsqueeze(dim=4)
-        k = torch.stack([k_x, k_h], dim=3).unsqueeze(dim=0)
-        v = torch.stack([v_x, v_h], dim=3).unsqueeze(dim=0)
+        q = torch.stack([q_x, q_c], dim=0).unsqueeze(dim=4)
+        k = torch.stack([k_x, k_c], dim=3).unsqueeze(dim=0)
+        v = torch.stack([v_x, v_c], dim=3).unsqueeze(dim=0)
 
         q = q.expand(2, N, S, self.groups, 2, self.attn_channels, -1)
         k = k.expand(2, N, S, self.groups, 2, self.attn_channels, -1)
@@ -307,16 +318,20 @@ class Rvt(Recurrent):
         w = torch.einsum("A N S G B C Q , A N S G B C D -> A N S G B Q D", q, k).softmax(dim=-1)
         a = torch.einsum("A N S G B C D , A N S G B Q D -> A N S G B C Q", v, w).view(2, N, -1, H, W)
 
-        a_x, a_h = a.unbind(0)
+        a_x, a_c = a.unbind(0)
 
-        z = torch.sigmoid(self.proj_z(a_h, stream=stream))
-        _h = torch.tanh(self.proj_h(a_h, stream=stream))
-
-        h = z * h + (1 - z) * self.drop(_h)
-        self.past["h"] = h
+        z = torch.sigmoid(self.proj_z(a_c, stream=stream))
+        n = torch.tanh(self.proj_n(a_c, stream=stream))
+        c = z * c + (1 - z) * n
 
         xa = cat_groups_2d([x, a_x], groups=S * self.groups)
-        return self.out(xa, stream=stream)
+        h = torch.tanh(self.proj_h(xa, stream=stream))
+        h = self.drop(h)
+
+        self.past["c"] = c
+        self.past["h"] = h
+
+        return self.out(h, stream=stream)
 
 
 class ConvLstm(Recurrent):
@@ -429,7 +444,7 @@ class ConvLstm(Recurrent):
         self.drop = Dropout(p=self._dropout)
 
         self.out = Conv(
-            in_channels=self.in_channels + self.hidden_channels,
+            in_channels=self.hidden_channels,
             out_channels=self.out_channels,
             streams=self.streams,
         )
@@ -476,8 +491,8 @@ class ConvLstm(Recurrent):
             S = 1
 
         if self.past:
-            h = self.past["h"]
             c = self.past["c"]
+            h = self.past["h"]
         else:
             h = c = torch.zeros(1, S * self.hidden_channels, 1, 1, device=self.device)
 
@@ -500,5 +515,4 @@ class ConvLstm(Recurrent):
         self.past["c"] = c
         self.past["h"] = h
 
-        xh = cat_groups_2d([x, h], groups=S * self.groups)
-        return self.out(xh, stream=stream)
+        return self.out(h, stream=stream)
