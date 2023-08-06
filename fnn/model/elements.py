@@ -396,12 +396,14 @@ class Linear(Conv):
 
 
 class InterGroup(Module):
-    def __init__(self, channels, groups, streams=1, gain=1, eps=1e-5):
+    def __init__(self, in_channels, out_channels, groups, streams=1, gain=1, eps=1e-5):
         """
         Parameters
         ----------
-        channels : int
-            channels per stream, must be divisible by groups
+        in_channels : int
+            in channels per stream, must be divisible by groups
+        out_channels : int
+            out channels per stream, must be divisible by groups
         groups : int
             groups per stream
         streams : int
@@ -411,47 +413,50 @@ class InterGroup(Module):
         eps : float
             small value for numerical stability
         """
-        if channels % groups != 0:
-            raise ValueError("Input channels must be divisible by input groups")
+        if in_channels % groups != 0:
+            raise ValueError("Input channels must be divisible by groups")
+
+        if out_channels % groups != 0:
+            raise ValueError("Output channels must be divisible by groups")
 
         if not groups > 1:
             raise ValueError("Groups must be greater than 1")
 
         super().__init__()
 
-        self.channels = int(channels)
+        self.in_channels = int(in_channels)
+        self.out_channels = int(out_channels)
         self.groups = int(groups)
         self.streams = int(streams)
         self.gain = gain is not None
         self.init_gain = float(gain) if self.gain else None
         self.eps = float(eps)
 
-        self.fan = self.channels // self.groups
+        self.group_in = self.in_channels // self.groups
+        self.group_out = self.out_channels // self.groups
 
-        def param(bound):
-            weight = torch.zeros([self.groups, self.groups - 1, self.fan, self.fan])
+        self.fan_in = self.group_in * (self.groups - 1)
+
+        def weight(bound):
+            weight = torch.zeros([self.groups, self.groups - 1, self.group_out, self.group_in])
             nn.init.uniform_(weight, -bound, bound)
             return Parameter(weight)
 
-        bound = 1 / math.sqrt(self.fan)
-        self.weights = ParameterList([param(bound) for _ in range(self.streams)])
-        self.weights.norm_dim = 3
+        bound = self.fan_in**-0.5
+        self.weights = ParameterList([weight(bound) for _ in range(self.streams)])
+        self.weights.norm_dim = (1, 3)
 
         mask = ~torch.eye(self.groups, dtype=torch.bool)[:, :, None, None]
         self.register_buffer("mask", mask)
 
-        zero = torch.zeros([self.groups, self.groups, self.fan, self.fan])
+        zero = torch.zeros([self.groups, self.groups, self.group_out, self.group_in])
         self.register_buffer("zero", zero)
 
         if self.gain:
-
-            def param(init):
-                return Parameter(torch.full([self.groups, self.groups - 1, self.fan], init))
-
-            init = self.init_gain / math.sqrt(self.groups - 1)
-            self.gains = ParameterList([param(init) for _ in range(streams)])
+            gain = lambda: Parameter(torch.full([self.groups, self.group_out], self.init_gain))
+            self.gains = ParameterList([gain() for _ in range(streams)])
             self.gains.decay = False
-            self.gains.norm_dim = 2
+            self.gains.norm_dim = 1
 
         self.past = dict()
 
@@ -471,9 +476,9 @@ class InterGroup(Module):
 
         else:
             weight = self.weights[stream]
-            var, mean = torch.var_mean(weight, dim=3, keepdim=True, unbiased=False)
+            var, mean = torch.var_mean(weight, dim=(1, 3), keepdim=True, unbiased=False)
 
-            scale = (var * self.fan + self.eps).pow(-0.5)
+            scale = (var * self.fan_in + self.eps).pow(-0.5)
             if self.gain:
                 scale = scale * self.gains[stream].view_as(scale)
 
@@ -481,7 +486,7 @@ class InterGroup(Module):
             weight = torch.masked_scatter(self.zero, self.mask, weight)
             weight = torch.einsum("O I A B -> O A I B", weight)
 
-            return weight.reshape(self.channels, self.channels, 1, 1)
+            return weight.reshape(self.out_channels, self.in_channels, 1, 1)
 
     def forward(self, x, stream=None):
         """
@@ -516,10 +521,11 @@ class InterGroup(Module):
         return nn.functional.conv2d(input=x, weight=weight, groups=groups)
 
     def extra_repr(self):
-        s = "{streams} x {channels}, groups={groups}, gain={gain}"
+        s = "{streams} x {inp}->{out}, groups={groups}, gain={gain}"
         return s.format(
             streams=self.streams,
-            channels=self.channels,
+            inp=self.in_channels,
+            out=self.out_channels,
             groups=self.groups,
             gain=self.gain,
         )
