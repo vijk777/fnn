@@ -118,7 +118,9 @@ class Rvt(Recurrent):
         self.hidden_channels = int(hidden_channels)
         self.attention_channels = int(attention_channels)
         self.projection_channels = int(projection_channels)
-        self.head_channels = int(attention_channels // heads)
+
+        self.attn_channels = int(attention_channels // heads)
+        self.proj_channels = int(projection_channels // heads)
 
         self.groups = int(groups)
         self.heads = int(heads)
@@ -264,9 +266,9 @@ class Rvt(Recurrent):
         xh = cat_groups_2d([x, h], groups=S * self.groups, expand=True)
         N, _, H, W = xh.shape
 
-        q = self.proj_q(xh, stream=stream).view(N, S, self.heads, self.head_channels, -1)
-        k = self.proj_k(xh, stream=stream).view(N, S, self.heads, self.head_channels, -1)
-        v = self.proj_v(xh, stream=stream).view(N, S, self.heads, self.head_channels, -1)
+        q = self.proj_q(xh, stream=stream).view(N, S, self.heads, self.attn_channels, -1)
+        k = self.proj_k(xh, stream=stream).view(N, S, self.heads, self.attn_channels, -1)
+        v = self.proj_v(xh, stream=stream).view(N, S, self.heads, self.proj_channels, -1)
 
         q = q / q.norm(p=2, dim=3, keepdim=True)
         k = k / k.norm(p=2, dim=3, keepdim=True) * s
