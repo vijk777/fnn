@@ -98,6 +98,9 @@ class Block(Module):
         """
         self.streams = int(streams)
 
+        def drop(_):
+            return Dropout(p=self._drop)
+
         def conv(layer):
             return Conv(
                 in_channels=self.channels,
@@ -122,6 +125,7 @@ class Block(Module):
                     bias=None,
                 )
 
+        self.drops = ModuleList(map(drop, range(self._layers)))
         self.convs = ModuleList(map(conv, range(self._layers)))
         self.skips = ModuleList(map(skip, range(self._layers)))
 
@@ -129,8 +133,6 @@ class Block(Module):
             self.pool_fn = lambda x: x
         else:
             self.pool_fn = lambda x: torch.nn.functional.avg_pool2d(x, self.pool)
-
-        self.drop = Dropout(p=self._drop)
 
     def _restart(self):
         self.dropout(p=self._drop)
@@ -158,9 +160,10 @@ class Block(Module):
         else:
             groups = self.groups
 
-        for l, (conv, skip) in enumerate(zip(self.convs, self.skips)):
+        for l, (drop, conv, skip) in enumerate(zip(self.drops, self.convs, self.skips)):
 
             y = self.nonlinear(x) * self.gamma
+            y = drop(y)
 
             if skip is None:
                 z = x
@@ -173,8 +176,7 @@ class Block(Module):
 
             z = cat_groups_2d([z, x], groups=groups)
 
-        out = self.pool_fn(z)
-        return self.drop(out)
+        return self.pool_fn(z)
 
 
 class Dense(Feedforward):

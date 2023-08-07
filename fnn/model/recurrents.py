@@ -56,19 +56,19 @@ class Recurrent(Module):
 # -------------- Recurrent Types --------------
 
 
-class Rvt(Recurrent):
-    """Recurrent Vision Transformer"""
+class CvtLstm(Recurrent):
+    """Convolutional Vision Transformer Lstm"""
 
     def __init__(
         self,
         in_channels,
         out_channels,
         hidden_channels,
-        attention_channels,
-        projection_channels,
+        common_channels,
         groups=1,
         spatial=3,
-        init_gate=1,
+        init_input=-1,
+        init_forget=1,
         dropout=0,
     ):
         """
@@ -80,16 +80,16 @@ class Rvt(Recurrent):
             out channels per stream
         hidden_channels : int
             hidden channels per stream
-        attention_channels : int
-            attention channels per stream
-        projection_channels : int
-            projection channels per stream
+        common_channels : int
+            common channels per stream
         groups : int
             groups per stream
         spatial : int
             spatial kernel size
-        init_gate : float
-            initial gate bias
+        init_input : float
+            initial input gate bias
+        init_forget : float
+            initial forget gate bias
         dropout : float
             dropout probability -- [0, 1)
         """
@@ -99,26 +99,21 @@ class Rvt(Recurrent):
         if hidden_channels % groups != 0:
             raise ValueError("Hidden channels must be divisible by groups")
 
-        if attention_channels % groups != 0:
-            raise ValueError("Attention channels must be divisible by groups")
-
-        if projection_channels % groups != 0:
-            raise ValueError("Projection channels must be divisible by groups")
+        if common_channels % groups != 0:
+            raise ValueError("Common channels must be divisible by groups")
 
         super().__init__()
 
         self.in_channels = int(in_channels)
         self.out_channels = int(out_channels)
         self.hidden_channels = int(hidden_channels)
-        self.attention_channels = int(attention_channels)
-        self.projection_channels = int(projection_channels)
-
-        self.attn_channels = int(attention_channels // groups)
-        self.proj_channels = int(projection_channels // groups)
+        self.common_channels = int(common_channels)
+        self.group_channels = int(common_channels // groups)
 
         self.groups = int(groups)
         self.spatial = int(spatial)
-        self.init_gate = float(init_gate)
+        self.init_input = float(init_input)
+        self.init_forget = float(init_forget)
         self._dropout = float(dropout)
 
     def _init(self, inputs, streams):
@@ -132,6 +127,20 @@ class Rvt(Recurrent):
         """
         self._inputs = list(map(int, inputs))
         self.streams = int(streams)
+
+        self.drop_x = Dropout(p=self._dropout)
+        self.drop_h = Dropout(p=self._dropout)
+
+        self.conv = Conv(
+            in_channels=self.in_channels + self.hidden_channels,
+            out_channels=self.common_channels,
+            in_groups=self.groups,
+            out_groups=self.groups,
+            streams=self.streams,
+            spatial=self.spatial,
+            gain=None,
+            bias=None,
+        )
 
         if self.groups > 1:
             gain = (len(self._inputs) + 1) ** -0.5
@@ -160,82 +169,65 @@ class Rvt(Recurrent):
 
         self.proj_x = Accumulate(inputs)
 
-        def token(in_channels, out_channels, pad, gain):
+        def proj(in_channels, out_channels, gain, bias):
             return Conv(
                 in_channels=in_channels,
                 out_channels=out_channels,
                 in_groups=self.groups,
                 out_groups=self.groups,
                 streams=self.streams,
-                spatial=self.spatial,
-                pad=pad,
                 gain=gain,
-                bias=None,
-            )
-
-        self.proj_q_x = token(
-            in_channels=self.in_channels,
-            out_channels=self.attention_channels,
-            pad="zeros",
-            gain=None,
-        )
-        self.proj_q_c = token(
-            in_channels=self.hidden_channels,
-            out_channels=self.attention_channels,
-            pad="zeros",
-            gain=None,
-        )
-
-        self.proj_k_x = token(
-            in_channels=self.in_channels,
-            out_channels=self.attention_channels,
-            pad=None,
-            gain=self.attn_channels**-0.5,
-        )
-        self.proj_k_c = token(
-            in_channels=self.hidden_channels,
-            out_channels=self.attention_channels,
-            pad=None,
-            gain=self.attn_channels**-0.5,
-        )
-
-        self.proj_v_x = token(
-            in_channels=self.in_channels,
-            out_channels=self.projection_channels,
-            pad=None,
-            gain=None,
-        )
-        self.proj_v_c = token(
-            in_channels=self.hidden_channels,
-            out_channels=self.projection_channels,
-            pad=None,
-            gain=None,
-        )
-
-        def proj(channels, bias):
-            return Conv(
-                in_channels=channels,
-                out_channels=self.hidden_channels,
-                in_groups=self.groups,
-                out_groups=self.groups,
-                streams=self.streams,
                 bias=bias,
             )
 
-        self.proj_z = proj(
-            channels=self.projection_channels * 2,
-            bias=self.init_gate,
+        self.proj_q = proj(
+            in_channels=self.common_channels,
+            out_channels=self.common_channels,
+            gain=self.group_channels**-0.5,
+            bias=None,
         )
-        self.proj_n = proj(
-            channels=self.projection_channels * 2,
-            bias=0,
+
+        self.proj_k = proj(
+            in_channels=self.common_channels,
+            out_channels=self.common_channels,
+            gain=None,
+            bias=None,
         )
-        self.proj_h = proj(
-            channels=self.in_channels + self.projection_channels * 2,
+
+        self.proj_v = proj(
+            in_channels=self.common_channels,
+            out_channels=self.common_channels,
+            gain=None,
+            bias=None,
+        )
+
+        self.proj_i = proj(
+            in_channels=self.common_channels * 2,
+            out_channels=self.hidden_channels,
+            gain=1,
+            bias=self.init_input,
+        )
+
+        self.proj_f = proj(
+            in_channels=self.common_channels * 2,
+            out_channels=self.hidden_channels,
+            gain=1,
+            bias=self.init_forget,
+        )
+
+        self.proj_g = proj(
+            in_channels=self.common_channels * 2,
+            out_channels=self.hidden_channels,
+            gain=1,
             bias=0,
         )
 
-        self.drop = Dropout(p=self._dropout)
+        self.proj_o = proj(
+            in_channels=self.common_channels * 2,
+            out_channels=self.hidden_channels,
+            gain=1,
+            bias=0,
+        )
 
         self.out = Conv(
             in_channels=self.hidden_channels,
@@ -288,45 +280,35 @@ class Rvt(Recurrent):
             c = self.past["c"]
             h = self.past["h"]
         else:
-            h = c = torch.randn(1, S * self.hidden_channels, 1, 1, device=self.device)
+            h = c = torch.zeros(1, S * self.hidden_channels, 1, 1, device=self.device)
 
         if self.groups > 1:
-            x = self.proj_x([h, *x], stream=stream)
+            x = torch.tanh(self.proj_x([h, *x], stream=stream))
         else:
-            x = self.proj_x(x, stream=stream)
+            x = torch.tanh(self.proj_x(x, stream=stream))
 
-        N, _, H, W = x.shape
-        c = c.expand(N, -1, H, W)
+        xh = cat_groups_2d([self.drop_x(x), h], groups=S * self.groups, expand=True)
+        z = self.conv(xh, stream=stream)
 
-        q_x = self.proj_q_x(x, stream=stream).view(N, S, self.groups, self.attn_channels, -1)
-        q_c = self.proj_q_c(c, stream=stream).view(N, S, self.groups, self.attn_channels, -1)
+        N, _, H, W = z.shape
+        HW = H * W
 
-        k_x = self.proj_k_x(x, stream=stream).view(N, S, self.groups, self.attn_channels, -1)
-        k_c = self.proj_k_c(c, stream=stream).view(N, S, self.groups, self.attn_channels, -1)
+        q = self.proj_q(z, stream=stream).view(N, S, self.groups, self.group_channels, HW)
+        k = self.proj_k(z, stream=stream).view(N, S, self.groups, self.group_channels, HW)
+        v = self.proj_v(z, stream=stream).view(N, S, self.groups, self.group_channels, HW)
 
-        v_x = self.proj_v_x(x, stream=stream).view(N, S, self.groups, self.proj_channels, -1)
-        v_c = self.proj_v_c(c, stream=stream).view(N, S, self.groups, self.proj_channels, -1)
+        w = torch.einsum("N S G C Q , N S G C D -> N S G Q D", q, k).softmax(dim=-1)
+        a = torch.einsum("N S G C D , N S G Q D -> N S G C Q", v, w).view(N, -1, H, W)
 
-        q = torch.stack([q_x, q_c], dim=0).unsqueeze(dim=4)
-        k = torch.stack([k_x, k_c], dim=3).unsqueeze(dim=0)
-        v = torch.stack([v_x, v_c], dim=3).unsqueeze(dim=0)
+        za = cat_groups_2d([z, a], groups=S * self.groups, expand=True)
+        i = torch.sigmoid(self.proj_i(za, stream=stream))
+        f = torch.sigmoid(self.proj_f(za, stream=stream))
+        g = torch.tanh(self.proj_g(za, stream=stream))
+        o = torch.sigmoid(self.proj_o(za, stream=stream))
 
-        q = q.expand(2, N, S, self.groups, 2, self.attn_channels, -1)
-        k = k.expand(2, N, S, self.groups, 2, self.attn_channels, -1)
-        v = v.expand(2, N, S, self.groups, 2, self.proj_channels, -1)
-
-        w = torch.einsum("A N S G B C Q , A N S G B C D -> A N S G B Q D", q, k).softmax(dim=-1)
-        a = torch.einsum("A N S G B C D , A N S G B Q D -> A N S G B C Q", v, w).view(2, N, -1, H, W)
-
-        a_x, a_c = a.unbind(0)
-
-        z = torch.sigmoid(self.proj_z(a_c, stream=stream))
-        n = torch.tanh(self.proj_n(a_c, stream=stream))
-        c = z * c + (1 - z) * n
-
-        xa = cat_groups_2d([x, a_x], groups=S * self.groups)
-        h = torch.tanh(self.proj_h(xa, stream=stream))
-        h = self.drop(h)
+        c = f * c + i * g
+        h = o * torch.tanh(c)
+        h = self.drop_h(h)
 
         self.past["c"] = c
         self.past["h"] = h
@@ -398,6 +380,9 @@ class ConvLstm(Recurrent):
         self._inputs = list(map(int, inputs))
         self.streams = int(streams)
 
+        self.drop_x = Dropout(p=self._dropout)
+        self.drop_h = Dropout(p=self._dropout)
+
         if self.groups > 1:
             gain = (len(self._inputs) + 1) ** -0.5
             intergroup = InterGroup(
@@ -440,8 +425,6 @@ class ConvLstm(Recurrent):
         self.proj_f = conv(bias=self.init_forget)
         self.proj_g = conv(bias=0)
         self.proj_o = conv(bias=0)
-
-        self.drop = Dropout(p=self._dropout)
 
         self.out = Conv(
             in_channels=self.hidden_channels,
@@ -497,11 +480,11 @@ class ConvLstm(Recurrent):
             h = c = torch.zeros(1, S * self.hidden_channels, 1, 1, device=self.device)
 
         if self.groups > 1:
-            x = self.proj_x([h, *x], stream=stream)
+            x = torch.tanh(self.proj_x([h, *x], stream=stream))
         else:
-            x = self.proj_x(x, stream=stream)
+            x = torch.tanh(self.proj_x(x, stream=stream))
 
-        xh = cat_groups_2d([x, h], groups=S * self.groups, expand=True)
+        xh = cat_groups_2d([self.drop_x(x), h], groups=S * self.groups, expand=True)
 
         i = torch.sigmoid(self.proj_i(xh, stream=stream))
         f = torch.sigmoid(self.proj_f(xh, stream=stream))
@@ -510,7 +493,7 @@ class ConvLstm(Recurrent):
 
         c = f * c + i * g
         h = o * torch.tanh(c)
-        h = self.drop(h)
+        h = self.drop_h(h)
 
         self.past["c"] = c
         self.past["h"] = h

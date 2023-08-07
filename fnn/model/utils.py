@@ -21,39 +21,45 @@ def add(tensors):
 
 
 def to_groups(tensor, groups):
-    """Reshapes a flat (N, C) tensor to channel groups
+    """Reshapes a (N, F) tensor to feature groups
 
     Parameters
     ----------
     tensor : Tensor
-        [N, C]
+        [N, F]
     groups : int
         channel groups (G)
 
     Returns
     -------
     Tensor
-        [N, G, C//G]
+        [N, G, F//G]
     """
     N, _ = tensor.shape
     return tensor.view(N, groups, -1)
 
 
-def cat_groups(tensors, groups):
-    """Groupwise concatenation of flat (N, C) tensors along the channel dimension (C)
+def cat_groups(tensors, groups, expand=False):
+    """Groupwise concatenation of (N, F) tensors along the feature dimension (F)
 
     Parameters
     ----------
     tensors : Sequence[Tensor]
-        [[N, C], ...]
+        [[N, F], ...]
     groups : int
-        channel groups (G)
+        feature groups (G)
+    expand : bool
+        expand batch (N) dimension
 
     Returns
     -------
     Tensor
-        [N, C']
+        [N, F']
     """
+    if expand:
+        N, _ = tensors[0].shape
+        tensors = tensors[:1] + [t.expand(N, -1) for t in tensors[1:]]
+
     if groups == 1:
         return torch.cat(tensors, 1)
     else:
@@ -89,6 +95,8 @@ def cat_groups_2d(tensors, groups, expand=False):
         [[N, C, H, W], ...]
     groups : int
         channel groups (G)
+    expand : bool
+        expand batch and spatial dimensions
 
     Returns
     -------

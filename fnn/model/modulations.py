@@ -58,14 +58,16 @@ class Modulation(Module):
 class FlatLstm(Modulation):
     """Flat Lstm"""
 
-    def __init__(self, lstm_features, out_features, init_input=-1, init_forget=1, dropout=0):
+    def __init__(self, in_features, out_features, hidden_features, init_input=-1, init_forget=1, dropout=0):
         """
         Parameters
         ----------
-        lstm_features : int
-            lstm features per stream
+        in_features : int
+            in features per stream
         out_features : int
             out features per stream
+        hidden_features : int
+            hidden features per stream
         init_input : float
             initial input gate bias
         init_forget : float
@@ -75,10 +77,13 @@ class FlatLstm(Modulation):
         """
         super().__init__()
 
-        self.lstm_features = int(lstm_features)
+        self.in_features = int(in_features)
         self.out_features = int(out_features)
+        self.hidden_features = int(hidden_features)
+
         self.init_input = float(init_input)
         self.init_forget = float(init_forget)
+
         self._dropout = float(dropout)
 
     def _init(self, modulations, streams):
@@ -93,10 +98,19 @@ class FlatLstm(Modulation):
         self.modulations = int(modulations)
         self.streams = int(streams)
 
+        self.drop_x = FlatDropout(p=self._dropout)
+        self.drop_h = FlatDropout(p=self._dropout)
+
+        self.proj_x = Linear(
+            in_features=self.modulations,
+            out_features=self.in_features,
+            streams=self.streams,
+        )
+
         def linear(bias):
             return Linear(
-                in_features=self.modulations + self.lstm_features,
-                out_features=self.lstm_features,
+                in_features=self.in_features + self.hidden_features,
+                out_features=self.hidden_features,
                 streams=self.streams,
                 bias=bias,
             )
@@ -106,11 +120,8 @@ class FlatLstm(Modulation):
         self.proj_g = linear(bias=0)
         self.proj_o = linear(bias=0)
 
-        self.drop = FlatDropout(
-            p=self._dropout,
-        )
         self.out = Linear(
-            in_features=self.lstm_features,
+            in_features=self.hidden_features,
             out_features=self.out_features,
             streams=self.streams,
             gain=0,
@@ -151,22 +162,21 @@ class FlatLstm(Modulation):
                 or
             [N, M] -- stream is int
         """
-        x = modulation
-
         if stream is None:
-            features = self.streams * self.lstm_features
-            groups = self.streams
+            S = self.streams
         else:
-            features = self.lstm_features
-            groups = 1
+            S = 1
 
         if self.past:
             h = self.past["h"]
             c = self.past["c"]
         else:
-            h = c = torch.zeros([x.size(0), features], device=self.device)
+            h = c = torch.zeros([1, S * self.hidden_features], device=self.device)
 
-        xh = cat_groups([x, h], groups=groups)
+        x = torch.tanh(self.proj_x(modulation, stream=stream))
+        x = self.drop_x(x)
+
+        xh = cat_groups([x, h], groups=S, expand=True)
 
         i = torch.sigmoid(self.proj_i(xh, stream=stream))
         f = torch.sigmoid(self.proj_f(xh, stream=stream))
@@ -175,7 +185,7 @@ class FlatLstm(Modulation):
 
         c = f * c + i * g
         h = o * torch.tanh(c)
-        h = self.drop(h)
+        h = self.drop_h(h)
 
         self.past["c"] = c
         self.past["h"] = h
