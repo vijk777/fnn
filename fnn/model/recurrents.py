@@ -485,7 +485,6 @@ class ConvLstm(Recurrent):
             x = torch.tanh(self.proj_x(x, stream=stream))
 
         xh = cat_groups_2d([self.drop_x(x), h], groups=S * self.groups, expand=True)
-
         i = torch.sigmoid(self.proj_i(xh, stream=stream))
         f = torch.sigmoid(self.proj_f(xh, stream=stream))
         g = torch.tanh(self.proj_g(xh, stream=stream))
