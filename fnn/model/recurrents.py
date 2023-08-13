@@ -56,6 +56,245 @@ class Recurrent(Module):
 # -------------- Recurrent Types --------------
 
 
+class Rvt(Recurrent):
+    """Recurrent Vision Transformer"""
+
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        hidden_channels,
+        common_channels,
+        groups=1,
+        spatial=3,
+        init_gate=1,
+        dropout=0,
+    ):
+        """
+        Parameters
+        ----------
+        in_channels : int
+            in channels per stream
+        out_channels : int
+            out channels per stream
+        hidden_channels : int
+            hidden channels per stream
+        common_channels : int
+            common channels per stream
+        groups : int
+            groups per stream
+        spatial : int
+            spatial kernel size
+        init_gate : float
+            initial gate bias
+        dropout : float
+            dropout probability -- [0, 1)
+        """
+        if in_channels % groups != 0:
+            raise ValueError("Input channels must be divisible by groups")
+
+        if hidden_channels % groups != 0:
+            raise ValueError("Hidden channels must be divisible by groups")
+
+        if common_channels % groups != 0:
+            raise ValueError("Common channels must be divisible by groups")
+
+        super().__init__()
+
+        self.in_channels = int(in_channels)
+        self.out_channels = int(out_channels)
+        self.hidden_channels = int(hidden_channels)
+        self.common_channels = int(common_channels)
+        self.group_channels = int(common_channels // groups)
+
+        self.groups = int(groups)
+        self.spatial = int(spatial)
+        self.init_gate = float(init_gate)
+        self._dropout = float(dropout)
+
+    def _init(self, inputs, streams):
+        """
+        Parameters
+        ----------
+        channels : Sequence[int]
+            [input channels per stream (I), ...]
+        streams : int
+            number of streams, S
+        """
+        self._inputs = list(map(int, inputs))
+        self.streams = int(streams)
+
+        self.drop_x = Dropout(p=self._dropout)
+        self.drop_h = Dropout(p=self._dropout)
+
+        self.conv = Conv(
+            in_channels=self.in_channels + self.hidden_channels,
+            out_channels=self.common_channels,
+            in_groups=self.groups,
+            out_groups=self.groups,
+            streams=self.streams,
+            spatial=self.spatial,
+            gain=None,
+            bias=None,
+        )
+
+        if self.groups > 1:
+            gain = (len(self._inputs) + 1) ** -0.5
+            intergroup = InterGroup(
+                in_channels=self.hidden_channels,
+                out_channels=self.in_channels,
+                groups=self.groups,
+                streams=self.streams,
+                gain=gain,
+            )
+            inputs = [intergroup]
+        else:
+            gain = len(self._inputs) ** -0.5
+            inputs = []
+
+        for i, in_channels in enumerate(self._inputs):
+            conv = Conv(
+                in_channels=in_channels,
+                out_channels=self.in_channels,
+                out_groups=self.groups,
+                streams=self.streams,
+                gain=gain,
+                bias=None if i else 0,
+            )
+            inputs.append(conv)
+
+        self.proj_x = Accumulate(inputs)
+
+        def proj(in_channels, out_channels, gain, bias):
+            return Conv(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                in_groups=self.groups,
+                out_groups=self.groups,
+                streams=self.streams,
+                gain=gain,
+                bias=bias,
+            )
+
+        self.proj_q = proj(
+            in_channels=self.common_channels,
+            out_channels=self.common_channels,
+            gain=self.group_channels**-0.5,
+            bias=None,
+        )
+
+        self.proj_k = proj(
+            in_channels=self.common_channels,
+            out_channels=self.common_channels,
+            gain=None,
+            bias=None,
+        )
+
+        self.proj_v = proj(
+            in_channels=self.common_channels,
+            out_channels=self.common_channels,
+            gain=None,
+            bias=None,
+        )
+
+        self.proj_z = proj(
+            in_channels=self.common_channels * 2,
+            out_channels=self.hidden_channels,
+            gain=1,
+            bias=self.init_gate,
+        )
+
+        self.proj_n = proj(
+            in_channels=self.common_channels * 2,
+            out_channels=self.hidden_channels,
+            gain=1,
+            bias=0,
+        )
+
+        self.out = Conv(
+            in_channels=self.hidden_channels,
+            out_channels=self.out_channels,
+            streams=self.streams,
+        )
+
+        self.past = dict()
+
+    def _restart(self):
+        self.dropout(p=self._dropout)
+
+    def _reset(self):
+        self.past.clear()
+
+    @property
+    def channels(self):
+        """
+        Returns
+        -------
+        int
+            output channels per stream (O)
+        """
+        return self.out_channels
+
+    def forward(self, x, stream=None):
+        """
+        Parameters
+        ----------
+        x : Sequence[Tensor]
+            [[N, I, H, W] ...] -- stream is int
+                or
+            [[N, S*I, H, W] ...] -- stream is None
+        stream : int | None
+            specific stream (int) or all streams (None)
+
+        Returns
+        -------
+        Tensor
+            [N, O, H, W] -- stream is int
+                or
+            [N, S*O, H, W] -- stream is None
+        """
+        if stream is None:
+            S = self.streams
+        else:
+            S = 1
+
+        if self.past:
+            h = self.past["h"]
+            d = self.past["d"]
+        else:
+            h = d = torch.zeros(1, S * self.hidden_channels, 1, 1, device=self.device)
+
+        if self.groups > 1:
+            x = torch.tanh(self.proj_x([h, *x], stream=stream))
+        else:
+            x = torch.tanh(self.proj_x(x, stream=stream))
+
+        xd = cat_groups_2d([self.drop_x(x), d], groups=S * self.groups, expand=True)
+        c = self.conv(xd, stream=stream)
+
+        N, _, H, W = c.shape
+        HW = H * W
+
+        q = self.proj_q(c, stream=stream).view(N, S, self.groups, self.group_channels, HW)
+        k = self.proj_k(c, stream=stream).view(N, S, self.groups, self.group_channels, HW)
+        v = self.proj_v(c, stream=stream).view(N, S, self.groups, self.group_channels, HW)
+
+        w = torch.einsum("N S G C Q , N S G C D -> N S G Q D", q, k).softmax(dim=-1)
+        a = torch.einsum("N S G C D , N S G Q D -> N S G C Q", v, w).view(N, -1, H, W)
+
+        ca = cat_groups_2d([c, a], groups=S * self.groups, expand=True)
+        z = torch.sigmoid(self.proj_z(ca, stream=stream))
+        n = torch.tanh(self.proj_n(ca, stream=stream))
+
+        h = z * h + (1 - z) * n
+        d = self.drop_h(d)
+
+        self.past["h"] = h
+        self.past["d"] = d
+
+        return self.out(d, stream=stream)
+
+
 class CvtLstm(Recurrent):
     """Convolutional Vision Transformer Lstm"""
 
