@@ -265,7 +265,7 @@ class Rvt(Recurrent):
             h = d = torch.zeros(1, S * self.hidden_channels, 1, 1, device=self.device)
 
         if self.groups > 1:
-            x = torch.tanh(self.proj_x([h, *x], stream=stream))
+            x = torch.tanh(self.proj_x([d, *x], stream=stream))
         else:
             x = torch.tanh(self.proj_x(x, stream=stream))
 
@@ -287,7 +287,7 @@ class Rvt(Recurrent):
         n = torch.tanh(self.proj_n(ca, stream=stream))
 
         h = z * h + (1 - z) * n
-        d = self.drop_h(d)
+        d = self.drop_h(h)
 
         self.past["h"] = h
         self.past["d"] = d
