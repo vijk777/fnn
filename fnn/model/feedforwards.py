@@ -87,7 +87,7 @@ class Block(Module):
         self.spatial = int(spatial)
         self.pool = int(pool)
         self.nonlinear, self.gamma = nonlinearity(nonlinear)
-        self._drop = float(dropout)
+        self._dropout = float(dropout)
 
     def _init(self, streams):
         """
@@ -99,7 +99,7 @@ class Block(Module):
         self.streams = int(streams)
 
         def drop(_):
-            return Dropout(p=self._drop)
+            return Dropout(p=self._dropout)
 
         def conv(layer):
             return Conv(
@@ -135,7 +135,7 @@ class Block(Module):
             self.pool_fn = lambda x: torch.nn.functional.avg_pool2d(x, self.pool)
 
     def _restart(self):
-        self.dropout(p=self._drop)
+        self.dropout(p=self._dropout)
 
     def forward(self, x, stream=None):
         """
@@ -242,7 +242,7 @@ class Dense(Feedforward):
         self.block_pools = list(map(int, block_pools))
         self.out_channels = int(out_channels)
         self.nonlinear = str(nonlinear)
-        self._drop = float(dropout)
+        self._dropout = float(dropout)
 
     def _init(self, inputs, streams):
         """
@@ -299,7 +299,7 @@ class Dense(Feedforward):
                 spatial=spatial,
                 pool=pool,
                 nonlinear=self.nonlinear,
-                dropout=self._drop,
+                dropout=self._dropout,
             )
             block._init(streams=self.streams)
             self.blocks.append(block)
