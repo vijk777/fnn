@@ -1,7 +1,7 @@
 import torch
 from .modules import Module
 from .parameters import Parameter, ParameterList
-from .elements import Conv, InterGroup, Accumulate, Dropout
+from .elements import Conv, InterGroup, Accumulate, Dropout, nonlinearity
 from .utils import cat_groups_2d
 
 
@@ -67,6 +67,7 @@ class Rvt(Recurrent):
         common_channels,
         groups=1,
         spatial=3,
+        nonlinear="gelu",
         init_gate=1,
         dropout=0,
     ):
@@ -85,6 +86,8 @@ class Rvt(Recurrent):
             groups per stream
         spatial : int
             spatial kernel size
+        nonlinear : str
+            nonlinearity
         init_gate : float
             initial gate bias
         dropout : float
@@ -109,6 +112,7 @@ class Rvt(Recurrent):
 
         self.groups = int(groups)
         self.spatial = int(spatial)
+        self.nonlinear, self.gamma = nonlinearity(nonlinear)
         self.init_gate = float(init_gate)
         self._dropout = float(dropout)
 
@@ -260,17 +264,16 @@ class Rvt(Recurrent):
 
         if self.past:
             h = self.past["h"]
-            d = self.past["d"]
         else:
-            h = d = torch.zeros(1, S * self.hidden_channels, 1, 1, device=self.device)
+            h = torch.zeros(1, S * self.hidden_channels, 1, 1, device=self.device)
 
         if self.groups > 1:
-            x = torch.tanh(self.proj_x([d, *x], stream=stream))
+            x = self.nonlinear(self.proj_x([h, *x], stream=stream)) * self.gamma
         else:
-            x = torch.tanh(self.proj_x(x, stream=stream))
+            x = self.nonlinear(self.proj_x(x, stream=stream)) * self.gamma
 
-        xd = cat_groups_2d([self.drop_x(x), d], groups=S * self.groups, expand=True)
-        c = self.conv(xd, stream=stream)
+        xh = cat_groups_2d([self.drop_x(x), h], groups=S * self.groups, expand=True)
+        c = self.conv(xh, stream=stream)
 
         N, _, H, W = c.shape
         HW = H * W
@@ -284,15 +287,12 @@ class Rvt(Recurrent):
 
         ca = cat_groups_2d([c, a], groups=S * self.groups, expand=True)
         z = torch.sigmoid(self.proj_z(ca, stream=stream))
-        n = torch.tanh(self.proj_n(ca, stream=stream))
+        n = self.nonlinear(self.proj_n(ca, stream=stream)) * self.gamma
 
-        h = z * h + (1 - z) * n
-        d = self.drop_h(h)
-
+        h = z * h + (1 - z) * self.drop_h(n)
         self.past["h"] = h
-        self.past["d"] = d
 
-        return self.out(d, stream=stream)
+        return self.out(h, stream=stream)
 
 
 class CvtLstm(Recurrent):
