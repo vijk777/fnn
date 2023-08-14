@@ -1,7 +1,7 @@
 import torch
 from .modules import Module
 from .parameters import Parameter, ParameterList
-from .elements import Conv, InterGroup, Accumulate, Dropout
+from .elements import Conv, InterGroup, Accumulate, Dropout, nonlinearity
 from .utils import cat_groups_2d
 
 
@@ -67,6 +67,7 @@ class Rvt(Recurrent):
         common_channels,
         groups=1,
         spatial=3,
+        nonlinear="gelu",
         init_gate=1,
         dropout=0,
     ):
@@ -85,6 +86,8 @@ class Rvt(Recurrent):
             groups per stream
         spatial : int
             spatial kernel size
+        nonlinear : str
+            nonlinearity
         init_gate : float
             initial gate bias
         dropout : float
@@ -109,6 +112,7 @@ class Rvt(Recurrent):
 
         self.groups = int(groups)
         self.spatial = int(spatial)
+        self.nonlinear, self.gamma = nonlinearity(nonlinear)
         self.init_gate = float(init_gate)
         self._dropout = float(dropout)
 
@@ -137,6 +141,11 @@ class Rvt(Recurrent):
             gain=None,
             bias=None,
         )
+
+        scale = lambda: Parameter(torch.ones([self.groups, self.group_channels]))
+        self.scales = ParameterList([scale() for _ in range(self.streams)])
+        self.scales.decay = False
+        self.scales.norm_dim = 1
 
         if self.groups > 1:
             gain = (len(self._inputs) + 1) ** -0.5
@@ -179,7 +188,7 @@ class Rvt(Recurrent):
         self.proj_q = proj(
             in_channels=self.common_channels,
             out_channels=self.common_channels,
-            gain=self.group_channels**-0.5,
+            gain=None,
             bias=None,
         )
 
@@ -255,8 +264,10 @@ class Rvt(Recurrent):
         """
         if stream is None:
             S = self.streams
+            s = torch.stack(list(self.scales))[:, :, :, None]
         else:
             S = 1
+            s = self.scales[stream][None, :, :, None]
 
         if self.past:
             h = self.past["h"]
@@ -264,9 +275,9 @@ class Rvt(Recurrent):
             h = torch.zeros(1, S * self.hidden_channels, 1, 1, device=self.device)
 
         if self.groups > 1:
-            x = torch.tanh(self.proj_x([h, *x], stream=stream))
+            x = self.nonlinear(self.proj_x([h, *x], stream=stream)) * self.gamma
         else:
-            x = torch.tanh(self.proj_x(x, stream=stream))
+            x = self.nonlinear(self.proj_x(x, stream=stream)) * self.gamma
 
         xh = cat_groups_2d([self.drop_x(x), h], groups=S * self.groups, expand=True)
         c = self.conv(xh, stream=stream)
@@ -278,12 +289,15 @@ class Rvt(Recurrent):
         k = self.proj_k(c, stream=stream).view(N, S, self.groups, self.group_channels, HW)
         v = self.proj_v(c, stream=stream).view(N, S, self.groups, self.group_channels, HW)
 
+        q = q / q.norm(p=2, dim=3, keepdim=True) * s
+        k = k / k.norm(p=2, dim=3, keepdim=True)
+
         w = torch.einsum("N S G C Q , N S G C D -> N S G Q D", q, k).softmax(dim=-1)
         a = torch.einsum("N S G C D , N S G Q D -> N S G C Q", v, w).view(N, -1, H, W)
 
         ca = cat_groups_2d([c, a], groups=S * self.groups, expand=True)
         z = torch.sigmoid(self.proj_z(ca, stream=stream))
-        n = torch.tanh(self.proj_n(ca, stream=stream))
+        n = self.nonlinear(self.proj_n(ca, stream=stream)) * self.gamma
 
         h = z * h + (1 - z) * self.drop_h(n)
         self.past["h"] = h
