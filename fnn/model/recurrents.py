@@ -387,6 +387,11 @@ class CvtLstm(Recurrent):
             bias=None,
         )
 
+        scale = lambda: Parameter(torch.ones([self.groups, self.group_channels]))
+        self.scales = ParameterList([scale() for _ in range(self.streams)])
+        self.scales.decay = False
+        self.scales.norm_dim = 1
+
         if self.groups > 1:
             gain = (len(self._inputs) + 1) ** -0.5
             intergroup = InterGroup(
@@ -518,8 +523,10 @@ class CvtLstm(Recurrent):
         """
         if stream is None:
             S = self.streams
+            s = torch.stack(list(self.scales))[:, :, :, None]
         else:
             S = 1
+            s = self.scales[stream][None, :, :, None]
 
         if self.past:
             c = self.past["c"]
@@ -541,6 +548,9 @@ class CvtLstm(Recurrent):
         q = self.proj_q(z, stream=stream).view(N, S, self.groups, self.group_channels, HW)
         k = self.proj_k(z, stream=stream).view(N, S, self.groups, self.group_channels, HW)
         v = self.proj_v(z, stream=stream).view(N, S, self.groups, self.group_channels, HW)
+
+        q = q / q.norm(p=2, dim=3, keepdim=True) * s
+        k = k / k.norm(p=2, dim=3, keepdim=True)
 
         w = torch.einsum("N S G C Q , N S G C D -> N S G Q D", q, k).softmax(dim=-1)
         a = torch.einsum("N S G C D , N S G Q D -> N S G C Q", v, w).view(N, -1, H, W)
