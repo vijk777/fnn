@@ -433,7 +433,7 @@ class CvtLstm(Recurrent):
         self.proj_q = proj(
             in_channels=self.common_channels,
             out_channels=self.common_channels,
-            gain=self.group_channels**-0.5,
+            gain=None,
             bias=None,
         )
 
