@@ -59,10 +59,12 @@ class Module(nn.Module):
     def freeze(self, mode: bool = True):
         def fn(module):
             module._frozen = bool(mode)
-            module.requires_grad_(not mode)
-            module.train(not mode)
 
         all(self._iterate(fn))
+
+        self.requires_grad_(not mode)
+        self.train(not mode)
+
         return self
 
     def requires_grad_(self, requires_grad: bool = True):
