@@ -57,9 +57,11 @@ class Norm(Feature):
             small value added to denominator for numerical stability
         """
         super().__init__()
+
         self.groups = int(groups)
         self.eps = float(eps)
-        self._features = dict()
+
+        self.past = dict()
 
     def _init(self, inputs, outputs, units, streams):
         """
@@ -95,9 +97,9 @@ class Norm(Feature):
         self.gains.norm_dim = 0
 
     def _reset(self):
-        self._features.clear()
+        self.past.clear()
 
-    def features(self, stream):
+    def weight(self, stream):
         """
         Parameters
         ----------
@@ -109,9 +111,11 @@ class Norm(Feature):
         Tensor
             [U, O, I]
         """
-        features = self._features.get(stream)
+        if stream is None:
+            weights = [self.weight(stream=s) for s in range(self.streams)]
+            return torch.stack(weights, dim=0)
 
-        if features is None:
+        else:
             weight = self.weights[stream]
             gain = self.gains[stream]
 
@@ -119,11 +123,7 @@ class Norm(Feature):
             scale = (var * self.inputs + self.eps).pow(-0.5)
 
             weight = (weight - mean) * scale
-            features = torch.einsum("U O G I, U O G -> U O G I", weight, gain).flatten(start_dim=2)
-
-            self._features[stream] = features
-
-        return features
+            return torch.einsum("U O G I, U O G -> U O G I", weight, gain).flatten(start_dim=2)
 
     def forward(self, stream=None):
         """
@@ -139,11 +139,12 @@ class Norm(Feature):
                 or
             [S, U, O, I] -- stream is None
         """
-        if stream is None:
-            features = [self.features(stream=s) for s in range(self.streams)]
-            features = torch.stack(features, dim=0)
+        if self.past:
+            assert self.past["stream"] == stream
+            weight = self.past["weight"]
 
         else:
-            features = self.features(stream=stream)
+            self.past["stream"] = stream
+            self.past["weight"] = weight = self.weight(stream)
 
-        return features
+        return weight
