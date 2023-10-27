@@ -339,7 +339,7 @@ class SigmoidLstm(Modulation):
         int
             modulation features per stream (M)
         """
-        self.lstm.out_features
+        return self.lstm.out_features
 
     def forward(self, modulation, stream=None):
         """
