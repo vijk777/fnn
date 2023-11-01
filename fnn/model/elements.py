@@ -6,7 +6,7 @@ from functools import reduce
 from collections import deque
 from .parameters import Parameter, ParameterList
 from .modules import Module, ModuleList
-from .utils import add
+from .utils import add, cat_groups
 
 
 def nonlinearity(nonlinear=None):
@@ -564,3 +564,125 @@ class Accumulate(ModuleList):
         """
         assert len(x) == len(self)
         return add([module(_, stream=stream) for module, _ in zip(self, x)])
+
+
+class Lstm(Module):
+    def __init__(
+        self,
+        in_features,
+        out_features,
+        streams,
+        wnorm=True,
+        dropout=0,
+        init_input=-1,
+        init_forget=1,
+    ):
+        """
+        Parameters
+        ----------
+        in_features : int
+            input features per stream (I)
+        out_channels : int
+            output channels per stream (O)
+        streams : int
+            number of streams
+        wnorm : bool
+            enable weight norm
+        dropout : float
+            dropout probability -- [0, 1)
+        init_input : float
+            initial input gate bias
+        init_forget : float
+            initial forget gate bias
+        """
+        super().__init__()
+
+        self.in_features = int(in_features)
+        self.out_features = int(out_features)
+        self.streams = int(streams)
+        self.wnorm = bool(wnorm)
+
+        self._dropout = float(dropout)
+        self.drop_x = FlatDropout(p=self._dropout)
+        self.drop_h = FlatDropout(p=self._dropout)
+
+        self.proj_i = Linear(
+            in_features=self.in_features + self.out_features,
+            out_features=self.out_features,
+            streams=self.streams,
+            wnorm=self.wnorm,
+            bias=float(init_input),
+        )
+        self.proj_f = Linear(
+            in_features=self.in_features + self.out_features,
+            out_features=self.out_features,
+            streams=self.streams,
+            wnorm=self.wnorm,
+            bias=float(init_forget),
+        )
+        self.proj_g = Linear(
+            in_features=self.in_features + self.out_features,
+            out_features=self.out_features,
+            streams=self.streams,
+            wnorm=self.wnorm,
+        )
+        self.proj_o = Linear(
+            in_features=self.in_features + self.out_features,
+            out_features=self.out_features,
+            streams=self.streams,
+            wnorm=self.wnorm,
+        )
+
+        self.past = dict()
+
+    def _restart(self):
+        self.dropout(p=self._dropout)
+
+    def _reset(self):
+        self.past.clear()
+
+    def forward(self, x, stream=None):
+        """
+        Parameters
+        ----------
+        x : 4D Tensor
+            [N, I] -- stream is int
+                or
+            [N, S*I] -- stream is None
+        stream : int | None
+            specific stream (int) or all streams (None)
+
+        Returns
+        -------
+        Tensor
+            [N, O] -- stream is int
+                or
+            [N, S*O] -- stream is None
+        """
+        if stream is None:
+            S = self.streams
+        else:
+            S = 1
+
+        if self.past:
+            h = self.past["h"]
+            c = self.past["c"]
+        else:
+            h = c = torch.zeros([1, S * self.out_features], device=self.device)
+
+        x = self.drop_x(x)
+        xh = cat_groups([x, h], groups=S, expand=True)
+
+        i = torch.sigmoid(self.proj_i(xh, stream=stream))
+        f = torch.sigmoid(self.proj_f(xh, stream=stream))
+        g = torch.tanh(self.proj_g(xh, stream=stream))
+        o = torch.sigmoid(self.proj_o(xh, stream=stream))
+
+        c = f * c + i * g
+        h = o * torch.tanh(c)
+        h = self.drop_h(h)
+
+        self.past["c"] = c
+        self.past["h"] = h
+
+        return h
