@@ -686,3 +686,77 @@ class Lstm(Module):
         self.past["h"] = h
 
         return h
+
+
+class Mlp(Module):
+    def __init__(self, in_features, out_features, out_wnorms, out_nonlinears, streams=1):
+        """
+        Parameters
+        ----------
+        in_features : int
+            input features
+        out_features : Sequence[int]
+            output features
+        out_wnorms : Sequence[bool]
+            output weight norms
+        out_nonlinears : Sequence[int]
+            output nonlinearities
+        streams : int
+            number of streams
+        """
+        assert len(out_features) == len(out_wnorms) == len(out_nonlinears)
+        super().__init__()
+
+        self.in_features = int(in_features)
+        self.out_features = list(map(int, out_features))
+        self.out_wnorms = list(map(bool, out_wnorms))
+        self.out_nonlinears = list(out_nonlinears)
+        self.streams = int(streams)
+
+        self.linears = ModuleList()
+        self.nonlinears = ModuleList()
+        self.gammas = []
+
+        in_features = self.in_features
+
+        for features, wnorm, nonlinear in zip(
+            self.out_features,
+            self.out_wnorms,
+            self.out_nonlinears,
+        ):
+            linear = Linear(in_features=in_features, out_features=features, streams=streams, wnorm=wnorm)
+            in_features = features
+            self.linears.append(linear)
+
+            nonlinear, gamma = nonlinearity(nonlinear=nonlinear)
+            self.nonlinears.append(nonlinear)
+            self.gammas.append(gamma)
+
+    def forward(self, x, stream=None):
+        """
+        Parameters
+        ----------
+        x : 2D Tensor
+            [N, F] -- stream is int
+                or
+            [N, S*F] -- stream is None
+        stream : int | None
+            specific stream (int) or all streams (None)
+
+        Returns
+        -------
+        Tensor
+            [N, F'] -- stream is int
+                or
+            [N, S*F'] -- stream is None
+        """
+        for linear, nonlinear, gamma in zip(
+            self.linears,
+            self.nonlinears,
+            self.gammas,
+        ):
+            x = linear(x, stream=stream)
+            x = nonlinear(x)
+            x = x * gamma
+
+        return x
