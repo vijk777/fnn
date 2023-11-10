@@ -1,6 +1,6 @@
 import torch
 from .modules import Module
-from .elements import Linear, FlatDropout
+from .elements import Linear, FlatDropout, Mlp, Lstm
 from .parameters import Parameter, ParameterList
 from .utils import cat_groups
 
@@ -360,5 +360,115 @@ class SigmoidLstm(Modulation):
             [N, M] -- stream is int
         """
         modulation = self.sigmoid(modulation, stream=stream)
+        modulation = self.lstm(modulation, stream=stream)
+        return modulation
+
+
+class MlpLstm(Modulation):
+    """Mlp Lstm"""
+
+    def __init__(
+        self,
+        mlp_features,
+        mlp_layers,
+        mlp_nonlinear,
+        lstm_features,
+        init_input=-1,
+        init_forget=1,
+        dropout=0,
+    ):
+        """
+        Parameters
+        ----------
+        mlp_features : int
+            mlp features per stream
+        mlp_layers : int
+            mlp layers
+        mlp_nonlinear : str
+            mlp nonlinearity
+        lstm_features : int
+            lstm features per stream
+        init_input : float
+            initial input gate bias
+        init_forget : float
+            initial forget gate bias
+        dropout : float
+            dropout probability -- [0, 1)
+        """
+        super().__init__()
+
+        self.mlp_features = int(mlp_features)
+        self.mlp_layers = int(mlp_layers)
+        self.mlp_nonlinear = str(mlp_nonlinear)
+        self.lstm_features = int(lstm_features)
+        self.init_input = float(init_input)
+        self.init_forget = float(init_forget)
+        self._dropout = float(dropout)
+
+    def _init(self, modulations, streams):
+        """
+        Parameters
+        ----------
+        modulations : int
+            modulation inputs per stream (I)
+        streams : int
+            number of streams (S)
+        """
+        self.modulations = int(modulations)
+        self.streams = int(streams)
+
+        self.mlp = Mlp(
+            in_features=self.modulations,
+            out_features=[self.mlp_features] * self.mlp_layers,
+            out_wnorms=[False] + [True] * (self.mlp_layers - 1),
+            out_nonlinears=[self.mlp_nonlinear] * self.mlp_layers,
+            streams=self.streams,
+        )
+        self.lstm = Lstm(
+            in_features=self.mlp_features,
+            out_features=self.lstm_features,
+            streams=self.streams,
+            dropout=self._dropout,
+            init_input=self.init_input,
+            init_forget=self.init_forget,
+        )
+
+        self.past = dict()
+
+    def _restart(self):
+        self.dropout(p=self._dropout)
+
+    def _reset(self):
+        self.past.clear()
+
+    @property
+    def features(self):
+        """
+        Returns
+        -------
+        int
+            modulation features per stream (M)
+        """
+        return self.lstm_features
+
+    def forward(self, modulation, stream=None):
+        """
+        Parameters
+        ----------
+        modulation : Tensor
+            [N, S*I] -- stream is None
+                or
+            [N, I] -- stream is int
+        stream : int | None
+            specific stream (int) or all streams (None)
+
+        Returns
+        -------
+        Tensor
+            [N, S*M] -- stream is None
+                or
+            [N, M] -- stream is int
+        """
+        modulation = self.mlp(modulation, stream=stream)
         modulation = self.lstm(modulation, stream=stream)
         return modulation
