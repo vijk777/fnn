@@ -632,7 +632,6 @@ class Lstm(Module):
             streams=self.streams,
             wnorm=self.wnorm,
         )
-
         self.past = dict()
 
     def _restart(self):

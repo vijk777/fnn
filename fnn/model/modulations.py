@@ -432,11 +432,7 @@ class MlpLstm(Modulation):
             init_input=self.init_input,
             init_forget=self.init_forget,
         )
-
         self.past = dict()
-
-    def _restart(self):
-        self.dropout(p=self._dropout)
 
     def _reset(self):
         self.past.clear()
