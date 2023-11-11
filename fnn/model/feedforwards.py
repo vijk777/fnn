@@ -494,6 +494,7 @@ class InputDense(Feedforward):
             out_groups=1,
             spatial=1,
             stride=1,
+            wnorm=True,
         )
 
     @property
