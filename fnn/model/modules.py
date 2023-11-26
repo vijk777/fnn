@@ -12,7 +12,6 @@ class Module(nn.Module):
             memo = set()
 
         for module in filter(lambda x: isinstance(x, Module), self.children()):
-
             if module in memo:
                 continue
             else:
@@ -133,10 +132,11 @@ class Module(nn.Module):
         shared_params = dict()
         group_params = dict()
 
-        for name in shared:
-            for key, param in self.module(name).named_parameters():
-                if param.requires_grad:
-                    shared_params[f"{name}.{key}"] = param
+        if shared is not None:
+            for name in shared:
+                for key, param in self.module(name).named_parameters():
+                    if param.requires_grad:
+                        shared_params[f"{name}.{key}"] = param
 
         if group_size > 1:
             for key, param in self.named_parameters():
