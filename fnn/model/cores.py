@@ -155,8 +155,8 @@ class FeedforwardRecurrentDecorr(FeedforwardRecurrent):
             decorrelation length (timesteps)
         decorr_weight : float
             decorrelation weight
-        decorr_dropout : float
-            decorrelation dropout
+        decorr_rate : float
+            decorrelation rate
         decorr_eps : float
             decorrelation eps
         """
