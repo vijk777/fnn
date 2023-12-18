@@ -142,7 +142,7 @@ class FeedforwardRecurrentDecorr(FeedforwardRecurrent):
     """Feedforward & Recurrent Core with Decorrelation Regularization"""
 
     def __init__(
-        self, feedforward, recurrent, decorr_length=0, decorr_rate=0, decorr_rate=0, decorr_eps=1e-5
+        self, feedforward, recurrent, decorr_length=0, decorr_weight=0, decorr_rate=0, decorr_eps=1e-5
     ):
         """
         Parameters
@@ -161,7 +161,7 @@ class FeedforwardRecurrentDecorr(FeedforwardRecurrent):
             decorrelation eps
         """
         assert decorr_length >= 0
-        assert decorr_rate >= 0
+        assert decorr_weight >= 0
         assert 0 <= decorr_rate < 1
         assert decorr_eps >= 0
 
