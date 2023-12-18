@@ -1,4 +1,5 @@
 import torch
+from collections import deque
 from .modules import Module
 
 
@@ -140,7 +141,9 @@ class FeedforwardRecurrent(Core):
 class FeedforwardRecurrentDecorr(FeedforwardRecurrent):
     """Feedforward & Recurrent Core with Decorrelation Regularization"""
 
-    def __init__(self, feedforward, recurrent, decorr_weight=0, decorr_dropout=0, decorr_eps=1e-5):
+    def __init__(
+        self, feedforward, recurrent, decorr_length=0, decorr_weight=0, decorr_dropout=0, decorr_eps=1e-5
+    ):
         """
         Parameters
         ----------
@@ -148,6 +151,8 @@ class FeedforwardRecurrentDecorr(FeedforwardRecurrent):
             feedforward network
         recurrent : fnn.model.recurrents.Recurrent
             recurrent network
+        decorr_length : int
+            decorrelation length (timesteps)
         decorr_weight : float
             decorrelation weight
         decorr_dropout : float
@@ -155,6 +160,7 @@ class FeedforwardRecurrentDecorr(FeedforwardRecurrent):
         decorr_eps : float
             decorrelation eps
         """
+        assert decorr_length >= 0
         assert decorr_weight >= 0
         assert 0 <= decorr_dropout < 1
         assert decorr_eps >= 0
@@ -162,17 +168,18 @@ class FeedforwardRecurrentDecorr(FeedforwardRecurrent):
         super().__init__(feedforward=feedforward, recurrent=recurrent)
 
         self.decorr_i, self.decorr_j = torch.triu_indices(self.channels, self.channels, offset=1)
+        self.decorr_length = int(decorr_length)
         self.decorr_weight = float(decorr_weight)
         self.decorr_dropout = float(decorr_dropout)
         self.decorr_eps = float(decorr_eps)
-        self.past = []
+        self.past = deque([], maxlen=self.decorr_length)
 
     def _reset(self):
         self.past.clear()
 
     def _regularize(self):
         if self.past:
-            r = torch.cat(self.past, 2)
+            r = torch.cat(list(self.past), 2)
             c = (r[:, self.decorr_i] * r[:, self.decorr_j]).mean(2)
             v = r.pow(2).mean(2)
             c = c / (v[:, self.decorr_i] * v[:, self.decorr_j] + self.decorr_eps).sqrt()

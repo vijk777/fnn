@@ -104,7 +104,7 @@ class NetworkLoss(NetworkObjective):
 
         regs = self.network.regularize()
         if regs:
-            regs = torch.cat(regs)
+            regs = torch.stack(regs)
             rsum = regs.sum()
         else:
             regs = None
