@@ -135,3 +135,83 @@ class FeedforwardRecurrent(Core):
         m = modulation[:, :, None, None]
         r = self.recurrent([f, m], stream=stream)
         return r
+
+
+class FeedforwardRecurrentDecorr(FeedforwardRecurrent):
+    """Feedforward & Recurrent Core with Decorrelation Regularization"""
+
+    def __init__(self, feedforward, recurrent, decorr_weight=0, decorr_dropout=0, decorr_eps=1e-5):
+        """
+        Parameters
+        ----------
+        feedforward : fnn.model.feedforwards.Feedforward
+            feedforward network
+        recurrent : fnn.model.recurrents.Recurrent
+            recurrent network
+        decorr_weight : float
+            decorrelation weight
+        decorr_dropout : float
+            decorrelation dropout
+        decorr_eps : float
+            decorrelation eps
+        """
+        assert decorr_weight >= 0
+        assert 0 <= decorr_dropout < 1
+        assert decorr_eps >= 0
+
+        super().__init__(feedforward=feedforward, recurrent=recurrent)
+
+        self.decorr_i, self.decorr_j = torch.triu_indices(self.channels, self.channels, offset=1)
+        self.decorr_weight = float(decorr_weight)
+        self.decorr_dropout = float(decorr_dropout)
+        self.decorr_eps = float(decorr_eps)
+        self.past = []
+
+    def _reset(self):
+        self.past.clear()
+
+    def _regularize(self):
+        if self.past:
+            r = torch.cat(self.past, 2)
+            c = (r[:, self.decorr_i] * r[:, self.decorr_j]).mean(2)
+            v = r.pow(2).mean(2)
+            c = c / (v[:, self.decorr_i] * v[:, self.decorr_j] + self.decorr_eps).sqrt()
+            yield c.pow(2).sum() * self.decorr_weight
+
+    def forward(self, perspective, modulation, stream=None):
+        """
+        Parameters
+        ----------
+        perspective : Tensor
+            [N, S*P, H, W] -- stream is None
+                or
+            [N, P, H, W] -- stream is int
+        modulation : Tensor
+            [N, S*M] -- stream is None
+                or
+            [N, M] -- stream is int
+        stream : int | None
+            specific stream (int) or all streams (None)
+
+        Returns
+        -------
+        Tensor
+            [N, S*C, H', W'] -- stream is None
+                or
+            [N, C, H', W'] -- stream is int
+        """
+        x = super().forward(perspective=perspective, modulation=modulation, stream=stream)
+
+        if self.training:
+            N, _, H, W = x.shape
+            S = self.streams if stream is None else 1
+
+            p = x.view(N, S, self.channels, H, W)
+            p = torch.einsum("N S C H W -> S C N H W", p).flatten(2)
+
+            if self.decorr_dropout:
+                p = p[:, :, torch.rand(N * H * W) > (1 - self.decorr_dropout)]
+
+            self.past.append(p)
+
+        return x

@@ -31,6 +31,10 @@ class Module(nn.Module):
     def _restart(self):
         return
 
+    def _regularize(self):
+        return
+        yield
+
     def reset(self):
         def fn(module):
             module._reset()
@@ -44,6 +48,12 @@ class Module(nn.Module):
 
         all(self._iterate(fn))
         return self
+
+    def regularize(self):
+        def fn(module):
+            yield from module._regularize()
+
+        return list(self._iterate(fn))
 
     def dropout(self, p=0):
         from .elements import Dropout
