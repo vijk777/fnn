@@ -142,7 +142,7 @@ class FeedforwardRecurrentDecorr(FeedforwardRecurrent):
     """Feedforward & Recurrent Core with Decorrelation Regularization"""
 
     def __init__(
-        self, feedforward, recurrent, decorr_length=0, decorr_weight=0, decorr_dropout=0, decorr_eps=1e-5
+        self, feedforward, recurrent, decorr_length=0, decorr_rate=0, decorr_rate=0, decorr_eps=1e-5
     ):
         """
         Parameters
@@ -161,8 +161,8 @@ class FeedforwardRecurrentDecorr(FeedforwardRecurrent):
             decorrelation eps
         """
         assert decorr_length >= 0
-        assert decorr_weight >= 0
-        assert 0 <= decorr_dropout < 1
+        assert decorr_rate >= 0
+        assert 0 <= decorr_rate < 1
         assert decorr_eps >= 0
 
         super().__init__(feedforward=feedforward, recurrent=recurrent)
@@ -170,7 +170,7 @@ class FeedforwardRecurrentDecorr(FeedforwardRecurrent):
         self.decorr_i, self.decorr_j = torch.triu_indices(self.channels, self.channels, offset=1)
         self.decorr_length = int(decorr_length)
         self.decorr_weight = float(decorr_weight)
-        self.decorr_dropout = float(decorr_dropout)
+        self.decorr_rate = float(decorr_rate)
         self.decorr_eps = float(decorr_eps)
         self.past = deque([], maxlen=self.decorr_length)
 
@@ -216,8 +216,8 @@ class FeedforwardRecurrentDecorr(FeedforwardRecurrent):
             p = x.view(N, S, self.channels, H, W)
             p = torch.einsum("N S C H W -> S C N H W", p).flatten(2)
 
-            if self.decorr_dropout:
-                p = p[:, :, torch.rand(N * H * W) > (1 - self.decorr_dropout)]
+            if self.decorr_rate:
+                p = p[:, :, torch.rand(N * H * W) > (1 - self.decorr_rate)]
 
             self.past.append(p)
 
