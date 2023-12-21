@@ -183,7 +183,7 @@ class FeedforwardRecurrentDecorr(FeedforwardRecurrent):
             c = (r[:, self.decorr_i] * r[:, self.decorr_j]).mean(2)
             v = r.pow(2).mean(2)
             c = c / (v[:, self.decorr_i] * v[:, self.decorr_j] + self.decorr_eps).sqrt()
-            yield c.pow(2).sum() * self.decorr_weight
+            yield c.abs().sum() * self.decorr_weight
 
     def forward(self, perspective, modulation, stream=None):
         """
