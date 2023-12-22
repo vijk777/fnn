@@ -1,4 +1,5 @@
 import torch
+from torch.nn import init
 from .modules import Module
 from .elements import Linear, FlatDropout, Mlp, Lstm
 from .parameters import Parameter, ParameterList
@@ -424,6 +425,10 @@ class MlpLstm(Modulation):
             out_nonlinears=[self.mlp_nonlinear] * self.mlp_layers,
             streams=self.streams,
         )
+
+        for weight in self.mlp.linears[0].weights:
+            init.zeros_(weight)
+
         self.lstm = Lstm(
             in_features=self.mlp_features,
             out_features=self.lstm_features,
@@ -432,6 +437,7 @@ class MlpLstm(Modulation):
             init_input=self.init_input,
             init_forget=self.init_forget,
         )
+
         self.past = dict()
 
     def _reset(self):

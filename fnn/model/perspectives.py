@@ -1,4 +1,5 @@
 from functools import reduce
+from torch.nn import init
 from .modules import Module, ModuleList
 from .elements import Linear, FlatDropout, Mlp, nonlinearity
 from .utils import isotropic_grid_sample_2d, rmat_3d
@@ -313,6 +314,7 @@ class MlpMonitorRetina(Perspective):
             out_wnorms=[False] + [True] * self.mlp_layers,
             out_nonlinears=[self.mlp_nonlinear] * self.mlp_layers + [None],
         )
+        init.zeros_(self.mlp.linears[0].weights[0])
 
     @property
     def channels(self):
