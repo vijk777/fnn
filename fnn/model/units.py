@@ -138,4 +138,4 @@ class MSE(Unit):
         Tensor
             [N, U]
         """
-        return (readout.squeeze(2) - unit).pow(2)
+        return (readout.squeeze(2).exp() - unit).pow(2)
