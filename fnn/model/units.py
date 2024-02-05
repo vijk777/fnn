@@ -109,7 +109,8 @@ class EluMse(Unit):
             alpha value for elu
         """
         super().__init__()
-        self.elu = ELU(alpha=float(alpha))
+        self.alpha = float(alpha)
+        self.elu = ELU(alpha=self.alpha)
 
     @property
     def readouts(self):
@@ -133,7 +134,7 @@ class EluMse(Unit):
         Tensor
             [N, U]
         """
-        return self.elu(readout).squeeze(2)
+        return self.elu(readout).squeeze(2) + self.alpha
 
     def loss(self, readout, unit):
         """
@@ -149,4 +150,5 @@ class EluMse(Unit):
         Tensor
             [N, U]
         """
-        return (self.elu(readout).squeeze(2) - unit).pow(2)
+        r = self.elu(readout).squeeze(2) + self.alpha
+        return (r - unit).pow(2)
