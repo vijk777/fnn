@@ -1,4 +1,5 @@
 import torch
+from torch.nn import ELU
 from .modules import Module
 
 
@@ -97,8 +98,18 @@ class Poisson(Unit):
         return r.exp() - r * unit
 
 
-class MSE(Unit):
-    """MSE Unit"""
+class EluMse(Unit):
+    """Elu Mse Unit"""
+
+    def __init__(self, alpha=1):
+        """
+        Parameters
+        ----------
+        alpha : float
+            alpha value for elu
+        """
+        super().__init__()
+        self.elu = ELU(alpha=float(alpha))
 
     @property
     def readouts(self):
@@ -122,7 +133,7 @@ class MSE(Unit):
         Tensor
             [N, U]
         """
-        return readout.squeeze(2).exp()
+        return self.elu(readout).squeeze(2)
 
     def loss(self, readout, unit):
         """
@@ -138,4 +149,4 @@ class MSE(Unit):
         Tensor
             [N, U]
         """
-        return (readout.squeeze(2).exp() - unit).pow(2)
+        return (self.elu(readout).squeeze(2) - unit).pow(2)
