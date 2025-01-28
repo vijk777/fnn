@@ -4,7 +4,7 @@ import logging
 from fnn.microns.load import download, unzip, params, units, unit_ids
 from fnn.microns.build import network
 
-URL = "https://www.dropbox.com/scl/fi/40rbdh38ylw0aui6pfv8j/microns.zip?rlkey=jozm6cgqpp5dafcqedsuffl8h&st=8xd25u6y&dl=1"
+URL = "https://www.dropbox.com/scl/fi/fwhuovi16vqgkhymofssv/microns.zip?rlkey=j1enuhov22rvk0b0lkzl8ynw5&st=qne085vd&dl=1"
 MD5 = "58fcac4b31ad2902c81e339432cec787"
 
 logger = logging.getLogger("fnn.microns")
