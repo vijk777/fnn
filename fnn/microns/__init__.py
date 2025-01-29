@@ -72,7 +72,7 @@ def scan(session, scan_idx, directory=None, verbose=True):
     """
     logger.setLevel(logging.INFO if verbose else logging.WARNING)
 
-    directory = os.path.join(directory or os.getcwd(), "fnn", "microns")
+    directory = os.path.join(directory or os.getcwd(), "fnn", "data", "microns")
     load = lambda f: f(session, scan_idx, directory)
 
     if not os.path.exists(directory):
