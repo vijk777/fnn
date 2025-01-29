@@ -9,11 +9,6 @@ setup(
     url="https://github.com/cajal/fnn",
     description="Foundation Neural Networks of the Visual Cortex",
     python_requires=">=3.8",
-    install_requires=[
-        "tqdm",
-        "pandas",
-        "requests",
-        "torch>=2.0",
-    ],
+    install_requires=["torch>=2.0", "pandas", "tqdm", "requests"],
     packages=find_packages(),
 )
