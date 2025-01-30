@@ -18,7 +18,7 @@ Model of the visual cortex. The left panel (green) depicts an in vivo recording 
 
 ###  Hardware
 
-CPU-only support is available, but a modern GPU is recommended (tested on NVIDIA 3090, A10, A100).
+CPU-only support is available, but a modern GPU is recommended (tested on NVIDIA 3090, V100, A10, A100).
 
 ### Software
 
