@@ -16,11 +16,11 @@ Eric Y Wang, Paul G Fahey, Zhuokun Ding, Stelios Papadopoulos, Kayla Ponder, Mar
 
 ###  Hardware
 
-CPU-only support is available, but a modern GPU is recommended (tested on NVIDIA 3090, A10, and A100).
+CPU-only support is available, but a modern GPU is recommended (tested on NVIDIA 3090, A10, A100).
 
 ### Software
 
-This package is written for Python (3.8+) and is supported on Linux (tested on Ubuntu 18.04, 20.04, 22.04, and 24.04).
+This package is written for Python (3.8+) and is supported on Linux (tested on Ubuntu 18.04, 20.04, 22.04, 24.04).
 
 ## Installation
 
@@ -29,6 +29,28 @@ pip install git+https://github.com/cajal/fnn.git
 ```
 
 ## Usage
+
+```python
+from fnn import microns
+from torch import cuda
+from numpy import full, concatenate
+
+# load model and neuron ids for scan 8-5
+model, ids = microns.scan(session=8, scan_idx=5)
+
+# use GPU if available
+if cuda.is_available():
+    model.to(device="cuda")
+    
+# 1-second video (30 frames @ 30 FPS) of blank frames (144 height, 256 width)
+blank = lambda x: full(fill_value=x, shape=[30, 144, 256], dtype='uint8')
+
+# 3-second video (1 second of black, 1 second of gray, 1 second of white)
+frames = concatenate([blank(0), blank(128), blank(255)])
+
+# predict neuronal response to the 3-second video
+response = model.predict(stimuli=frames)
+```
 
 ## Citation
 

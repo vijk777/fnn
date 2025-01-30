@@ -100,9 +100,9 @@ class Network(Module):
         """
         Parameters
         ----------
-        stimulus : Iterable[ND array]
+        stimuli : Iterable[ND array]
             T x [...]
-        perspective : Iterable[1D|2D array] | None
+        perspectives : Iterable[1D|2D array] | None
             T x [P] (singular) | T x [N, P] (batch)
         modulations : Iterable[1D|2D array] | None
             T x [M] (singular) | T x [N, M] (batch)
@@ -139,9 +139,9 @@ class Network(Module):
         ----------
         units : Iterable[1D|2D array]
             T x [U] (singular) | T x [N, U] (batch)
-        stimulus : Iterable[ND array]
+        stimuli : Iterable[ND array]
             T x [...]
-        perspective : Iterable[1D|2D array] | None
+        perspectives : Iterable[1D|2D array] | None
             T x [P] (singular) | T x [N, P] (batch)
         modulations : Iterable[1D|2D array] | None
             T x [M] (singular) | T x [N, M] (batch)
@@ -450,9 +450,9 @@ class Visual(Network):
         """
         Parameters
         ----------
-        stimulus : Iterable[2D|3D|4D array]
+        stimuli : Iterable[2D|3D|4D array]
             T x [H, W] (singular) | T x [H, W, C] (singular) | T x [N, H, W, C] (batch) --- dtype=uint8
-        perspective : Iterable[1D|2D array] | None
+        perspectives : Iterable[1D|2D array] | None
             T x [P] (singular) | T x [N, P] (batch) --- dtype=float
         modulations : Iterable[1D|2D array] | None
             T x [M] (singular) | T x [N, M] (batch) --- dtype=float
@@ -483,7 +483,9 @@ class Visual(Network):
 
         with self.train_context(training):
 
-            for stimulus, perspective, modulation in zip(stimuli, perspectives, modulations):
+            for stimulus, perspective, modulation in zip(
+                stimuli, perspectives, modulations
+            ):
 
                 *tensors, squeeze = self.to_tensor(stimulus, perspective, modulation)
 
@@ -511,9 +513,9 @@ class Visual(Network):
         ----------
         units : Iterable[1D|2D array]
             T x [U] (singular) | T x [N, U] (batch) -- dtype=float
-        stimulus : Iterable[2D|3D|4D array]
+        stimuli : Iterable[2D|3D|4D array]
             T x [H, W] (singular) | T x [H, W, C] (singular) | T x [N, H, W, C] (batch) --- dtype=uint8
-        perspective : Iterable[1D|2D array] | None
+        perspectives : Iterable[1D|2D array] | None
             T x [P] (singular) | T x [N, P] (batch) --- dtype=float
         modulations : Iterable[1D|2D array] | None
             T x [M] (singular) | T x [N, M] (batch) --- dtype=float
@@ -548,7 +550,9 @@ class Visual(Network):
 
             device = self.device
 
-            for unit, stimulus, perspective, modulation in zip(units, stimuli, perspectives, modulations):
+            for unit, stimulus, perspective, modulation in zip(
+                units, stimuli, perspectives, modulations
+            ):
 
                 unit = torch.tensor(unit, dtype=torch.float, device=device)
                 if unit.ndim == 1:
@@ -568,3 +572,26 @@ class Visual(Network):
                     yield loss
                 else:
                     yield loss.cpu().numpy()
+
+    def predict(self, stimuli, perspectives=None, modulations=None):
+        """
+        Parameters
+        ----------
+        stimuli : Iterable[2D|3D|4D array]
+            T x [H, W] (singular) | T x [H, W, C] (singular) | T x [N, H, W, C] (batch) --- dtype=uint8
+        perspectives : Iterable[1D|2D array] | None
+            T x [P] (singular) | T x [N, P] (batch) --- dtype=float
+        modulations : Iterable[1D|2D array] | None
+            T x [M] (singular) | T x [N, M] (batch) --- dtype=float
+        training : bool
+            training or inference mode
+        reset : bool
+            reset or continue state
+
+        Returns
+        -------
+        2D array | 3D array
+            [T, U] (singular input) | [T, N, U] (batch input) -- dtype=float
+        """
+        response = self.generate_response(stimuli, perspectives, modulations)
+        return np.array([*response])
