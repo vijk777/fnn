@@ -1,4 +1,5 @@
 import os
+import torch
 import logging
 import hashlib
 import tempfile
@@ -50,7 +51,7 @@ def download(url, file_path, chunk_size=8192, verbose=True):
     return md5.hexdigest()
 
 
-def scan(session, scan_idx, directory=None, verbose=True):
+def scan(session, scan_idx, cuda=True, directory=None, verbose=True):
     """
     Parameters
     ----------
@@ -62,6 +63,8 @@ def scan(session, scan_idx, directory=None, verbose=True):
         directory for model parameters and metadata. defaults to current working directory
     verbose : bool
         display download progress
+    cuda : bool
+        use cuda if available
 
     Returns
     -------
@@ -90,6 +93,7 @@ def scan(session, scan_idx, directory=None, verbose=True):
     model = network(load(units))
     model.load_state_dict(load(params))
 
-    metadata = load(unit_ids)
+    if cuda and torch.cuda.is_available():
+        model.to(device="cuda")
 
-    return model, metadata
+    return model, load(unit_ids)
