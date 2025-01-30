@@ -50,7 +50,7 @@ blank = lambda x: full(fill_value=x, shape=[30, 144, 256], dtype="uint8")
 # 3-second video (1 second of black, 1 second of gray, 1 second of white)
 frames = concatenate([blank(0), blank(128), blank(255)])
 
-# predict neuronal response to the 3-second video
+# predict the response of neurons to the 3-second video
 response = model.predict(stimuli=frames)
 ```
 
