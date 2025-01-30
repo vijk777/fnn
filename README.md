@@ -16,7 +16,7 @@ Eric Y Wang, Paul G Fahey, Zhuokun Ding, Stelios Papadopoulos, Kayla Ponder, Mar
 
 ###  Hardware
 
-A CPU-only machine is available, but a modern GPU is recommended (tested on NVIDIA 3090, A10, and A100).
+CPU-only support is available, but a modern GPU is recommended (tested on NVIDIA 3090, A10, and A100).
 
 ### Software
 
