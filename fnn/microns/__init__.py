@@ -9,7 +9,7 @@ from fnn.microns.build import network
 from fnn.microns.load import params, units, unit_ids
 
 
-URL = "https://www.dropbox.com/scl/fi/fwhuovi16vqgkhymofssv/microns.zip?rlkey=j1enuhov22rvk0b0lkzl8ynw5&st=qne085vd&dl=1"
+URL = "https://bossdb-open-data.s3.amazonaws.com/iarpa_microns/minnie/functional_data/foundation_model/foundational_model_weights_and_metadata_v1.zip"
 MD5 = "58fcac4b31ad2902c81e339432cec787"
 
 logger = logging.getLogger("fnn.microns")
