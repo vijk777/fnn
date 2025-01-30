@@ -35,7 +35,7 @@ from fnn import microns
 from torch import cuda
 from numpy import full, concatenate
 
-# load model and neuron ids for scan 8-5
+# load the model and neuron ids for MICrONS scan 8-5
 model, ids = microns.scan(session=8, scan_idx=5)
 
 # use GPU if available
