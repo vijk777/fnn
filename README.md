@@ -34,7 +34,6 @@ pip install git+https://github.com/cajal/fnn.git
 
 ```python
 from fnn import microns
-from torch import cuda
 from numpy import full, concatenate
 
 # load the model and neuron ids of the MICrONS scan 8-5
