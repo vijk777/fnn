@@ -59,13 +59,13 @@ response = model.predict(stimuli=frames)
 If you find this repository useful, please cite using this BibTeX:
 
 ```bibtex
-@article {Wang2024foundation,
-	title = {Foundation model of neural activity predicts response to new stimulus types and anatomy},
-	author = {Wang, Eric Y. and Fahey, Paul G. and Ding, Zhuokun and Papadopoulos, Stelios and Ponder, Kayla and Weis, Marissa A. and Chang, Andersen and Muhammad, Taliah and Patel, Saumil and Ding, Zhiwei and Tran, Dat and Fu, Jiakun and Schneider-Mizell, Casey M. and Reid, R. Clay and Collman, Forrest and da Costa, Nuno Ma{\c c}arico and Franke, Katrin and Ecker, Alexander S. and Reimer, Jacob and Pitkow, Xaq and Sinz, Fabian H. and Tolias, Andreas S.},
-	journal = {bioRxiv},
-	year = {2024},
-	publisher = {Cold Spring Harbor Laboratory},
-	doi = {10.1101/2023.03.21.533548},
+@article{Wang2024foundation,
+  title = {Foundation model of neural activity predicts response to new stimulus types and anatomy},
+  author = {Wang, Eric Y. and Fahey, Paul G. and Ding, Zhuokun and Papadopoulos, Stelios and Ponder, Kayla and Weis, Marissa A. and Chang, Andersen and Muhammad, Taliah and Patel, Saumil and Ding, Zhiwei and Tran, Dat and Fu, Jiakun and Schneider-Mizell, Casey M. and Reid, R. Clay and Collman, Forrest and da Costa, Nuno Ma{\c c}arico and Franke, Katrin and Ecker, Alexander S. and Reimer, Jacob and Pitkow, Xaq and Sinz, Fabian H. and Tolias, Andreas S.},
+  journal = {bioRxiv},
+  year = {2024},
+  publisher = {Cold Spring Harbor Laboratory},
+  doi = {10.1101/2023.03.21.533548},
 }
 
 ```
