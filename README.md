@@ -12,6 +12,8 @@ Eric Y Wang, Paul G Fahey, Zhuokun Ding, Stelios Papadopoulos, Kayla Ponder, Mar
 <img src="./images/architecture.png" width="90%"></img>
 </p>
 
+Model of the visual cortex. The left panel (green) depicts an in vivo recording session of excitatory neurons from several areas (V1, LM, RL, AL) and layers (L2/3, L4, L5) of the mouse visual cortex. The right panel (blue) shows the architecture of the model and the flow of information from inputs (visual stimulus, eye position, locomotion, and pupil size) to outputs (neural activity). Underlined labels denote the four main modules of the model: perspective, modulation, core, and readout. For the modulation and core, the stacked planes represent feature maps. For the readout, the blue boxes represent the core’s output features at the readout position of the neuron, and the fanning black lines represent readout feature weights. The top of the schematic displays the neural activity for a sampled set of neurons. For two example neurons, in vivo and in silico responses are shown (green and blue, respectively).
+
 ## Requirements
 
 ###  Hardware
@@ -43,7 +45,7 @@ if cuda.is_available():
     model.to(device="cuda")
     
 # 1-second video (30 frames @ 30 FPS) of blank frames (144 height, 256 width)
-blank = lambda x: full(fill_value=x, shape=[30, 144, 256], dtype='uint8')
+blank = lambda x: full(fill_value=x, shape=[30, 144, 256], dtype="uint8")
 
 # 3-second video (1 second of black, 1 second of gray, 1 second of white)
 frames = concatenate([blank(0), blank(128), blank(255)])
