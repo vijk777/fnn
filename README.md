@@ -40,7 +40,7 @@ from numpy import full, concatenate
 # load the model and neuron ids of the MICrONS scan 8-5
 model, ids = microns.scan(session=8, scan_idx=5)
 
-# example 3-second video (90 frames @ 30 FPS, 144 height, 256 width)
+# example 3-second video (3 x 30 frames @ 30 FPS, 144 height, 256 width)
 frames = concatenate([
     full(shape=[30, 144, 256], dtype="uint8", fill_value=0),   # 1 second of black
     full(shape=[30, 144, 256], dtype="uint8", fill_value=128), # 1 second of gray
@@ -56,7 +56,7 @@ response = model.predict(stimuli=frames)
 If you find this repository useful, please cite using this BibTeX:
 
 ```bibtex
-@article{Wang2024foundation,
+@article{wang2024foundation,
   title = {Foundation model of neural activity predicts response to new stimulus types and anatomy},
   author = {Wang, Eric Y. and Fahey, Paul G. and Ding, Zhuokun and Papadopoulos, Stelios and Ponder, Kayla and Weis, Marissa A. and Chang, Andersen and Muhammad, Taliah and Patel, Saumil and Ding, Zhiwei and Tran, Dat and Fu, Jiakun and Schneider-Mizell, Casey M. and Reid, R. Clay and Collman, Forrest and da Costa, Nuno Ma{\c c}arico and Franke, Katrin and Ecker, Alexander S. and Reimer, Jacob and Pitkow, Xaq and Sinz, Fabian H. and Tolias, Andreas S.},
   journal = {bioRxiv},
