@@ -1,6 +1,4 @@
-# Foundation Neural Network
-
-## Foundation model of neural activity predicts response to new stimulus types and anatomy
+# Foundation model of neural activity predicts response to new stimulus types and anatomy
 
 [[`Paper`](https://doi.org/10.1101/2023.03.21.533548)] [[`BibTeX`](#Citation)]
 
