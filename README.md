@@ -1,8 +1,8 @@
 # Foundation model of neural activity predicts response to new stimulus types and anatomy
 
-[[`Paper`](https://doi.org/10.1101/2023.03.21.533548)] [[`BibTeX`](#Citation)]
+[[`Paper`](https://www.nature.com/articles/s41586-025-08829-y)] [[`BibTeX`](#Citation)]
 
-Eric Y Wang, Paul G Fahey, Zhuokun Ding, Stelios Papadopoulos, Kayla Ponder, Marissa A Weis, Andersen Chang, Taliah Muhammad, Saumil Patel, Zhiwei Ding, Dat Tran, Jiakun Fu, Casey M Schneider-Mizell, R Clay Reid, Forrest Collman, Nuno Maçarico da Costa, Katrin Franke, Alexander S Ecker Jacob Reimer, Xaq Pitkow, Fabian H Sinz, Andreas S Tolias
+Eric Y Wang, Paul G Fahey, Zhuokun Ding, Stelios Papadopoulos, Kayla Ponder, Marissa A Weis, Andersen Chang, Taliah Muhammad, Saumil Patel, Zhiwei Ding, Dat Tran, Jiakun Fu, Casey M Schneider-Mizell, R Clay Reid, Forrest Collman, Nuno Maçarico da Costa, Katrin Franke, Alexander S Ecker, Jacob Reimer, Xaq Pitkow, Fabian H Sinz, Andreas S Tolias
 
 ## Model Overview
 
@@ -53,13 +53,15 @@ response = model.predict(stimuli=frames)
 If you find this repository useful, please cite using this BibTeX:
 
 ```bibtex
-@article{wang2024foundation,
-  title = {Foundation model of neural activity predicts response to new stimulus types and anatomy},
-  author = {Wang, Eric Y. and Fahey, Paul G. and Ding, Zhuokun and Papadopoulos, Stelios and Ponder, Kayla and Weis, Marissa A. and Chang, Andersen and Muhammad, Taliah and Patel, Saumil and Ding, Zhiwei and Tran, Dat and Fu, Jiakun and Schneider-Mizell, Casey M. and Reid, R. Clay and Collman, Forrest and da Costa, Nuno Ma{\c c}arico and Franke, Katrin and Ecker, Alexander S. and Reimer, Jacob and Pitkow, Xaq and Sinz, Fabian H. and Tolias, Andreas S.},
-  journal = {bioRxiv},
-  year = {2024},
-  publisher = {Cold Spring Harbor Laboratory},
-  doi = {10.1101/2023.03.21.533548},
+@article{wang2025foundation,
+  title={Foundation model of neural activity predicts response to new stimulus types},
+  author={Wang, Eric Y. and Fahey, Paul G. and Ding, Zhuokun and Papadopoulos, Stelios and Ponder, Kayla and Weis, Marissa A. and Chang, Andersen and Muhammad, Taliah and Patel, Saumil and Ding, Zhiwei and Tran, Dat and Fu, Jiakun and Schneider-Mizell, Casey M. and Reid, R. Clay and Collman, Forrest and da Costa, Nuno Ma{\c c}arico and Franke, Katrin and Ecker, Alexander S. and Reimer, Jacob and Pitkow, Xaq and Sinz, Fabian H. and Tolias, Andreas S.},
+  journal={Nature},
+  volume={640},
+  number={8058},
+  pages={470--477},
+  year={2025},
+  publisher={Nature Publishing Group UK London},
+  doi={10.1038/s41586-025-08829-y}
 }
-
 ```
