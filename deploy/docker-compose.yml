@@ -1,0 +1,29 @@
+services:
+  fnn:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-cajal}/${IMAGE_NAME:-foundation}:${IMAGE_TAG:-latest}
+    runtime: nvidia
+    env_file: .env
+    ports:
+      - "${JUPYTER_HOST:-0.0.0.0}:${JUPYTER_HOST_PORT:-8888}:8888"
+    volumes:
+      - ..:/workspace/fnn
+      - /mnt/:/mnt/
+    entrypoint:
+      [
+        "/bin/bash", "-c",
+        "set -e && \
+         pip install -e /workspace/fnn && \
+         jupyter lab \
+           --ip=0.0.0.0 \
+           --port=8888 \
+           --IdentityProvider.token=$$JUPYTER_TOKEN \
+           --ServerApp.allow_root=True \
+           --no-browser"
+      ]
+    working_dir: /workspace/fnn/demos
+    ipc: host
+    container_name: fnn
+  fnn-cpu:
+    extends: fnn
+    runtime: runc
+    container_name: fnn-cpu
