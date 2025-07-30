@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fnn"
+description = "Foundation Neural Networks of the Visual Cortex"
+authors = [
+    { name = "Eric Y. Wang", email = "eric.wang2@bcm.edu" }
+]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.8"
+dynamic = ["version"]
+dependencies = [
+    "torch>=2.0",
+    "scipy",
+    "pandas",
+    "tqdm",
+    "requests",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.dynamic]
+version = { attr = "fnn.version.__version__" }
