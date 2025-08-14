@@ -3,7 +3,9 @@
 
 # Deploy
 personal*
-data
+
+# Ignore everything in data/
+data/*
 
 # MacOS
 .DS_Store
