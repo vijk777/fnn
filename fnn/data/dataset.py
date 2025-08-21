@@ -144,7 +144,6 @@ def load_training_data(directory, max_items=None):
         all_files = sorted(col_path.iterdir())
         if max_items is not None:
             all_files = all_files[:max_items]
-
         value_dict = {}
         for file_path in tqdm(all_files, desc=f"Loading {col_name}"):
             if col_name in ['training', 'samples']:
@@ -156,6 +155,13 @@ def load_training_data(directory, max_items=None):
         
     df = pd.DataFrame(col_data)
     df.index.name = 'trial_id'
+    
+    if df.isna().any().any():
+        missing = {
+            col: df.index[df[col].isna()].tolist()
+            for col in df.columns if df[col].isna().any()
+        }
+        raise ValueError(f"Missing data detected: {missing}")
 
     return Dataset(df[target_cols])
 
@@ -188,7 +194,7 @@ def recursive_load(path: Path, load_fn: Callable[[Path], Any] = None):
     return result
 
 
-def load_evaluation_data(directory):
+def load_evaluation_data(directory: Path):
     """
     Load dataset to evaluate digital twin.
     Parameters
