@@ -130,8 +130,9 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a readout model on neural data.")
     parser.add_argument(
-        "-c", "--config",
+        "config",
         type=Path,
+        nargs="?",
         default=DEFAULT_CONFIG,
         help=f"Path to model config YAML (default: {DEFAULT_CONFIG})"
     )
