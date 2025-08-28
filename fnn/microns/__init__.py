@@ -1,20 +1,23 @@
 import os
 import torch
-import logging
 import hashlib
 import tempfile
 import zipfile
 import requests
+from pathlib import Path
 from tqdm import tqdm
 from fnn.microns.build import network
 from fnn.microns.load import params, units, unit_ids
+from fnn.utils import logging
 
+BASE_URL = "https://bossdb-open-data.s3.amazonaws.com/iarpa_microns/minnie/functional_data/foundation_model/"
+URL = BASE_URL + "foundational_model_weights_and_metadata_v1.zip"
+README_URL = BASE_URL + "readme_v2.md"
 
-URL = "https://bossdb-open-data.s3.amazonaws.com/iarpa_microns/minnie/functional_data/foundation_model/foundational_model_weights_and_metadata_v1.zip"
 MD5 = "58fcac4b31ad2902c81e339432cec787"
 
-logger = logging.getLogger("fnn.microns")
-logger.addHandler(logging.StreamHandler())
+logger = logging.get_logger(__name__)
+logger.setLevel(logging.INFO)
 
 
 def download(url, file_path, chunk_size=8192, verbose=True):
@@ -51,7 +54,30 @@ def download(url, file_path, chunk_size=8192, verbose=True):
     return md5.hexdigest()
 
 
-def scan(session, scan_idx, cuda=True, directory=None, verbose=True):
+def download_data(directory=None, verbose=True):
+    """
+    Parameters
+    ----------
+    directory : os.PathLike | None
+        directory for model parameters and metadata. defaults to current working directory
+    verbose : bool
+        display download progress
+    """
+    logger.setLevel(logging.INFO if verbose else logging.WARNING)
+    logger.info(f"Downloading model parameters and metadata to `{directory}`")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        zip_path = os.path.join(tmpdir, "microns.zip")
+
+        md5 = download(URL, zip_path, verbose=verbose)
+        assert md5 == MD5, f"md5 for downloaded file is {md5}, expected {MD5}"
+
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(directory)
+
+        _ = download(README_URL, os.path.join(directory, "README.md"), verbose=verbose)
+
+
+def scan(session, scan_idx, cuda=True, directory=None):
     """
     Parameters
     ----------
@@ -59,12 +85,10 @@ def scan(session, scan_idx, cuda=True, directory=None, verbose=True):
         scan session
     scan_idx : int
         scan index
-    directory : os.PathLike | None
-        directory for model parameters and metadata. defaults to current working directory
-    verbose : bool
-        display download progress
     cuda : bool
         use cuda if available
+    directory : os.PathLike | None
+        directory for model parameters and metadata. defaults to current working directory
 
     Returns
     -------
@@ -73,22 +97,8 @@ def scan(session, scan_idx, cuda=True, directory=None, verbose=True):
     pd.DataFrame
         dataframe mapping readout ids to unit ids
     """
-    logger.setLevel(logging.INFO if verbose else logging.WARNING)
-
-    directory = os.path.join(directory or os.getcwd(), "fnn", "data", "microns")
+    directory = directory or os.getcwd()
     load = lambda f: f(session, scan_idx, directory)
-
-    if not os.path.exists(directory):
-        logger.info(f"Downloading model parameters and metadata to `{directory}`")
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            zip_path = os.path.join(tmpdir, "microns.zip")
-
-            md5 = download(URL, zip_path, verbose=verbose)
-            assert md5 == MD5, f"md5 for downloaded file is {md5}, expected {MD5}"
-
-            with zipfile.ZipFile(zip_path, "r") as zf:
-                zf.extractall(directory)
 
     model = network(load(units))
     model.load_state_dict(load(params))
@@ -97,3 +107,30 @@ def scan(session, scan_idx, cuda=True, directory=None, verbose=True):
         model.to(device="cuda")
 
     return model, load(unit_ids)
+
+
+def load_network_from_params(path_to_params, cuda=True):
+    """
+    Loads a neural network model from saved parameters.
+
+    Args:
+        path_to_params (str or Path): Path to the file containing the saved model parameters.
+        cuda (bool, optional): If True and CUDA is available, moves the model to GPU. Defaults to True.
+
+    Returns:
+        torch.nn.Module: The loaded neural network model, on GPU if cuda is True and available, otherwise on CPU.
+
+    Raises:
+        FileNotFoundError: If the parameter file does not exist.
+        KeyError: If required keys are missing in the parameter dictionary.
+        RuntimeError: If there is an error loading the state dictionary.
+    """
+
+    path_to_params = Path(path_to_params)
+    params = torch.load(path_to_params, map_location='cpu')
+    n_units = params['readout.feature.weights.0'].shape[0]
+    model = network(n_units)
+    model.load_state_dict(params)
+    if cuda and torch.cuda.is_available():
+        return model.to(device="cuda")
+    return model

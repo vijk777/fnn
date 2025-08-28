@@ -1,0 +1,40 @@
+data-source:  
+  foundation-core:
+    session: 4
+    scan_idx: 7
+    directory: /workspace/fnn/data/microns_digital_twin/params
+  training: 
+    directory: /workspace/fnn/data/train_digital_twin/training_data_27203_4_7
+    # max_items: 10
+  evaluation: 
+    directory: /workspace/fnn/data/train_digital_twin/evaluation_data_27203_4_7
+
+scheduler:
+  cycle_size: 100
+  warmup_epochs: 10
+  warmup_cycles: 1
+
+optimizer:
+  lr: 0.1
+  decay: 0.0001
+  momentum: 0.9
+  nesterov: true
+  clip: 0.01
+  eps: 0.001
+  seed: 0
+
+loader:
+  sample_size: 100
+  batch_size: 4
+  training_size: 500
+  validation_size: 20
+
+objective:
+  sample_stream: true
+  burnin_frames: 10
+
+save-state:
+  directory: /workspace/fnn/data/train_digital_twin/results
+  state_dict: state_dict.pth
+  metrics_csv: training_metrics.csv
+  metrics_tensor: training_metrics.pt
