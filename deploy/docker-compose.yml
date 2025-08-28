@@ -1,7 +1,6 @@
 services:
   fnn:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-cajal}/${IMAGE_NAME:-foundation}:${IMAGE_TAG:-latest}
-    pull_policy: always
     runtime: nvidia
     env_file: .env
     ports:

@@ -92,7 +92,9 @@ IMAGE_TAG=*           # desired image tag (e.g. dev);   if omitted, defaults to:
 ```
 ### D. Launch the container.
 
-By default, (i.e. if no environment variables are provided) the image tag will resolve to: `ghcr.io/cajal/foundation:latest`. The image will be automatically pulled. 
+By default, (i.e. if no environment variables are provided) the image tag will resolve to: `ghcr.io/cajal/foundation:latest`. 
+
+When you start the service, Docker will pull the image only if it is not already present locally. To update to the newest version, run `docker compose pull` explicitly.
 
 Run one of the following commands:
 
@@ -106,6 +108,12 @@ For CPU only:
 
 ```bash
 docker compose up -d fnn-cpu
+```
+
+To explicitly pull the latest image:
+
+```bash
+docker compose pull fnn
 ```
 
 ### E. Access the container
