@@ -1,3 +1,17 @@
+# Ubuntu
+.Trash*
+
+# Deploy
+personal*
+
+# Ignore everything in data/
+data/*
+
+# MacOS
+.DS_Store
+~*
+*~
+
 .idea/
 
 # Byte-compiled / optimized / DLL files
