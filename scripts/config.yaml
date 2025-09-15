@@ -1,0 +1,67 @@
+# ----------------------------------------------------------------------
+# config.yaml – configuration for training the digital‑twin model
+# Expected location (default): 
+# /workspace/fnn/data/train_digital_twin/config.yaml
+# ----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
+# Data sources
+# ----------------------------------------------------------------------
+data-source:
+  foundation-core:
+    session: 4               # Which experimental session to load
+    scan_idx: 7              # Which scan within that session
+    directory: "/groups/saalfeld/saalfeldlab/vijay/fnn/data/microns_digital_twin/params"          # Where the pre‑trained parameter files live
+
+  training:
+    directory: "/groups/saalfeld/saalfeldlab/vijay/fnn/training_data_27203_4_7"          # Path to your training data
+    # max_items is optional – uncomment if you want to limit the dataset size
+    max_items: 1000           # e.g. 1000 for a dry‑run
+
+  evaluation:
+    directory: "/groups/saalfeld/saalfeldlab/vijay/fnn/evaluation_data_27203_4_7"          # Path to your evaluation data
+
+# ----------------------------------------------------------------------
+# Learning‑rate scheduler
+# ----------------------------------------------------------------------
+scheduler:
+  cycle_size: 100              # Length of one cycle in epochs
+  warmup_epochs: 10           # Epochs for linear LR warm‑up
+  warmup_cycles: 2           # Early cycles that receive warm‑up treatment
+
+# ----------------------------------------------------------------------
+# Optimizer settings
+# ----------------------------------------------------------------------
+optimizer:
+  lr: <FLOAT>                    # Base learning rate (peak value)
+  decay: <FLOAT>                 # Weight decay (L2 regularization)
+  momentum: <FLOAT>              # SGD momentum
+  nesterov: <BOOL>               # Enable Nesterov momentum (true/false)
+  clip: <FLOAT>                  # Gradient norm cap (max global norm)
+  eps: <FLOAT>                   # Small constant for numerical stability
+  seed: <INT>                    # Random seed for reproducibility
+
+# ----------------------------------------------------------------------
+# Data loader configuration
+# ----------------------------------------------------------------------
+loader:
+  sample_size: 70             # Window length of each training sample
+  batch_size: 5              # Samples per optimization step
+  training_size: 512           # #training samples per epoch
+  validation_size: 64         # #validation samples per validation pass
+
+# # ----------------------------------------------------------------------
+# # Objective / loss configuration
+# # ----------------------------------------------------------------------
+# objective:
+#   sample_stream: <BOOL>          # Randomly select a network stream during training
+#   burnin_frames: <INT>           # Frames to ignore for loss (state burn‑in)
+
+# ----------------------------------------------------------------------
+# Where to save checkpoints & metrics
+# ----------------------------------------------------------------------
+save-state:
+  directory: "<PATH>"            # Output folder for training results
+  state_dict: "<FILENAME>"       # Model weights filename (PyTorch state_dict)
+  metrics_filename: "<FILENAME>" # CSV file with per‑epoch metrics
+  metrics_tensor: "<FILENAME>"  # Raw tensor/list file with epochs & metrics
